@@ -6,6 +6,7 @@
   <title>Mesonet Explorer · Montana Climate Office</title>
   <meta name="description" content="Interactive map explorer for Montana Mesonet station data — current conditions, hourly and daily history, by the Montana Climate Office.">
   <meta name="author" content="Montana Climate Office">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="theme-color" content="#1a6faf" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#161b22" media="(prefers-color-scheme: dark)">
   <link rel="canonical" href="https://mt-climate-office.github.io/mesonet-explorer/">
@@ -54,7 +55,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Space+Mono&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.18.0/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.18.0/dist/maplibre-gl.css"
+        integrity="sha384-q7EDwLXBfakVimqzBJqFCTxpgy7B18buhebV158qkVMCEVAaUnU3fQTEfWgYz+7g"
+        crossorigin="anonymous">
 
   <style>
     /* ── Theme tokens (shared MCO design system — keep in sync with mesonet-status) ── */
@@ -967,9 +970,13 @@
 </dialog>
 
 <!-- MapLibre -->
-<script src="https://unpkg.com/maplibre-gl@5.18.0/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/maplibre-gl@5.18.0/dist/maplibre-gl.js"
+        integrity="sha384-MYTfGytf3SxNyO7ZAu/U0wHCcs3NpqE92Q3wBz5PQhat8kEA/wbwb9qY6H/JLyuR"
+        crossorigin="anonymous"></script>
 <!-- FlatGeobuf (watershed boundaries) -->
-<script src="https://cdn.jsdelivr.net/npm/flatgeobuf@3/dist/flatgeobuf-geojson.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatgeobuf@3.38.0/dist/flatgeobuf-geojson.min.js"
+        integrity="sha384-qaUb9sZ45HYxNQezOWPyOMTRR7yph9xtoAW8TyJGHen5BcUmaBIcDil9Yj48HGav"
+        crossorigin="anonymous"></script>
 
 <script type="module" src="app.js"></script>
 </body>

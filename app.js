@@ -321,7 +321,12 @@
     }
     try {
       const saved = JSON.parse(localStorage.getItem('mco-explorer-networks') || 'null');
-      if (Array.isArray(saved)) return new Set(saved);
+      // localStorage is shared across every mt-climate-office.github.io app —
+      // validate members the same way as ?net= rather than trusting them.
+      if (Array.isArray(saved)) {
+        return new Set(saved.map(n => networkByLowerName.get(String(n).toLowerCase()))
+                            .filter(Boolean));
+      }
     } catch {}
     return new Set(KNOWN_NETWORKS);
   })();
@@ -578,7 +583,7 @@
       const merged = [];
       const BATCH = 40;
       for (let i = 0; i < ids.length; i += BATCH) {
-        const batch = ids.slice(i, i + BATCH).join(',');
+        const batch = ids.slice(i, i + BATCH).map(encodeURIComponent).join(',');
         const url = `${API}/derived/change/?type=json&difference=1,7,14,30&stations=${batch}`;
         const rows = await fetchJSON(url, 45_000);
         merged.push(...rows);
@@ -1893,7 +1898,7 @@
         }
       }
       valueBlock = `
-        <div class="pop-value" style="--pop-accent:${accent}">
+        <div class="pop-value" style="--pop-accent:${escapeHTML(accent)}">
           <div class="pop-value-var">${varLabel}</div>
           <div class="pop-value-num">${num}</div>
           ${timeLine ? `<div class="pop-value-time">${timeLine}</div>` : ''}
