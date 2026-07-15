@@ -783,6 +783,7 @@
   let _lastRender = null;          // {entry, unit, scale, fmt, counts, maxDt}
   let _popup = null;
   let _suppressNextPopupClose = false;
+  let _popupFocusReturn = null;    // element to refocus when the popup closes
   let earliestDate = EARLIEST_DATE;
 
   function emptyFC() { return { type: 'FeatureCollection', features: [] }; }
@@ -1600,10 +1601,11 @@
   }
   dateInput.addEventListener('change', () => setDate(dateInput.value));
 
-  function makeDateStepper(btnId, delta) {
+  // Pointer hold-to-repeat via a timer; Enter/Space step too (held keys
+  // repeat through the OS key-repeat, so the timer is pointer-only).
+  function makeStepper(btnId, step) {
     const btn = document.getElementById(btnId);
     let timeout, interval;
-    const step = () => setDate(shiftDate(activeDate, delta));
     const start = () => {
       step();
       timeout = setTimeout(() => { interval = setInterval(step, 150); }, 450);
@@ -1612,9 +1614,12 @@
     btn.addEventListener('mousedown', start);
     btn.addEventListener('touchstart', (e) => { e.preventDefault(); start(); }, { passive: false });
     ['mouseup', 'mouseleave', 'touchend', 'touchcancel'].forEach(ev => btn.addEventListener(ev, stop));
+    btn.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); step(); }
+    });
   }
-  makeDateStepper('btn-date-next', +1);
-  makeDateStepper('btn-date-prev', -1);
+  makeStepper('btn-date-next', () => setDate(shiftDate(activeDate, +1)));
+  makeStepper('btn-date-prev', () => setDate(shiftDate(activeDate, -1)));
 
   function updateHourReadout() {
     hourReadout.textContent = `${pad2(activeHour)}:00`;
@@ -1642,20 +1647,8 @@
     render();
     pushState();
   }
-  function makeHourStepper(btnId, delta) {
-    const btn = document.getElementById(btnId);
-    let timeout, interval;
-    const start = () => {
-      stepHour(delta);
-      timeout = setTimeout(() => { interval = setInterval(() => stepHour(delta), 150); }, 450);
-    };
-    const stop = () => { clearTimeout(timeout); clearInterval(interval); };
-    btn.addEventListener('mousedown', start);
-    btn.addEventListener('touchstart', (e) => { e.preventDefault(); start(); }, { passive: false });
-    ['mouseup', 'mouseleave', 'touchend', 'touchcancel'].forEach(ev => btn.addEventListener(ev, stop));
-  }
-  makeHourStepper('btn-hour-next', +1);
-  makeHourStepper('btn-hour-prev', -1);
+  makeStepper('btn-hour-next', () => stepHour(+1));
+  makeStepper('btn-hour-prev', () => stepHour(-1));
 
   // ── Units toggle ─────────────────────────────────────────────────────────
   function syncUnitsUI() {
@@ -1822,9 +1815,9 @@
 
   function selectStation(stationId) {
     hideSearchDropdown();
+    _popupFocusReturn = searchInput;   // hand focus back here when the popup closes
     flyToAndOpen(stationId);
     searchInput.value = '';
-    searchInput.blur();
   }
 
   function setActiveSearchItem(idx) {
@@ -1905,6 +1898,14 @@
         </div>`;
     }
 
+    // Co-located stations, reachable without the pointer-only spider.
+    const sibs = (bucketMembers.get(bucketById.get(stationId)) || [])
+      .filter(m => m.station !== stationId);
+    const sibBlock = sibs.length ? `
+      <div class="pop-siblings">Also at this site: ${sibs.map(m =>
+        `<button type="button" class="pop-sibling-link" data-station="${escapeHTML(m.station)}">${escapeHTML(m.name)} (${escapeHTML(m.sub_network || '—')})</button>`
+      ).join(', ')}</div>` : '';
+
     return `
       <div class="pop-title">${escapeHTML(s.name)}</div>
       <div class="pop-sub">${escapeHTML(s.station)}${s.county ? ` · ${escapeHTML(s.county)} County` : ''}</div>
@@ -1916,6 +1917,7 @@
         <div><strong>Elevation:</strong> ${elev}</div>
         <div><strong>Installed:</strong> ${installed}</div>
       </div>
+      ${sibBlock}
       <div class="pop-links">
         <a href="${DASH_URL(stationId)}" target="_blank" rel="noopener">Station dashboard →</a>
         <a href="${API}/latest/?stations=${encodeURIComponent(stationId)}" target="_blank" rel="noopener">Latest data (API) →</a>
@@ -2027,13 +2029,32 @@
       if (_popup === p) {
         _popup = null;
         _selectedStation = null;
+        restorePopupFocus();
         pushState();
       }
     });
     _popup = p;
     initPhotoCarousel(p, stationId);
+    wireSiblingLinks(p);
     announcePopup(stationId);
+    p.getElement().querySelector('.maplibregl-popup-close-button')?.focus();
     pushState();
+  }
+
+  function restorePopupFocus() {
+    const target = _popupFocusReturn || map.getCanvas();
+    _popupFocusReturn = null;
+    // Only restore when removal stranded focus on <body> (it was inside the
+    // popup); a click elsewhere already put focus where the user wants it.
+    if (document.activeElement && document.activeElement !== document.body) return;
+    target.focus?.();
+  }
+
+  // Keyboard path to co-located stations (the canvas spider is pointer-only).
+  function wireSiblingLinks(p) {
+    p.getElement().querySelectorAll('.pop-sibling-link').forEach(btn => {
+      btn.addEventListener('click', () => openPopupFor(btn.dataset.station));
+    });
   }
 
   function announcePopup(stationId) {
@@ -2053,6 +2074,7 @@
     _suppressNextPopupClose = true;
     _popup.remove();
     _popup = null;
+    restorePopupFocus();
     if (_selectedStation) {
       _selectedStation = null;
       pushState();
@@ -2210,9 +2232,15 @@
   });
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
+  // ?kbd=off disables the single-character shortcut (WCAG 2.1.4 — speech-input
+  // users can misfire it); Escape handling is unaffected.
+  const kbdShortcuts = getLower('kbd') !== 'off';
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { closeSpider(); closePopup(); return; }
-    if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    if (e.key === 'Escape') {
+      if (infoModal.open) return;   // let the native dialog handle its own Escape
+      closeSpider(); closePopup(); return;
+    }
+    if (kbdShortcuts && e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey) {
       const t = e.target;
       const inField =
         t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
@@ -2224,6 +2252,7 @@
   });
   searchInput.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+      e.stopPropagation();   // dismiss the search only — don't also close a popup
       searchInput.value = '';
       hideSearchDropdown();
       searchInput.blur();
