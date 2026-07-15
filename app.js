@@ -1442,9 +1442,7 @@
     _popup.setHTML(popupHTML(_selectedStation));
     initPhotoCarousel(_popup, _selectedStation);
     wireSiblingLinks(_popup);
-    if (hadFocus) {
-      _popup.getElement().querySelector('.maplibregl-popup-close-button')?.focus();
-    }
+    if (hadFocus) focusPopupContent(_popup);
   }
 
   function updateSyncStampFromData() {
@@ -2285,8 +2283,15 @@
     initPhotoCarousel(p, stationId);
     wireSiblingLinks(p);
     announcePopup(stationId);
-    p.getElement().querySelector('.maplibregl-popup-close-button')?.focus();
+    focusPopupContent(p);
     pushState();
+  }
+
+  // Focus the content container (not the close button — MapLibre appends it
+  // as the LAST tabbable, so Tab would immediately exit the popup).
+  function focusPopupContent(p) {
+    const content = p.getElement()?.querySelector('.maplibregl-popup-content');
+    if (content) { content.tabIndex = -1; content.focus(); }
   }
 
   function restorePopupFocus() {
