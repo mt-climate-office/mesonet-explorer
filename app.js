@@ -179,7 +179,9 @@
     try { localStorage.setItem(key, value); } catch {}
   }
 
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const _reduceMotionMq = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let reduceMotion = _reduceMotionMq.matches;
+  _reduceMotionMq.addEventListener('change', (e) => { reduceMotion = e.matches; });
 
   // ── DOM refs ─────────────────────────────────────────────────────────────
   const toastEl        = document.getElementById('toast');
@@ -213,6 +215,23 @@
 
   const srAnnounceEl = document.getElementById('sr-announce');
 
+  // ── Loading indicator (bar under the control bar; the navbar stamp is
+  //    display:none on phones, so this is the only loading cue there) ───────
+  const loadingBarEl  = document.getElementById('loading-bar');
+  const loadingNoteEl = document.getElementById('loading-note');
+  function showLoading() { loadingBarEl.classList.add('active'); }
+  function hideLoading() {
+    loadingBarEl.classList.remove('active');
+    loadingNoteEl.hidden = true;
+    loadingNoteEl.textContent = '';
+  }
+  function setLoadingNote(text) {
+    // Only narrate long fetches that the user is actually waiting on.
+    if (!loadingBarEl.classList.contains('active')) return;
+    loadingNoteEl.textContent = text;
+    loadingNoteEl.hidden = !text;
+  }
+
   function escapeHTML(str) {
     return String(str).replace(/[&<>"']/g, (c) => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -229,6 +248,10 @@
   function currentHourMT() {
     return parseInt(new Intl.DateTimeFormat('en-US',
       { timeZone: TZ, hour: 'numeric', hourCycle: 'h23' }).format(new Date()), 10);
+  }
+  function hhmmNowMT() {
+    return new Intl.DateTimeFormat('en-GB',
+      { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date());
   }
   function shiftDate(dateStr, deltaDays) {
     const d = new Date(`${dateStr}T12:00:00`);
@@ -339,6 +362,7 @@
   })();
 
   let radarOn = getLower('radar') === 'on';
+  let radarWanted = radarOn;   // user intent — restored when returning to Latest
 
   let nodataShown = getLower('nodata') !== 'hide';
   let staleShown  = getLower('stale') === 'show';
@@ -584,12 +608,15 @@
       const ids = stations.map(s => s.station);
       const merged = [];
       const BATCH = 40;
+      const nBatches = Math.ceil(ids.length / BATCH);
       for (let i = 0; i < ids.length; i += BATCH) {
+        setLoadingNote(`Loading soil-moisture change… batch ${i / BATCH + 1} of ${nBatches}`);
         const batch = ids.slice(i, i + BATCH).map(encodeURIComponent).join(',');
         const url = `${API}/derived/change/?type=json&difference=1,7,14,30&stations=${batch}`;
         const rows = await fetchJSON(url, 45_000);
         merged.push(...rows);
       }
+      setLoadingNote('');
       return merged;
     });
   }
@@ -1181,7 +1208,7 @@
     const token = ++renderToken;
     const entry = REGISTRY_BY_KEY.get(activeVar);
     if (!entry) return;
-    if (!background) setSyncStamp('loading…');
+    if (!background) { setSyncStamp('loading…'); showLoading(); }
 
     let rows;
     try {
@@ -1190,9 +1217,11 @@
       if (token !== renderToken) return;
       console.error(err);
       setSyncStamp('error');
+      hideLoading();
+      if (!background) showRenderError(entry);
       showToast(entry.source === 'change'
         ? 'Soil-moisture change is temporarily unavailable'
-        : `Data fetch failed: ${err.message}`);
+        : `Data fetch failed: ${err.message}`, 6000);
       return;
     }
     if (token !== renderToken) return;
@@ -1274,6 +1303,22 @@
     if (_spiderBucket) rebuildSpider();
     renderLegend();
     updateSyncStampFromData();
+    hideLoading();
+    refreshOpenPopup();
+  }
+
+  // Keep an open popup in step with the map — variable/time/unit changes and
+  // the auto-refresh would otherwise leave it showing a stale snapshot.
+  function refreshOpenPopup() {
+    if (!_popup || !_selectedStation) return;
+    const el = _popup.getElement();
+    const hadFocus = el && el.contains(document.activeElement);
+    _popup.setHTML(popupHTML(_selectedStation));
+    initPhotoCarousel(_popup, _selectedStation);
+    wireSiblingLinks(_popup);
+    if (hadFocus) {
+      _popup.getElement().querySelector('.maplibregl-popup-close-button')?.focus();
+    }
   }
 
   function updateSyncStampFromData() {
@@ -1305,14 +1350,36 @@
     }
   }
 
+  // Persistent error cards in the empty-state slot (a 2.8 s toast is the only
+  // other signal, and the navbar stamp is hidden on phones). A later
+  // successful render clears them via updateEmptyState().
+  function showErrorCard(msgHTML, onRetry) {
+    emptyStateEl.innerHTML = '';
+    const card = document.createElement('div');
+    card.className = 'empty-state-card';
+    const span = document.createElement('span');
+    span.innerHTML = msgHTML;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'empty-state-retry';
+    btn.textContent = 'Retry';
+    btn.addEventListener('click', () => { emptyStateEl.hidden = true; onRetry(); });
+    card.append(span, btn);
+    emptyStateEl.appendChild(card);
+    emptyStateEl.hidden = false;
+  }
+  function showRenderError(entry) {
+    showErrorCard(
+      `<strong>Couldn’t load ${escapeHTML(entry.label)}.</strong> The map still shows the previous selection.`,
+      () => render());
+  }
+
   // ── Legend ───────────────────────────────────────────────────────────────
   function renderLegend() {
     if (!_lastRender) return;
     const { entry, unit, scale, counts, maxDt } = _lastRender;
 
-    const aggSuffix = (activeMode !== 'latest' && aggSupported(entry))
-      ? ` · ${AGG_LABEL[activeAgg || defaultAggFor(entry)]}` : '';
-    legendTitleEl.textContent = (unit ? `${entry.label} [${unit}]` : entry.label) + aggSuffix;
+    updateLegendTitle();
 
     // Gradient strip from the actual scale (21 samples).
     const stops = [];
@@ -1364,15 +1431,40 @@
 
     // Meta line
     if (activeMode === 'latest') {
-      legendMetaEl.textContent = maxDt
+      let meta = maxDt
         ? `Data current as of ${formatStampMT(maxDt)}`
         : 'Current accumulations';
+      if (!staleShown && counts.stale > 0) {
+        meta += ` · ${counts.stale} station${counts.stale === 1 ? '' : 's'} hidden (no report in 3 h)`;
+      }
+      legendMetaEl.textContent = meta;
     } else if (activeMode === 'hourly') {
       legendMetaEl.textContent = `Hour beginning ${formatDateStr(activeDate)}, ${pad2(activeHour)}:00 MT`;
     } else {
-      legendMetaEl.textContent = `Daily aggregate for ${formatDateStr(activeDate)}`;
+      legendMetaEl.textContent = `Daily aggregate for ${formatDateStr(activeDate)}${dailyPartialSuffix()}`;
     }
 
+  }
+
+  // "Today" in Daily mode is an aggregate of an incomplete day — label it so
+  // a 9 AM view of daily precipitation isn't read as a full-day total.
+  function dailyPartialSuffix() {
+    return (activeMode === 'daily' && activeDate === todayMT())
+      ? ` (partial day, through ${hhmmNowMT()} MT)` : '';
+  }
+
+  function updateLegendTitle() {
+    if (!_lastRender) return;
+    const { entry, unit, counts } = _lastRender;
+    const aggSuffix = (activeMode !== 'latest' && aggSupported(entry))
+      ? ` · ${AGG_LABEL[activeAgg || defaultAggFor(entry)]}` : '';
+    let title = (unit ? `${entry.label} [${unit}]` : entry.label) + aggSuffix;
+    // Collapsed (the mobile default) hides the stale toggle — surface the
+    // count where it stays visible.
+    if (legendCollapsed && activeMode === 'latest' && !staleShown && counts.stale > 0) {
+      title += ` · ${counts.stale} hidden`;
+    }
+    legendTitleEl.textContent = title;
   }
 
   function addLegendRow(parent, { label, swatchClass, pressed, onToggle }) {
@@ -1424,6 +1516,7 @@
       }
     });
     mk('Radar (live)', radarOn, activeMode !== 'latest', (on) => {
+      radarWanted = on;
       setRadar(on);
     }, activeMode !== 'latest' ? 'Radar is available in Latest mode' : 'NEXRAD base reflectivity');
   }
@@ -1553,6 +1646,11 @@
     dateGroup.hidden = activeMode === 'latest';
     hourGroup.hidden = activeMode !== 'hourly';
     if (activeMode !== 'latest' && radarOn) setRadar(false);
+    // The pulsing dot signals live auto-refresh — stop it for historical modes.
+    const rs = document.querySelector('.refresh-status');
+    rs.classList.toggle('static', activeMode !== 'latest');
+    rs.title = activeMode === 'latest' ? 'Updates every 5 minutes' : 'Selected time';
+    updateControlBarFade();
   }
 
   function setMode(mode) {
@@ -1570,6 +1668,7 @@
       if (activeDate > todayMT()) activeDate = todayMT();
       dateInput.value = activeDate;
     }
+    dateInput.max = maxDateForMode();   // hourly excludes the incomplete hour's day
     // Fall back if the current variable isn't available in this mode.
     const entry = REGISTRY_BY_KEY.get(activeVar);
     if (!entry.modes.includes(mode)) {
@@ -1579,6 +1678,7 @@
     populateVariableSelect();
     syncAggUI();
     syncModeUI();
+    if (mode === 'latest' && radarWanted && !radarOn) setRadar(true);
     scheduleRefresh();
     render();
     pushState();
@@ -1735,9 +1835,16 @@
     legendToggleBtn.setAttribute('aria-expanded', legendCollapsed ? 'false' : 'true');
     legendToggleBtn.setAttribute('aria-label', legendCollapsed ? 'Expand legend' : 'Collapse legend');
     lsSet('mco-explorer-legend', legendCollapsed ? 'collapsed' : 'expanded');
+    updateLegendTitle();   // the collapsed title carries the hidden-stale count
   }
   setLegendCollapsed(legendCollapsed);
-  legendToggleBtn.addEventListener('click', () => {
+  legendToggleBtn.addEventListener('click', (e) => {
+    e.stopPropagation();   // the header row toggles too — don't double-fire
+    setLegendCollapsed(!legendCollapsed);
+    pushState();
+  });
+  // The whole header row is a natural click target, not just the 22px chevron.
+  document.getElementById('legend-header').addEventListener('click', () => {
     setLegendCollapsed(!legendCollapsed);
     pushState();
   });
@@ -2199,8 +2306,14 @@
       `<span class="tooltip-sub">${escapeHTML(props.station)}</span>` +
       valLine;
     tooltipEl.classList.add('visible');
-    tooltipEl.style.left = `${e.originalEvent.clientX + 14}px`;
-    tooltipEl.style.top  = `${e.originalEvent.clientY + 14}px`;
+    // Flip to the other side of the cursor near the right/bottom viewport
+    // edges so the value isn't clipped.
+    const cx = e.originalEvent.clientX, cy = e.originalEvent.clientY, pad = 14;
+    let x = cx + pad, y = cy + pad;
+    if (x + tooltipEl.offsetWidth  > window.innerWidth  - 8) x = cx - tooltipEl.offsetWidth  - pad;
+    if (y + tooltipEl.offsetHeight > window.innerHeight - 8) y = cy - tooltipEl.offsetHeight - pad;
+    tooltipEl.style.left = `${Math.max(4, x)}px`;
+    tooltipEl.style.top  = `${Math.max(4, y)}px`;
   }
   function hideTooltip() { tooltipEl.classList.remove('visible'); }
 
@@ -2232,6 +2345,17 @@
     scheduleSpiderClose();
     _hovered = false;
   });
+
+  // ── Control-bar overflow affordance ──────────────────────────────────────
+  // ≤640px the bar scrolls horizontally with the scrollbar hidden; fade the
+  // right edge while more controls sit off-screen.
+  const controlBarEl = document.getElementById('control-bar');
+  function updateControlBarFade() {
+    const more = controlBarEl.scrollWidth - controlBarEl.clientWidth - controlBarEl.scrollLeft > 4;
+    controlBarEl.classList.toggle('scroll-fade', more);
+  }
+  controlBarEl.addEventListener('scroll', updateControlBarFade, { passive: true });
+  window.addEventListener('resize', updateControlBarFade);
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
   // ?kbd=off disables the single-character shortcut (WCAG 2.1.4 — speech-input
@@ -2421,7 +2545,7 @@
       return dt ? `${isoStampMT(dt)} ${tzAbbrevMT(dt)}`
                 : `${activeDate}T${pad2(activeHour)}:00:00 MT`;
     }
-    return `Daily · ${formatDateStr(activeDate)}`;
+    return `Daily · ${formatDateStr(activeDate)}${dailyPartialSuffix()}`;
   }
   function exportFilename() {
     const isoCompact = (ms) => isoStampMT(ms).replace(/:/g, '');   // filesystem-safe
@@ -2577,6 +2701,7 @@
     populateVariableSelect();
     syncAggUI();
     updateHourReadout();
+    showLoading();   // covers the initial station-list fetch; render() takes over
 
     try {
       const [st, els] = await Promise.all([
@@ -2588,7 +2713,14 @@
     } catch (err) {
       console.error(err);
       setSyncStamp('error');
-      showToast(`Failed to load station list: ${err.message}`);
+      hideLoading();
+      showErrorCard(
+        '<strong>Couldn’t reach the Mesonet API.</strong> Check your connection.',
+        () => boot());
+      window.addEventListener('online',
+        () => { if (!stations.length) { emptyStateEl.hidden = true; boot(); } },
+        { once: true });
+      showToast(`Failed to load station list: ${err.message}`, 6000);
       return;
     }
     stations = stations.filter(s =>
