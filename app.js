@@ -370,7 +370,9 @@
     return document.documentElement.dataset.theme === 'dark' ? '#ffffff' : '#2a2a3a';
   }
   function mutedStrokeColor() {
-    return document.documentElement.dataset.theme === 'dark' ? '#7a8aa0' : '#9aa3b3';
+    // Hollow stale/no-data dots are ONLY a stroke — it must clear 3:1
+    // against the basemap in both themes (WCAG 1.4.11).
+    return document.documentElement.dataset.theme === 'dark' ? '#7a8aa0' : '#6e7787';
   }
   function syncThemeIcons() {
     const dark = document.documentElement.dataset.theme !== 'light';
