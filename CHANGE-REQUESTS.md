@@ -38,7 +38,6 @@ short note on what was done.
 - [ ] **`document.title` should reflect variable/mode** (URL already does).
 - [ ] **`pushState` for mode changes** so Back undoes big jumps instead of leaving the site.
 - [ ] **Debounce hold-to-repeat fetches.** A held stepper fires a render per 150 ms step; advance the readout instantly, fetch after ~250 ms idle.
-- [ ] **Legend gradient in the collapsed mobile header** so novices see the color key without expanding.
 - [ ] **GDD base temperature in the label/description** (agronomists need the base to use the number).
 - [ ] **Port the contrast-token fixes to mesonet-status** (`--text-dim`, `--ctrl-border`, muted marker stroke — shared MCO design system).
 - [ ] **Per-app subdomains.** All `mt-climate-office.github.io` projects share one origin (one localStorage, shared XSS blast radius); custom subdomains would isolate them.
