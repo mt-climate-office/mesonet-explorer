@@ -15,11 +15,22 @@ short note on what was done.
 
 ## Bugs
 
-- [ ] _(add items here)_
+- [ ] **Diverging temperature ramp misleads when the whole domain is on one side of freezing.**
+      `makeScale` (app.js) only honors the semantic 32 °F midpoint when it falls *inside*
+      the scale domain; otherwise it stretches the full blue-white-red ramp across the
+      data, so on a July heat-wave day an 87 °F daily max renders deep blue (white lands
+      at the domain center, ~98 °F). Fix: when the pivot falls outside the domain, use
+      only the matching half of the ramp — white→red when everything is above freezing,
+      blue→white when everything is below — so blue always means "below freezing."
+      Applies to all MID_FREEZE variables (air/feels-like/wind-chill/wet-bulb/CCI/soil/well temp).
+      Repro: `?mode=daily&date=2026-07-12&agg=max&labels=on`.
 
 ## Changes
 
-- [ ] _(add items here)_
+- [ ] **Make the legend's percentile clamping visible.** The color-scale domain is the
+      2nd–98th percentile (`robustDomain`), so with `labels=on` a dot can read "115" while
+      the legend tops out at "113.4". Render the end labels as "≤ 82" / "≥ 113" whenever
+      values are clamped, and add a tooltip explaining the robust 2–98 % domain.
 
 ## Ideas / someday
 
