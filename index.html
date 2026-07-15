@@ -546,6 +546,11 @@
       overflow-y: auto;
       transition: max-height 0.25s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease, margin-top 0.2s ease;
     }
+    .legend-desc {
+      font-size: 0.68rem; color: var(--text-muted); line-height: 1.45;
+      padding: 0 2px; margin-bottom: 5px;
+    }
+    .legend-desc[hidden] { display: none; }
     #legend-gradient {
       height: 12px; border-radius: 3px;
       border: 1px solid var(--border-glass);
@@ -987,6 +992,7 @@
       </button>
     </div>
     <div id="legend-body">
+      <div id="legend-desc" class="legend-desc" hidden></div>
       <div id="legend-gradient" aria-hidden="true"></div>
       <div id="legend-scale-labels"></div>
       <div id="legend-rows"></div>
@@ -1035,6 +1041,7 @@
         <li><strong>Search</strong> — press <kbd>/</kbd> to jump there; <kbd>↑</kbd>/<kbd>↓</kbd> + <kbd>Enter</kbd> to pick a station. (Add <code>?kbd=off</code> to the URL to disable the <kbd>/</kbd> shortcut.)</li>
         <li><strong>Networks</strong> — chips toggle HydroMet / AgriMet stations.</li>
         <li><strong>Hover</strong> a dot for the station's value; <strong>click</strong> for details, a photo, and a dashboard link.</li>
+        <li><strong>Stacked stations</strong> — a small count badge marks sites with more than one station; hovering or clicking fans them out, and each popup lists the others under "Also at this site".</li>
         <li><strong>Units</strong> — °F/°C toggles between U.S. and metric units.</li>
         <li><strong>Legend</strong> — click the No-data / Stale rows to show or hide those stations; check boxes to add counties, watersheds, or live radar.</li>
         <li><strong>Export</strong> — download a branded PNG of the current view (fixed Montana framing, color scale included).</li>
@@ -1045,6 +1052,24 @@
     <div class="info-section">
       <h3>Share or bookmark</h3>
       <p>The URL reflects every choice — use the share button or copy it from the address bar. <code>?station=&lt;id&gt;</code> deep-links a single station.</p>
+    </div>
+
+    <div class="info-section">
+      <h3>What the terms mean</h3>
+      <!-- DRAFT copy — MCO review welcome -->
+      <ul>
+        <li><strong>HydroMet / AgriMet</strong> — the Mesonet's two sub-networks: core weather &amp; water-supply stations, and agriculture-focused stations with expanded soil sensing.</li>
+        <li><strong>Vapor Pressure Deficit (VPD)</strong> — the drying power of the air; higher means faster water loss from plants and soil.</li>
+        <li><strong>Comprehensive Climate Index (CCI)</strong> — a livestock weather-stress index combining temperature, humidity, wind, and solar radiation.</li>
+        <li><strong>Soil VWC</strong> — volumetric water content: the share of the soil's volume that is water.</li>
+        <li><strong>Percent Saturation</strong> — how full the soil's pore space is with water, relative to its maximum.</li>
+        <li><strong>Soil Water Potential</strong> — how tightly the soil holds its remaining water; higher values mean drier soil that roots must work harder to draw from.</li>
+        <li><strong>Bulk EC</strong> — the soil's electrical conductivity, which tracks salinity and moisture.</li>
+        <li><strong>Δ VWC</strong> — the change in soil water content over a trailing window; positive is wetting, negative is drying.</li>
+        <li><strong>Reference ET</strong> — the water a well-watered grass surface would lose to evaporation and transpiration; a baseline for irrigation planning.</li>
+        <li><strong>Growing Degree Days (GDD)</strong> — accumulated warmth above a crop base temperature, used to track crop development.</li>
+        <li><strong>Stale</strong> — a station whose latest report is more than 3 hours old (usually a connectivity gap); hidden by default in Latest mode.</li>
+      </ul>
     </div>
 
     <div class="info-section">

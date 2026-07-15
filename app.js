@@ -166,6 +166,75 @@
     { key:'well_eco', label:'Well EC',                group:'Groundwater', col:'Well EC',                source:'extra', els:['well_eco'], modes:ALL_MODES, scale:{ramp:'PuRd'}, fmt:'p2' },
   ];
   const REGISTRY_BY_KEY = new Map(REGISTRY.map(e => [e.key, e]));
+
+  // Plain-language one-liners shown under the legend title (DRAFT copy —
+  // MCO scientists should refine). Depths appear in the labels already.
+  const VARIABLE_DESC = {
+    air_temp:   'Air temperature measured above ground.',
+    rh:         'Moisture in the air, as a share of the most it could hold.',
+    bp:         'Air pressure at the station.',
+    sol_rad:    'Incoming solar energy.',
+    vpd:        'Drying power of the air — higher means faster water loss from plants and soil.',
+    feels_like: 'Temperature as it feels, blending heat index and wind chill.',
+    heat_index: 'How hot it feels once humidity is factored in.',
+    wind_chill: 'How cold it feels once wind is factored in.',
+    wet_bulb:   'Lowest temperature evaporation can cool to — a heat-stress indicator.',
+    cci:        'Livestock weather-stress index combining temperature, humidity, wind, and sun.',
+    slp:        'Air pressure corrected to sea level, comparable across elevations.',
+    wind_spd:   'Sustained wind speed.',
+    windgust:   'Strongest brief burst of wind in the period.',
+    wind_dir:   'Direction the wind blows from (0° = north).',
+    ppt:          'Rain plus melted snow collected in the period.',
+    ppt_max_rate: 'Heaviest precipitation rate observed in the period.',
+    snow_depth:   'Depth of snow on the ground.',
+    ppt_midnight: 'Precipitation accumulated since midnight.',
+    ppt_24h:  'Precipitation accumulated over the last 24 hours.',
+    ppt_2:    'Precipitation accumulated over the last 2 days.',
+    ppt_7:    'Precipitation accumulated over the last 7 days.',
+    ppt_14:   'Precipitation accumulated over the last 14 days.',
+    ppt_30:   'Precipitation accumulated over the last 30 days.',
+    ppt_60:   'Precipitation accumulated over the last 60 days.',
+    ppt_90:   'Precipitation accumulated over the last 90 days.',
+    ppt_180:  'Precipitation accumulated over the last 180 days.',
+    ppt_ytd:  'Precipitation accumulated so far this calendar year.',
+    soil_vwc_shallow: 'Share of the soil volume that is water.',
+    soil_vwc_mid:     'Share of the soil volume that is water.',
+    soil_vwc_deep:    'Share of the soil volume that is water.',
+    sat_shallow: 'How full the soil pore space is, relative to its maximum.',
+    sat_mid:     'How full the soil pore space is, relative to its maximum.',
+    sat_deep:    'How full the soil pore space is, relative to its maximum.',
+    swp_shallow: 'How tightly the soil holds its water — higher means drier, harder for roots.',
+    swp_mid:     'How tightly the soil holds its water — higher means drier, harder for roots.',
+    swp_deep:    'How tightly the soil holds its water — higher means drier, harder for roots.',
+    dvwc_shallow_1:  'Change in soil water over the window — positive is wetting, negative drying.',
+    dvwc_mid_1:      'Change in soil water over the window — positive is wetting, negative drying.',
+    dvwc_deep_1:     'Change in soil water over the window — positive is wetting, negative drying.',
+    dvwc_shallow_7:  'Change in soil water over the window — positive is wetting, negative drying.',
+    dvwc_mid_7:      'Change in soil water over the window — positive is wetting, negative drying.',
+    dvwc_deep_7:     'Change in soil water over the window — positive is wetting, negative drying.',
+    dvwc_shallow_14: 'Change in soil water over the window — positive is wetting, negative drying.',
+    dvwc_mid_14:     'Change in soil water over the window — positive is wetting, negative drying.',
+    dvwc_deep_14:    'Change in soil water over the window — positive is wetting, negative drying.',
+    dvwc_shallow_30: 'Change in soil water over the window — positive is wetting, negative drying.',
+    dvwc_mid_30:     'Change in soil water over the window — positive is wetting, negative drying.',
+    dvwc_deep_30:    'Change in soil water over the window — positive is wetting, negative drying.',
+    soil_temp_shallow: 'Soil temperature at depth.',
+    soil_temp_mid:     'Soil temperature at depth.',
+    soil_temp_deep:    'Soil temperature at depth.',
+    frost_depth: 'Estimated depth of frozen soil.',
+    soil_ec_shallow: 'Soil electrical conductivity — tracks salinity and moisture.',
+    soil_ec_mid:     'Soil electrical conductivity — tracks salinity and moisture.',
+    soil_ec_deep:    'Soil electrical conductivity — tracks salinity and moisture.',
+    eto: 'Water a well-watered grass surface would lose to the air — an irrigation baseline.',
+    gdd: 'Accumulated warmth above a crop base temperature — tracks crop development.',
+    well_lvl: 'Water level in the monitoring well.',
+    well_tmp: 'Groundwater temperature in the monitoring well.',
+    well_eco: 'Electrical conductivity of well water — tracks dissolved minerals.',
+  };
+  const NETWORK_DESC = {
+    HydroMet: 'HydroMet — core weather and water-supply monitoring stations',
+    AgriMet:  'AgriMet — agriculture-focused stations with expanded soil sensing',
+  };
   const GROUP_ORDER = ['Atmosphere', 'Wind', 'Precipitation', 'Soil Moisture',
                        'Soil Temperature', 'Soil Electrical Conductivity',
                        'ET & Agriculture', 'Groundwater'];
@@ -190,6 +259,7 @@
   const legendTitleEl  = document.getElementById('legend-title');
   const legendGradientEl = document.getElementById('legend-gradient');
   const legendScaleLabelsEl = document.getElementById('legend-scale-labels');
+  const legendDescEl   = document.getElementById('legend-desc');
   const legendRowsEl   = document.getElementById('legend-rows');
   const legendOverlaysEl = document.getElementById('legend-overlays');
   const legendMetaEl   = document.getElementById('legend-meta');
@@ -1436,6 +1506,8 @@
     const { entry, unit, scale, counts, maxDt } = _lastRender;
 
     updateLegendTitle();
+    legendDescEl.textContent = VARIABLE_DESC[entry.key] || '';
+    legendDescEl.hidden = !VARIABLE_DESC[entry.key];
 
     // Gradient strip from the actual scale (21 samples).
     const stops = [];
@@ -1840,6 +1912,7 @@
       chip.className = 'chip';
       chip.dataset.network = net;
       chip.setAttribute('aria-pressed', activeNetworks.has(net) ? 'true' : 'false');
+      chip.title = NETWORK_DESC[net] || `Show or hide ${net} stations`;
       const lbl = document.createElement('span');
       lbl.textContent = net;
       const count = document.createElement('span');
