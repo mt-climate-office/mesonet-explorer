@@ -128,7 +128,7 @@
     // Wind
     { key:'wind_spd', label:'Wind Speed',     group:'Wind', col:'Wind Speed',     source:'obs', els:['wind_spd_1000','wind_spd_0244'], modes:ALL_MODES, scale:{ramp:'YlGnBu'} },
     { key:'windgust', label:'Wind Gust',      group:'Wind', col:'Gust Speed',     source:'obs', els:['windgust_1000','windgust_0244'], modes:ALL_MODES, scale:{ramp:'YlGnBu'} },
-    { key:'wind_dir', label:'Wind Direction', group:'Wind', col:'Wind Direction', source:'obs', els:['wind_dir_1000','wind_dir_0244'], modes:ALL_MODES, scale:{ramp:'romaO', domain:[0,360], endLabels:['N','N'], midLabel:'S'}, fmt:'p0' },
+    { key:'wind_dir', label:'Wind Direction', group:'Wind', col:'Wind Direction', source:'obs', els:['wind_dir_1000','wind_dir_0244'], modes:ALL_MODES, scale:{ramp:'romaO', domain:[0,360], endLabels:['N','N'], midLabel:'S'}, fmt:'compass' },
 
     // Precipitation
     { key:'ppt',          label:'Precipitation',   group:'Precipitation', col:'Precipitation',   source:'obs', els:['ppt'], agg:'sum', modes:ALL_MODES, scale:{ramp:'BrBG'}, fmt:'p2' },
@@ -208,7 +208,7 @@
     slp:        'Air pressure corrected to sea level, comparable across elevations.',
     wind_spd:   'Sustained wind speed.',
     windgust:   'Strongest brief burst of wind in the period.',
-    wind_dir:   'Direction the wind blows from (0° = north).',
+    wind_dir:   'Direction the wind blows from, as compass points (N, SSW, …).',
     ppt:          'Rain plus melted snow collected in the period.',
     ppt_max_rate: 'Heaviest precipitation rate observed in the period.',
     snow_depth:   'Depth of snow on the ground.',
@@ -655,7 +655,13 @@
   }
 
   // ── Value formatting ─────────────────────────────────────────────────────
+  const COMPASS_16 = ['N','NNE','NE','ENE','E','ESE','SE','SSE',
+                      'S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  function toCompass(deg) {
+    return COMPASS_16[Math.round((((deg % 360) + 360) % 360) / 22.5) % 16];
+  }
   function makeFormatter(entry, domain) {
+    if (entry.fmt === 'compass') return toCompass;
     if (entry.fmt === 'p2') return (v) => v.toFixed(2);
     if (entry.fmt === 'p1') return (v) => v.toFixed(1);
     if (entry.fmt === 'p0') return (v) => String(Math.round(v));
@@ -1494,8 +1500,9 @@
     renderSRTable();
     if (!background) {
       // Tell screen-reader users the map updated — nothing else announces it.
+      // Cyclic variables (compass) skip the range: "N to N" is meaningless.
       const disp = scale.displayDomain;
-      const scalePart = Number.isFinite(disp[0]) && Number.isFinite(disp[1])
+      const scalePart = !scale.endLabels && Number.isFinite(disp[0]) && Number.isFinite(disp[1])
         ? `, scale ${fmt(disp[0])} to ${fmt(disp[1])}${unit ? ' ' + unit : ''}` : '';
       srAnnounceEl.textContent = `${entry.label}: ${counts.ok} stations reporting${scalePart}.`;
     }
@@ -1528,12 +1535,14 @@
       .sort((a, b) => a.name.localeCompare(b.name));
     for (const p of rows) {
       const tr = document.createElement('tr');
+      const unitFor = (p) => entry.fmt === 'compass'
+        ? ` (${Math.round(p.value)}°)` : (unit ? ' ' + unit : '');
       const cells = [
         `${p.name} (${p.station})`,
         p.sub_network || '—',
         p.cat === 'nodata' || p.value == null
           ? 'no data'
-          : `${p.label}${unit ? ' ' + unit : ''}${p.cat === 'stale' ? ' (stale)' : ''}`,
+          : `${p.label}${unitFor(p)}${p.cat === 'stale' ? ' (stale)' : ''}`,
         typeof p.dt === 'number' ? formatStampMT(p.dt) : '—',
       ];
       cells.forEach((text, i) => {
@@ -2419,7 +2428,9 @@
         num = '—';
         timeLine = 'No data for this selection';
       } else {
-        num = `${escapeHTML(lr.fmt(rec.value))}<span class="pop-unit">${unit}</span>`;
+        // Compass variables read as points; degrees ride along for precision.
+        const unitPart = lr.entry.fmt === 'compass' ? `${Math.round(rec.value)}°` : unit;
+        num = `${escapeHTML(lr.fmt(rec.value))}<span class="pop-unit">${unitPart}</span>`;
         if (rec.color && rec.cat === 'ok') accent = rec.color;
         if (rec.dt) {
           timeLine = activeMode === 'daily'
@@ -2612,7 +2623,9 @@
     const lr = _lastRender;
     let valPart = 'no data';
     if (rec && rec.value != null && lr) {
-      valPart = `${lr.entry.label} ${lr.fmt(rec.value)} ${lr.unit || ''}`;
+      valPart = lr.entry.fmt === 'compass'
+        ? `${lr.entry.label} ${lr.fmt(rec.value)}, ${Math.round(rec.value)} degrees`
+        : `${lr.entry.label} ${lr.fmt(rec.value)} ${lr.unit || ''}`;
     }
     srAnnounceEl.textContent = `${s.name} (${s.station}), ${s.sub_network || 'station'}, ${valPart}.`;
   }
@@ -2735,7 +2748,9 @@
     const lr = _lastRender;
     let valLine = '';
     if (lr) {
-      const unit = lr.unit ? ` ${lr.unit}` : '';
+      const unit = lr.entry.fmt === 'compass'
+        ? ` · ${Math.round(props.value)}°`
+        : (lr.unit ? ` ${lr.unit}` : '');
       valLine = props.value != null && props.label
         ? `<span class="tooltip-val">${escapeHTML(props.label)}${escapeHTML(unit)}${props.cat === 'stale' ? ' · stale' : ''}</span>`
         : `<span class="tooltip-val">no data</span>`;
