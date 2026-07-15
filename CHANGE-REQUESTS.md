@@ -15,34 +15,20 @@ short note on what was done.
 
 ## Bugs
 
-- [ ] **Diverging temperature ramp misleads when the whole domain is on one side of freezing.**
-      `makeScale` (app.js) only honors the semantic 32 °F midpoint when it falls *inside*
-      the scale domain; otherwise it stretches the full blue-white-red ramp across the
-      data, so on a July heat-wave day an 87 °F daily max renders deep blue (white lands
-      at the domain center, ~98 °F). Fix: when the pivot falls outside the domain, use
-      only the matching half of the ramp — white→red when everything is above freezing,
-      blue→white when everything is below — so blue always means "below freezing."
-      Applies to all MID_FREEZE variables (air/feels-like/wind-chill/wet-bulb/CCI/soil/well temp).
-      Repro: `?mode=daily&date=2026-07-12&agg=max&labels=on`.
+- [ ] _(add items here)_
 
 ## Changes
 
-- [ ] **Make the legend's percentile clamping visible.** The color-scale domain is the
-      2nd–98th percentile (`robustDomain`), so with `labels=on` a dot can read "115" while
-      the legend tops out at "113.4". Render the end labels as "≤ 82" / "≥ 113" whenever
-      values are clamped, and add a tooltip explaining the robust 2–98 % domain.
+- [ ] _(add items here)_
 
 ## Ideas / someday
 
-- [ ] **Adjustable color scale.** User is able to select a different color scale and change end/center points, perhaps by clicking the scale to open a modal.
-- [ ] **Allow for fixed scale.** When a user moves through different dates/times, they should be able to see data on a fixed scale in order to observe changes through time. *(Audit note: also affects exports — two PNGs of different days carry identical-looking legends with different scales.)*
 - [ ] **Enable a temporal timelapse.** Users are able to select start and end points (days, hours, timestamp, depending on temporal aggregation. A slider appears allowing people to smoothly move through the time period. Pressing a play button iterates through.
 - [ ] **Adjustable staleness threshold.** Let the user change the 3-hour staleness cutoff (e.g. 1 h / 3 h / 6 h / 24 h).
 
 ### Deferred from the July 2026 audit
 
 - [ ] **Visible "Table view" toggle.** An on-screen sortable station table (the SR-only table already built each render is the seed).
-- [ ] **Cyclic, colorblind-safe wind-direction ramp.** Spectral maps 0° and 360° (the same direction) to opposite colors and its red↔green ends defeat CVD users; label legend ends "N … N".
 - [ ] **Export: current view vs. statewide choice.** Export always uses the fixed Montana framing while the button says "current view" — offer both or fix the copy.
 - [ ] **12-hour time labels.** Hour readout / legend meta use 24-h ("14:00 MT") while popups use "2:25 PM MDT"; also "MT" doubles as the state abbreviation. Standardize.
 - [ ] **Preserve the aggregation choice across variable changes** (it silently resets to each variable's default).
@@ -61,6 +47,22 @@ short note on what was done.
 
 ## Done
 
+- [x] **Legend & color-scale package.** Six items in one pass *(July 2026)*:
+      *Half-ramp bug fix* — when a variable's semantic pivot (32 °F, 50 % RH, Δ 0)
+      falls outside the day's data, only the matching half of the diverging ramp
+      is used, so blue always means "below freezing" (an 87 °F daily max no longer
+      renders deep blue). *Clamp labels* — the robust 2nd–98th-percentile trimming
+      is now visible as "≤ / ≥" on the legend and export ends, with an explanatory
+      tooltip. *Adjustable color scale* — click the legend gradient to open an
+      editor: ramp picker (ColorBrewer + Fabio Crameri's Scientific colour maps,
+      MIT, doi:10.5281/zenodo.1243862), reverse toggle, custom min/mid/max.
+      *Fixed scale* — a pin in the legend header locks the current range across
+      dates/hours/refresh; `?scale=min,mid,max` + `?ramp=Name[-r]` make custom
+      scales shareable and export-reproducible (cleared on variable/units change).
+      *Cyclic wind ramp* — wind direction now uses Crameri's CVD-safe cyclic
+      romaO (0° = 360°), legend labeled N…S…N. *Collapsed-legend color key* —
+      the gradient and its limits stay visible when the legend is collapsed
+      (the mobile default).
 - [x] **Vendor the watershed FGB locally.** `data/mt_hucs.fgb` (124 KB) is now
       served same-origin instead of streaming from `data.climate.umt.edu` —
       that host resolves to a private IP on the UMT campus network, where

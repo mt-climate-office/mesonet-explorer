@@ -25,8 +25,14 @@
     '&FORMAT=image/png&TRANSPARENT=true&SRS=EPSG:3857&WIDTH=256&HEIGHT=256' +
     `&BBOX={bbox-epsg-3857}&_ts=${ts}`;
 
-  // ── ColorBrewer ramps (hex stops, low → high) ────────────────────────────
+  // ── Color ramps (hex stops, low → high) ──────────────────────────────────
+  // ColorBrewer (colorbrewer2.org) plus a curated subset of Fabio Crameri's
+  // Scientific colour maps (perceptually uniform, colour-vision-deficiency
+  // safe; the *O maps are cyclic — first stop === last stop).
+  // Crameri, F. (2018). Scientific colour maps. Zenodo.
+  // doi:10.5281/zenodo.1243862 — MIT license. https://www.fabiocrameri.ch/colourmaps/
   const RAMPS = {
+    // ColorBrewer
     RdBu:     ['#67001f','#b2182b','#d6604d','#f4a582','#fddbc7','#f7f7f7','#d1e5f0','#92c5de','#4393c3','#2166ac','#053061'],
     BrBG:     ['#543005','#8c510a','#bf812d','#dfc27d','#f6e8c3','#f5f5f5','#c7eae5','#80cdc1','#35978f','#01665e','#003c30'],
     Spectral: ['#9e0142','#d53e4f','#f46d43','#fdae61','#fee08b','#ffffbf','#e6f598','#abdda4','#66c2a5','#3288bd','#5e4fa2'],
@@ -34,7 +40,26 @@
     YlOrRd:   ['#ffffcc','#ffeda0','#fed976','#feb24c','#fd8d3c','#fc4e2a','#e31a1c','#bd0026','#800026'],
     Blues:    ['#f7fbff','#deebf7','#c6dbef','#9ecae1','#6baed6','#4292c6','#2171b5','#08519c','#08306b'],
     PuRd:     ['#f7f4f9','#e7e1ef','#d4b9da','#c994c7','#df65b0','#e7298a','#ce1256','#980043','#67001f'],
+    // Crameri — sequential
+    batlow:   ['#011959','#103d5f','#185562','#30685c','#577647','#828231','#b38e2f','#e09651','#fba689','#fdb9c2','#faccfa'],
+    lajolla:  ['#191900','#31220e','#512d1e','#7d3b35','#b34947','#d9604e','#e38050','#e99d53','#f0bd57','#f9e384','#fffecb'],
+    davos:    ['#00054a','#102a6f','#234a8c','#3a679b','#547d9c','#6c8e93','#849e89','#a4b68a','#d4dba8','#f5f5d7','#fefefe'],
+    bamako:   ['#003b47','#0d4340','#1b4c37','#2e582b','#47681c','#637a0a','#818800','#a2930d','#c6ae39','#e5cb75','#ffe5ad'],
+    // Crameri — diverging (odd stop count: neutral center is a stop)
+    vik:      ['#001261','#023a7b','#116496','#5496b7','#a7c9da','#ece5e0','#e1b8a0','#cd8961','#b75a26','#852206','#590008'],
+    roma:     ['#7e1700','#984e14','#ac7726','#c1a343','#d2d484','#c0eac3','#89dad7','#4db3cf','#2d88be','#1e5fac','#033198'],
+    broc:     ['#2c1a4c','#284174','#3f6b99','#7697b7','#b3c5d7','#ebeeec','#dcdbb8','#b6b67c','#81814c','#505023','#262600'],
+    cork:     ['#2c194c','#284275','#3d6b98','#6f92b3','#adc1d4','#e6edec','#b7cfb7','#7ba77a','#438142','#195615','#0f2903'],
+    // Crameri — cyclic (0° and 360° share a color)
+    romaO:    ['#733957','#823c3d','#94502e','#aa752f','#c3a34b','#d5ce81','#cbe1b3','#a4d8cb','#74bbcd','#5495c0','#516da6','#62497d','#733957'],
+    vikO:     ['#4f1a3d','#3f2c5b','#334b7f','#4575a1','#759ebc','#aebdc8','#d5beb3','#d7a387','#c57c56','#a34d2d','#7c271e','#611627','#4f1a3d'],
   };
+  // Editor picker grouping + display names.
+  const RAMP_GROUPS = [
+    { label: 'ColorBrewer', ramps: ['RdBu','BrBG','Spectral','YlGnBu','YlOrRd','Blues','PuRd'] },
+    { label: 'Scientific colour maps (Crameri)',
+      ramps: ['batlow','lajolla','davos','bamako','vik','roma','broc','cork','romaO','vikO'] },
+  ];
 
   // ── Unit handling (self-healing SI fallbacks) ────────────────────────────
   // Two v2 API quirks, both keyed off the unit string parsed from the
@@ -103,7 +128,7 @@
     // Wind
     { key:'wind_spd', label:'Wind Speed',     group:'Wind', col:'Wind Speed',     source:'obs', els:['wind_spd_1000','wind_spd_0244'], modes:ALL_MODES, scale:{ramp:'YlGnBu'} },
     { key:'windgust', label:'Wind Gust',      group:'Wind', col:'Gust Speed',     source:'obs', els:['windgust_1000','windgust_0244'], modes:ALL_MODES, scale:{ramp:'YlGnBu'} },
-    { key:'wind_dir', label:'Wind Direction', group:'Wind', col:'Wind Direction', source:'obs', els:['wind_dir_1000','wind_dir_0244'], modes:ALL_MODES, scale:{ramp:'Spectral', domain:[0,360]}, fmt:'p0' },
+    { key:'wind_dir', label:'Wind Direction', group:'Wind', col:'Wind Direction', source:'obs', els:['wind_dir_1000','wind_dir_0244'], modes:ALL_MODES, scale:{ramp:'romaO', domain:[0,360], endLabels:['N','N'], midLabel:'S'}, fmt:'p0' },
 
     // Precipitation
     { key:'ppt',          label:'Precipitation',   group:'Precipitation', col:'Precipitation',   source:'obs', els:['ppt'], agg:'sum', modes:ALL_MODES, scale:{ramp:'BrBG'}, fmt:'p2' },
@@ -258,6 +283,8 @@
   const subnetFiltersEl= document.getElementById('subnet-filters');
   const legendTitleEl  = document.getElementById('legend-title');
   const legendGradientEl = document.getElementById('legend-gradient');
+  const legendGradientBtn = document.getElementById('legend-gradient-btn');
+  const legendPinBtn   = document.getElementById('legend-pin-btn');
   const legendScaleLabelsEl = document.getElementById('legend-scale-labels');
   const legendDescEl   = document.getElementById('legend-desc');
   const legendRowsEl   = document.getElementById('legend-rows');
@@ -379,6 +406,46 @@
   // A deep-linked variable that doesn't exist in the deep-linked mode has no
   // picker entry there — fall back rather than showing a blank select.
   if (!REGISTRY_BY_KEY.get(activeVar).modes.includes(activeMode)) activeVar = 'air_temp';
+
+  // Custom color scale — { min?, mid?, max?, ramp?, rev? }, applied to the
+  // CURRENT variable only (cleared on variable/units change). The domain is
+  // locked iff min & max are set; mid present only when explicitly chosen
+  // (absent = inherit the variable's semantic pivot). From ?scale=min,mid|-,max
+  // and ?ramp=Name[-r]; both validated like every other URL param.
+  let scaleOverride = (() => {
+    let o = null;
+    const raw = urlParams.get('scale');
+    if (raw) {
+      const parts = raw.split(',');
+      if (parts.length === 3) {
+        const num = (s) => s === '-' ? undefined : parseFloat(s);
+        const min = num(parts[0]), mid = num(parts[1]), max = num(parts[2]);
+        const okNum = (v) => v === undefined || Number.isFinite(v);
+        const valid = okNum(min) && okNum(mid) && okNum(max) &&
+          (min === undefined) === (max === undefined) &&           // both or neither
+          (min === undefined || min < max) &&
+          (mid === undefined ||
+            ((min === undefined || mid > min) && (max === undefined || mid < max)));
+        if (valid && (min !== undefined || mid !== undefined)) {
+          o = {};
+          if (min !== undefined) { o.min = min; o.max = max; }
+          if (mid !== undefined) o.mid = mid;
+        }
+      }
+    }
+    const rampRaw = urlParams.get('ramp');
+    if (rampRaw) {
+      const rev = rampRaw.endsWith('-r');
+      const name = rev ? rampRaw.slice(0, -2) : rampRaw;
+      if (RAMPS[name]) {
+        o = o || {};
+        o.ramp = name;
+        o.rev = rev;
+      }
+    }
+    return o;
+  })();
+  const scaleLocked = () => !!(scaleOverride && Number.isFinite(scaleOverride.min));
 
   let activeUnits = (() => {
     const u = getLower('units');
@@ -533,13 +600,35 @@
   }
   // makeScale: value → CSS color. Domain [min,max] with optional semantic mid
   // mapped to t=0.5 (two linear segments, chroma.domain([min,mid,max]) style).
-  function makeScale(scaleSpec, unit, domainMin, domainMax) {
-    let stops = RAMPS[scaleSpec.ramp] || RAMPS.YlGnBu;
-    if (scaleSpec.rev) stops = [...stops].reverse();
-    let mid = null;
-    if (scaleSpec.mid) {
+  // opts (all optional, from the user's scale override): ramp/rev replace the
+  // spec's; mid is an explicit pivot (a number, or null for "no pivot").
+  function makeScale(scaleSpec, unit, domainMin, domainMax, opts = {}) {
+    const rampName = opts.ramp || scaleSpec.ramp;
+    let stops = RAMPS[rampName] || RAMPS.YlGnBu;
+    const rev = opts.rev !== undefined ? !!opts.rev : !!scaleSpec.rev;
+    if (rev) stops = [...stops].reverse();
+
+    // Resolve the pivot: user override wins over the semantic spec value.
+    let pivot = null;
+    if (opts.mid !== undefined) pivot = opts.mid;
+    else if (scaleSpec.mid) {
       const m = scaleSpec.mid[unit];
-      if (typeof m === 'number' && m > domainMin && m < domainMax) mid = m;
+      if (typeof m === 'number') pivot = m;
+    }
+
+    let mid = null;
+    if (typeof pivot === 'number') {
+      if (pivot > domainMin && pivot < domainMax) {
+        mid = pivot;
+      } else if (stops.length % 2 === 1) {
+        // Pivot outside the domain: use only the matching half of the ramp so
+        // the neutral center keeps its meaning — e.g. on an all-above-freezing
+        // day temperatures render white→hot rather than stretching the full
+        // blue-white-red ramp across one-sided data (which painted an 87 °F
+        // daily max deep blue).
+        const c = (stops.length - 1) / 2;
+        stops = pivot <= domainMin ? stops.slice(c) : stops.slice(0, c + 1);
+      }
     }
     const toT = (v) => {
       if (domainMax <= domainMin) return 0.5;
@@ -552,6 +641,8 @@
     fn.domain = [domainMin, domainMax];
     fn.mid = mid;
     fn.stops = stops;
+    fn.endLabels = scaleSpec.endLabels || null;
+    fn.midLabel = scaleSpec.midLabel || null;
     return fn;
   }
   // Robust domain: 2nd–98th percentile (plain extent when n < 12).
@@ -1330,9 +1421,29 @@
     }
     const scaleValues = xform ? domainValues.map(xform) : domainValues;
     let [dMin, dMax] = entry.scale.domain || robustDomain(scaleValues);
-    const scale = makeScale(entry.scale, unit || '', dMin, dMax);
+    // User override: locked domain and/or swapped ramp (current variable only).
+    const ov = scaleOverride;
+    if (ov && Number.isFinite(ov.min) && Number.isFinite(ov.max) && !entry.scale.domain) {
+      dMin = xform ? xform(ov.min) : ov.min;
+      dMax = xform ? xform(ov.max) : ov.max;
+    }
+    const scale = makeScale(entry.scale, unit || '', dMin, dMax, ov ? {
+      ramp: ov.ramp,
+      rev:  ov.rev,
+      mid:  (!xform && Number.isFinite(ov.mid)) ? ov.mid : undefined,
+    } : {});
     scale.xform = xform;
     scale.displayDomain = xform ? [10 ** dMin, 10 ** dMax] : [dMin, dMax];
+    // True data extent → ≤/≥ legend labels when the domain trims it (robust
+    // percentiles or a locked scale). Not for fixed-domain variables.
+    if (!entry.scale.domain && domainValues.length) {
+      let rawMin = Infinity, rawMax = -Infinity;
+      for (const v of domainValues) { if (v < rawMin) rawMin = v; if (v > rawMax) rawMax = v; }
+      const [lo, hi] = scale.displayDomain;
+      const eps = Math.abs(hi - lo) * 1e-9;
+      scale.clampedLow  = rawMin < lo - eps;
+      scale.clampedHigh = rawMax > hi + eps;
+    }
     const fmt = makeFormatter(entry, scale.displayDomain);
 
     // Pass 1 — classify every station so colocation can be visibility-aware.
@@ -1522,16 +1633,35 @@
     legendScaleLabelsEl.innerHTML = '';
     const disp = scale.displayDomain || scale.domain;
     const minL = document.createElement('span');
-    minL.textContent = fmtScaleLimit(disp[0]);
+    // ≤/≥ marks values trimmed by the robust percentile domain (or a locked
+    // scale) that share the end colors; compass variables get N…N ends.
+    minL.textContent = scale.endLabels
+      ? scale.endLabels[0]
+      : (scale.clampedLow ? '≤ ' : '') + fmtScaleLimit(disp[0]);
     legendScaleLabelsEl.appendChild(minL);
     if (scale.mid != null && !scale.xform) {
       const midL = document.createElement('span');
       midL.textContent = fmtScaleLimit(scale.mid);
       legendScaleLabelsEl.appendChild(midL);
+    } else if (scale.midLabel) {
+      const midL = document.createElement('span');
+      midL.textContent = scale.midLabel;
+      legendScaleLabelsEl.appendChild(midL);
     }
     const maxL = document.createElement('span');
-    maxL.textContent = fmtScaleLimit(disp[1]);
+    maxL.textContent = scale.endLabels
+      ? scale.endLabels[1]
+      : (scale.clampedHigh ? '≥ ' : '') + fmtScaleLimit(disp[1]);
     legendScaleLabelsEl.appendChild(maxL);
+
+    // Pin + editor affordances reflect the current override state.
+    legendPinBtn.hidden = !!entry.scale.domain;
+    legendPinBtn.setAttribute('aria-pressed', scaleLocked() ? 'true' : 'false');
+    legendPinBtn.setAttribute('aria-label', scaleLocked() ? 'Unlock color scale' : 'Lock color scale');
+    legendGradientBtn.title = scaleOverride
+      ? 'Custom scale — click to edit'
+      : 'Scale spans the 2nd–98th percentile of current values; more extreme '
+        + 'values share the end colors. Click to customize.';
 
     // Interactive rows: no-data always; stale only in Latest mode.
     legendRowsEl.innerHTML = '';
@@ -1733,7 +1863,8 @@
   }
   variableSelect.addEventListener('change', () => {
     activeVar = variableSelect.value;
-    activeAgg = null;   // re-resolve to the new variable's default aggregation
+    activeAgg = null;      // re-resolve to the new variable's default aggregation
+    scaleOverride = null;  // a custom temperature domain is meaningless for precip
     syncAggUI();
     render();
     pushState();
@@ -1892,6 +2023,12 @@
       if (btn.dataset.units === activeUnits) return;
       activeUnits = btn.dataset.units;
       lsSet('mco-explorer-units', activeUnits);
+      if (scaleLocked()) {
+        scaleOverride = scaleOverride.ramp
+          ? { ramp: scaleOverride.ramp, rev: scaleOverride.rev }  // keep the ramp choice
+          : null;
+        showToast('Custom scale range cleared — units changed');
+      }
       syncUnitsUI();
       render();
       pushState();
@@ -1978,6 +2115,136 @@
     setLegendCollapsed(!legendCollapsed);
     pushState();
   });
+
+  // ── Scale editor (click the legend gradient) ─────────────────────────────
+  const scaleModal   = document.getElementById('scale-modal');
+  const scaleRampSel = document.getElementById('scale-ramp');
+  const scaleRevCb   = document.getElementById('scale-rev');
+  const scaleMinIn   = document.getElementById('scale-min');
+  const scaleMidIn   = document.getElementById('scale-mid');
+  const scaleMaxIn   = document.getElementById('scale-max');
+  const scaleHintEl  = document.getElementById('scale-hint');
+
+  for (const g of RAMP_GROUPS) {
+    const og = document.createElement('optgroup');
+    og.label = g.label;
+    for (const r of g.ramps) {
+      const o = document.createElement('option');
+      o.value = r;
+      o.textContent = r;
+      og.appendChild(o);
+    }
+    scaleRampSel.appendChild(og);
+  }
+
+  function paintScalePreview() {
+    let stops = RAMPS[scaleRampSel.value] || RAMPS.YlGnBu;
+    if (scaleRevCb.checked) stops = [...stops].reverse();
+    const parts = stops.map((c, i) => `${c} ${(i / (stops.length - 1) * 100).toFixed(1)}%`);
+    document.getElementById('scale-preview').style.background =
+      `linear-gradient(to right, ${parts.join(', ')})`;
+  }
+
+  function openScaleEditor() {
+    if (!_lastRender) return;
+    const { entry, unit, scale } = _lastRender;
+    document.getElementById('scale-modal-var').textContent =
+      unit ? `${entry.label} [${unit}]` : entry.label;
+    scaleRampSel.value = scaleOverride?.ramp || entry.scale.ramp;
+    scaleRevCb.checked = scaleOverride?.ramp !== undefined
+      ? !!scaleOverride.rev : !!entry.scale.rev;
+    const [lo, hi] = scale.displayDomain;
+    scaleMinIn.placeholder = fmtScaleLimit(lo);
+    scaleMaxIn.placeholder = fmtScaleLimit(hi);
+    scaleMinIn.value = scaleLocked() ? String(scaleOverride.min) : '';
+    scaleMaxIn.value = scaleLocked() ? String(scaleOverride.max) : '';
+    scaleMidIn.value = Number.isFinite(scaleOverride?.mid) ? String(scaleOverride.mid) : '';
+    for (const el of scaleModal.querySelectorAll('.scale-unit')) {
+      el.textContent = unit ? `(${unit})` : '';
+    }
+    const fixed = !!entry.scale.domain;
+    const isLog = !!entry.scale.log;
+    scaleMinIn.disabled = scaleMaxIn.disabled = fixed;
+    scaleMidIn.disabled = fixed || isLog;
+    scaleHintEl.textContent =
+      fixed ? 'This variable uses a fixed range — only the ramp can change.' :
+      isLog ? 'Logarithmic scale: min and max must be greater than 0.' : '';
+    paintScalePreview();
+    scaleModal.showModal();
+  }
+  legendGradientBtn.addEventListener('click', openScaleEditor);
+  scaleRampSel.addEventListener('change', paintScalePreview);
+  scaleRevCb.addEventListener('change', paintScalePreview);
+  scaleModal.addEventListener('click', (e) => {
+    if (e.target === scaleModal || e.target.dataset.closeModal !== undefined) scaleModal.close();
+  });
+  scaleModal.addEventListener('close', () => legendGradientBtn.focus());
+
+  document.getElementById('scale-apply').addEventListener('click', () => {
+    const entry = REGISTRY_BY_KEY.get(activeVar);
+    const fixed = !!entry.scale.domain;
+    const isLog = !!entry.scale.log;
+    const o = {};
+    if (scaleRampSel.value !== entry.scale.ramp || scaleRevCb.checked !== !!entry.scale.rev) {
+      o.ramp = scaleRampSel.value;
+      o.rev = scaleRevCb.checked;
+    }
+    const minRaw = scaleMinIn.value.trim(), maxRaw = scaleMaxIn.value.trim();
+    const midRaw = scaleMidIn.value.trim();
+    if (!fixed && (minRaw !== '' || maxRaw !== '')) {
+      const min = parseFloat(minRaw), max = parseFloat(maxRaw);
+      if (!Number.isFinite(min) || !Number.isFinite(max)) {
+        scaleHintEl.textContent = 'Enter both min and max, or clear both for automatic.';
+        return;
+      }
+      if (min >= max) { scaleHintEl.textContent = 'Min must be less than max.'; return; }
+      if (isLog && min <= 0) { scaleHintEl.textContent = 'Logarithmic scale: min must be greater than 0.'; return; }
+      o.min = min;
+      o.max = max;
+    }
+    if (!fixed && !isLog && midRaw !== '') {
+      const mid = parseFloat(midRaw);
+      const lo = Number.isFinite(o.min) ? o.min : -Infinity;
+      const hi = Number.isFinite(o.max) ? o.max : Infinity;
+      if (!Number.isFinite(mid) || mid <= lo || mid >= hi) {
+        scaleHintEl.textContent = 'Midpoint must sit between min and max.';
+        return;
+      }
+      o.mid = mid;
+    }
+    scaleOverride = Object.keys(o).length ? o : null;
+    scaleModal.close();
+    render({ background: true });
+    pushState();
+  });
+  document.getElementById('scale-reset').addEventListener('click', () => {
+    scaleOverride = null;
+    scaleModal.close();
+    showToast('Scale reset to automatic');
+    render({ background: true });
+    pushState();
+  });
+
+  // ── Scale lock (pin) ─────────────────────────────────────────────────────
+  legendPinBtn.addEventListener('click', (e) => {
+    e.stopPropagation();   // sits inside the collapsing header row
+    toggleScaleLock();
+  });
+  function toggleScaleLock() {
+    if (scaleLocked()) {
+      const { ramp, rev } = scaleOverride;
+      scaleOverride = ramp ? { ramp, rev } : null;
+      showToast('Scale unlocked — range follows the data again');
+    } else if (_lastRender) {
+      const [lo, hi] = _lastRender.scale.displayDomain;
+      scaleOverride = { ...(scaleOverride || {}), min: lo, max: hi };
+      showToast('Scale locked — it will stay put as you change dates');
+    }
+    // Reflect the new state immediately — the render below may wait on a fetch.
+    legendPinBtn.setAttribute('aria-pressed', scaleLocked() ? 'true' : 'false');
+    render({ background: true });   // data is cached; just recolor + relabel
+    pushState();
+  }
 
   // ── Search ───────────────────────────────────────────────────────────────
   let _searchSorted = [];
@@ -2510,7 +2777,7 @@
   const kbdShortcuts = getLower('kbd') !== 'off';
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-      if (infoModal.open) return;   // let the native dialog handle its own Escape
+      if (infoModal.open || scaleModal.open) return;   // native dialogs own their Escape
       closeSpider(); closePopup(); return;
     }
     if (kbdShortcuts && e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey) {
@@ -2762,18 +3029,25 @@
     ctx.globalAlpha = 0.4; ctx.strokeStyle = borderClr; ctx.lineWidth = 1; ctx.stroke();
     ctx.restore();
 
+    // Mirror the on-screen legend labels (≤/≥ clamps, compass ends).
     const disp = scale.displayDomain || scale.domain;
+    const loLbl = scale.endLabels ? scale.endLabels[0]
+                : (scale.clampedLow ? '≤ ' : '') + fmtScaleLimit(disp[0]);
+    const hiLbl = scale.endLabels ? scale.endLabels[1]
+                : (scale.clampedHigh ? '≥ ' : '') + fmtScaleLimit(disp[1]);
+    const midLbl = (scale.mid != null && !scale.xform) ? fmtScaleLimit(scale.mid)
+                 : scale.midLabel || null;
     ctx.fillStyle = textSec;
     ctx.font = "9.5px 'Space Mono', monospace";
     ctx.textBaseline = 'alphabetic';
-    ctx.fillText(fmtScaleLimit(disp[0]), GX, GY + GH + 12);
-    if (scale.mid != null && !scale.xform) {
+    ctx.fillText(loLbl, GX, GY + GH + 12);
+    if (midLbl != null) {
       ctx.textAlign = 'center';
-      ctx.fillText(fmtScaleLimit(scale.mid), GX + GW / 2, GY + GH + 12);
+      ctx.fillText(midLbl, GX + GW / 2, GY + GH + 12);
       ctx.textAlign = 'left';
     }
     ctx.textAlign = 'right';
-    ctx.fillText(fmtScaleLimit(disp[1]), GX + GW, GY + GH + 12);
+    ctx.fillText(hiLbl, GX + GW, GY + GH + 12);
     ctx.fillStyle = textMuted;
     ctx.font = "italic 10px 'Outfit', system-ui, sans-serif";
     ctx.fillText('climate.umt.edu', BX + BRAND_W - PAD, BY + BRAND_BOX_H - 9);
@@ -2790,6 +3064,13 @@
     if (activeUnits !== 'us') params.units = activeUnits;
     if (aggActive(REGISTRY_BY_KEY.get(activeVar))) params.agg = activeAgg;
     params.net = [...activeNetworks].map(n => n.toLowerCase()).join(' ');
+    if (scaleOverride) {
+      const f = (v) => Number.isFinite(v) ? String(v) : '-';
+      if (scaleLocked() || Number.isFinite(scaleOverride.mid)) {
+        params.scale = `${f(scaleOverride.min)},${f(scaleOverride.mid)},${f(scaleOverride.max)}`;
+      }
+      if (scaleOverride.ramp) params.ramp = scaleOverride.ramp + (scaleOverride.rev ? '-r' : '');
+    }
     if (labelsOn) params.labels = 'on';
     if (radarOn) params.radar = 'on';
     if (!nodataShown) params.nodata = 'hide';

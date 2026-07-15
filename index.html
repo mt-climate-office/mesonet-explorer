@@ -522,13 +522,32 @@
       padding: 8px 10px 8px;
       transition: padding 0.2s cubic-bezier(0.4,0,0.2,1);
     }
-    #legend.collapsed { padding: 6px 10px; min-width: 0; }
+    /* Collapsed hides the body but keeps the header AND the color key. */
+    #legend.collapsed { padding: 6px 10px; }
     #legend.collapsed #legend-body { max-height: 0; opacity: 0; margin-top: 0; overflow: hidden; }
+    #legend-key { margin-top: 6px; }
+    #legend-gradient-btn {
+      display: block; width: 100%;
+      background: none; border: 0; padding: 0; cursor: pointer;
+    }
+    #legend-gradient-btn:hover #legend-gradient,
+    #legend-gradient-btn:focus-visible #legend-gradient { border-color: var(--accent); }
+    #legend-pin-btn {
+      background: none; border: none; padding: 0; flex-shrink: 0;
+      width: 22px; height: 22px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--text-dim);
+      transition: color var(--transition);
+    }
+    #legend-pin-btn:hover { color: var(--accent-light); }
+    #legend-pin-btn[aria-pressed="true"] { color: var(--accent-light); }
+    #legend-pin-btn[hidden] { display: none; }
     .legend-header {
       display: flex; align-items: center; justify-content: space-between;
       gap: 8px; user-select: none; cursor: pointer;
     }
     #legend-title {
+      flex: 1; min-width: 0;
       font-size: 0.8rem; font-weight: 600; color: var(--text-primary); margin: 0;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
@@ -776,6 +795,46 @@
       padding: 1px 4px;
     }
 
+    /* ── Scale editor modal ──────────────────────────────────────────────── */
+    #scale-modal { background: transparent; border: none; padding: 1rem; position: fixed; inset: 0; margin: auto; width: fit-content; height: fit-content; max-width: calc(100vw - 2rem); max-height: calc(100dvh - 2rem); }
+    #scale-modal::backdrop { background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); }
+    .scale-modal-box { width: min(420px, calc(100vw - 4rem)); }
+    .scale-label {
+      display: block; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--text-secondary); margin-bottom: 5px;
+    }
+    .scale-ramp-row { display: flex; align-items: center; gap: 10px; }
+    .scale-ramp-row select { flex: 1; max-width: none; }
+    .scale-rev { display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; color: var(--text-secondary); cursor: pointer; white-space: nowrap; }
+    .scale-rev input { accent-color: var(--accent); }
+    #scale-preview {
+      height: 12px; border-radius: 3px; margin-top: 8px;
+      border: 1px solid var(--border-glass);
+    }
+    .scale-domain-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+      margin-top: 1rem;
+    }
+    .scale-domain-grid label {
+      display: flex; flex-direction: column; gap: 4px;
+      font-size: 0.72rem; font-weight: 600; color: var(--text-secondary);
+    }
+    .scale-unit { font-weight: 400; color: var(--text-muted); }
+    .scale-domain-grid input {
+      width: 100%;
+      background-color: var(--input-bg); color: var(--text-primary);
+      border: 1px solid var(--ctrl-border); border-radius: var(--radius-md);
+      height: 34px; padding: 0 8px;
+      font-size: 0.85rem; font-family: 'Space Mono', monospace;
+    }
+    .scale-domain-grid input:disabled { opacity: 0.45; cursor: not-allowed; }
+    .scale-note { font-size: 0.72rem; color: var(--text-muted); line-height: 1.5; margin-top: 0.6rem; }
+    .scale-hint { font-size: 0.75rem; color: #e5a35c; min-height: 1.2em; margin-top: 0.4rem; }
+    [data-theme="light"] .scale-hint { color: #96500a; }
+    .scale-actions { display: flex; justify-content: space-between; gap: 10px; margin-top: 0.8rem; }
+    #scale-apply { background: var(--accent); border-color: var(--accent-light); color: #fff; }
+    #scale-apply:hover { background: var(--accent-dk); }
+
     /* ── Responsive ──────────────────────────────────────────────────────── */
     @media (max-width: 1200px) {
       .nav-meta  { order: 1; }
@@ -810,7 +869,7 @@
       #btn-info { width: 40px; height: 40px; }
       .nav-btn.icon-only { min-width: 40px; }
       .nav-btn.date-step { min-height: 40px; height: 40px; min-width: 40px; }
-      #legend-toggle-btn { width: 32px; height: 32px; }
+      #legend-toggle-btn, #legend-pin-btn { width: 32px; height: 32px; }
       #search-dropdown li { min-height: 40px; padding: 10px 8px; }
       .legend-row, .legend-check { min-height: 36px; padding: 7px 6px; }
       .pop-carousel-btn { width: 40px; height: 40px; }
@@ -982,6 +1041,14 @@
   <aside id="legend" aria-labelledby="legend-title">
     <div class="legend-header" id="legend-header">
       <h2 id="legend-title">Legend</h2>
+      <button id="legend-pin-btn" aria-pressed="false" aria-label="Lock color scale"
+              title="Lock the color scale while stepping through time">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+      </button>
       <button id="legend-toggle-btn" aria-controls="legend-body" aria-expanded="true"
               aria-label="Collapse legend">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
@@ -991,10 +1058,16 @@
         </svg>
       </button>
     </div>
+    <!-- Outside #legend-body so the color key stays visible when collapsed
+         (the mobile default). -->
+    <div id="legend-key">
+      <button id="legend-gradient-btn" type="button" aria-label="Edit color scale">
+        <div id="legend-gradient" aria-hidden="true"></div>
+      </button>
+      <div id="legend-scale-labels"></div>
+    </div>
     <div id="legend-body">
       <div id="legend-desc" class="legend-desc" hidden></div>
-      <div id="legend-gradient" aria-hidden="true"></div>
-      <div id="legend-scale-labels"></div>
       <div id="legend-rows"></div>
       <hr class="legend-divider">
       <div class="legend-section-title">Overlays</div>
@@ -1044,6 +1117,7 @@
         <li><strong>Stacked stations</strong> — a small count badge marks sites with more than one station; hovering or clicking fans them out, and each popup lists the others under "Also at this site".</li>
         <li><strong>Units</strong> — °F/°C toggles between U.S. and metric units.</li>
         <li><strong>Legend</strong> — click the No-data / Stale rows to show or hide those stations; check boxes to add counties, watersheds, or live radar.</li>
+        <li><strong>Color scale</strong> — click the color strip to pick a different ramp or set a custom range; the pin locks the scale in place while you step through dates and hours. "≤"/"≥" on the ends means a few extreme values share the end colors.</li>
         <li><strong>Export</strong> — download a branded PNG of the current view (fixed Montana framing, color scale included).</li>
         <li><kbd>Esc</kbd> closes any popup.</li>
       </ul>
@@ -1074,7 +1148,48 @@
 
     <div class="info-section">
       <h3>Data</h3>
-      <p>Data come live from the <a href="https://mesonet2.climate.umt.edu/api/docs" target="_blank" rel="noopener">Montana Mesonet API v2</a>. Radar imagery courtesy of the <a href="https://mesonet.agron.iastate.edu/" target="_blank" rel="noopener">Iowa Environmental Mesonet</a>. The Montana Mesonet is operated by the <a href="https://climate.umt.edu" target="_blank" rel="noopener">Montana Climate Office</a> at the University of Montana.</p>
+      <p>Data come live from the <a href="https://mesonet2.climate.umt.edu/api/docs" target="_blank" rel="noopener">Montana Mesonet API v2</a>. Radar imagery courtesy of the <a href="https://mesonet.agron.iastate.edu/" target="_blank" rel="noopener">Iowa Environmental Mesonet</a>. Colour maps include Fabio Crameri's <a href="https://www.fabiocrameri.ch/colourmaps/" target="_blank" rel="noopener">Scientific colour maps</a>. The Montana Mesonet is operated by the <a href="https://climate.umt.edu" target="_blank" rel="noopener">Montana Climate Office</a> at the University of Montana.</p>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="scale-modal" aria-labelledby="scale-modal-title">
+  <div class="info-modal-box scale-modal-box">
+    <div class="info-modal-header">
+      <div>
+        <h2 class="info-modal-title" id="scale-modal-title">Color scale</h2>
+        <div class="info-modal-subtitle" id="scale-modal-var"></div>
+      </div>
+      <button class="modal-close" aria-label="Close" data-close-modal>×</button>
+    </div>
+
+    <div class="scale-field">
+      <label class="scale-label" for="scale-ramp">Ramp</label>
+      <div class="scale-ramp-row">
+        <select id="scale-ramp"></select>
+        <label class="scale-rev"><input type="checkbox" id="scale-rev"> Reverse</label>
+      </div>
+      <div id="scale-preview" aria-hidden="true"></div>
+    </div>
+
+    <div class="scale-domain-grid">
+      <label>Min <span class="scale-unit"></span>
+        <input type="number" id="scale-min" step="any">
+      </label>
+      <label>Midpoint <span class="scale-unit"></span>
+        <input type="number" id="scale-mid" step="any" placeholder="auto">
+      </label>
+      <label>Max <span class="scale-unit"></span>
+        <input type="number" id="scale-max" step="any">
+      </label>
+    </div>
+    <p class="scale-note">Leave min/max blank for the automatic range (2nd–98th percentile of
+      the current data). Setting them locks the scale while you move through time.</p>
+    <div class="scale-hint" id="scale-hint" role="status"></div>
+
+    <div class="scale-actions">
+      <button type="button" class="nav-btn" id="scale-reset">Reset to automatic</button>
+      <button type="button" class="nav-btn" id="scale-apply">Apply</button>
     </div>
   </div>
 </dialog>
