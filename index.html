@@ -2,6 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <!-- CSP (meta form — GitHub Pages can't set headers; frame-ancestors/report-uri
+       are ignored in meta CSP). The sha256 hash covers the inline theme-flash
+       script below — recompute it if that script ever changes (see README). -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'none';
+    script-src 'self' 'sha256-RYR1PFU8s/ct95mAPAhIYyUFb5ZyJaLFhpyAm1uFEhU=' https://unpkg.com https://cdn.jsdelivr.net;
+    worker-src blob:;
+    style-src 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com;
+    font-src https://fonts.gstatic.com;
+    img-src 'self' data: blob: https://climate.umt.edu https://mesonet2.climate.umt.edu;
+    connect-src 'self' https://mesonet2.climate.umt.edu https://data.climate.umt.edu https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com https://mesonet.agron.iastate.edu;
+    base-uri 'none';
+    form-action 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mesonet Explorer · Montana Climate Office</title>
   <meta name="description" content="Interactive map explorer for Montana Mesonet station data — current conditions, hourly and daily history, by the Montana Climate Office.">
