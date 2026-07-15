@@ -923,7 +923,10 @@
   let _tribalFC = null;
   let _countyFC = null;
   // Watersheds stream from the MCO CDN as FlatGeobuf, lazily on first enable.
-  const HUC_FGB_URL = 'https://data.climate.umt.edu/mesonet/fgb/mt_hucs.fgb';
+  // Vendored copy of the MCO CDN file (data.climate.umt.edu resolves to a
+  // private IP on the UMT campus network, and Chrome blocks public→local
+  // fetches). May move back to a shared host later.
+  const HUC_FGB_URL = 'data/mt_hucs.fgb';
   let _hucFC = null;
   let _hucLoading = null;
   function loadHucOnce() {

@@ -50,6 +50,12 @@ short note on what was done.
 
 ## Done
 
+- [x] **Vendor the watershed FGB locally.** `data/mt_hucs.fgb` (124 KB) is now
+      served same-origin instead of streaming from `data.climate.umt.edu` —
+      that host resolves to a private IP on the UMT campus network, where
+      Chrome's Local Network Access policy blocks fetches from public pages
+      (watersheds silently failed for on-campus users). May migrate to a
+      shared host later. Also drops a CSP `connect-src` entry. *(July 2026)*
 - [x] **Security, accessibility & usability audit — implementation pass.**
       From the July 2026 three-way audit (Critical + High + cheap Mediums):
       *Security* — `app.js` split out of `index.html` so the new meta CSP can
