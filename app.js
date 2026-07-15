@@ -1628,7 +1628,9 @@
       const v = scale.domain[0] + t * (scale.domain[1] - scale.domain[0]);
       stops.push(`${scale(v)} ${(t * 100).toFixed(0)}%`);
     }
-    legendGradientEl.style.background = `linear-gradient(to right, ${stops.join(', ')})`;
+    // backgroundImage, NOT the background shorthand — the shorthand resets the
+    // no-repeat/100% sizing that prevents edge wrap-around (see the CSS).
+    legendGradientEl.style.backgroundImage = `linear-gradient(to right, ${stops.join(', ')})`;
 
     legendScaleLabelsEl.innerHTML = '';
     const disp = scale.displayDomain || scale.domain;
@@ -2117,32 +2119,56 @@
   });
 
   // ── Scale editor (click the legend gradient) ─────────────────────────────
-  const scaleModal   = document.getElementById('scale-modal');
-  const scaleRampSel = document.getElementById('scale-ramp');
-  const scaleRevCb   = document.getElementById('scale-rev');
-  const scaleMinIn   = document.getElementById('scale-min');
-  const scaleMidIn   = document.getElementById('scale-mid');
-  const scaleMaxIn   = document.getElementById('scale-max');
-  const scaleHintEl  = document.getElementById('scale-hint');
+  const scaleModal    = document.getElementById('scale-modal');
+  const scaleRampList = document.getElementById('scale-ramp-list');
+  const scaleRevCb    = document.getElementById('scale-rev');
+  const scaleMinIn    = document.getElementById('scale-min');
+  const scaleMidIn    = document.getElementById('scale-mid');
+  const scaleMaxIn    = document.getElementById('scale-max');
+  const scaleHintEl   = document.getElementById('scale-hint');
 
+  // Radio rows with gradient swatches — ramp names alone mean nothing.
   for (const g of RAMP_GROUPS) {
-    const og = document.createElement('optgroup');
-    og.label = g.label;
+    const head = document.createElement('div');
+    head.className = 'scale-ramp-group';
+    head.textContent = g.label;
+    scaleRampList.appendChild(head);
     for (const r of g.ramps) {
-      const o = document.createElement('option');
-      o.value = r;
-      o.textContent = r;
-      og.appendChild(o);
+      const row = document.createElement('label');
+      row.className = 'scale-ramp-opt';
+      const input = document.createElement('input');
+      input.type = 'radio';
+      input.name = 'scale-ramp';
+      input.value = r;
+      const name = document.createElement('span');
+      name.className = 'scale-ramp-name';
+      name.textContent = r;
+      const strip = document.createElement('span');
+      strip.className = 'scale-ramp-strip';
+      strip.setAttribute('aria-hidden', 'true');
+      strip.style.backgroundImage = rampGradientCSS(r);
+      row.append(input, name, strip);
+      scaleRampList.appendChild(row);
     }
-    scaleRampSel.appendChild(og);
   }
+  function currentEditorRamp() {
+    return scaleRampList.querySelector('input[name="scale-ramp"]:checked')?.value || 'YlGnBu';
+  }
+  function setEditorRamp(name) {
+    const input = scaleRampList.querySelector(`input[value="${name}"]`);
+    if (input) input.checked = true;
+  }
+  scaleRampList.addEventListener('change', paintScalePreview);
 
-  function paintScalePreview() {
-    let stops = RAMPS[scaleRampSel.value] || RAMPS.YlGnBu;
-    if (scaleRevCb.checked) stops = [...stops].reverse();
+  function rampGradientCSS(name, rev = false) {
+    let stops = RAMPS[name] || RAMPS.YlGnBu;
+    if (rev) stops = [...stops].reverse();
     const parts = stops.map((c, i) => `${c} ${(i / (stops.length - 1) * 100).toFixed(1)}%`);
-    document.getElementById('scale-preview').style.background =
-      `linear-gradient(to right, ${parts.join(', ')})`;
+    return `linear-gradient(to right, ${parts.join(', ')})`;
+  }
+  function paintScalePreview() {
+    document.getElementById('scale-preview').style.backgroundImage =
+      rampGradientCSS(currentEditorRamp(), scaleRevCb.checked);
   }
 
   function openScaleEditor() {
@@ -2150,7 +2176,7 @@
     const { entry, unit, scale } = _lastRender;
     document.getElementById('scale-modal-var').textContent =
       unit ? `${entry.label} [${unit}]` : entry.label;
-    scaleRampSel.value = scaleOverride?.ramp || entry.scale.ramp;
+    setEditorRamp(scaleOverride?.ramp || entry.scale.ramp);
     scaleRevCb.checked = scaleOverride?.ramp !== undefined
       ? !!scaleOverride.rev : !!entry.scale.rev;
     const [lo, hi] = scale.displayDomain;
@@ -2173,7 +2199,6 @@
     scaleModal.showModal();
   }
   legendGradientBtn.addEventListener('click', openScaleEditor);
-  scaleRampSel.addEventListener('change', paintScalePreview);
   scaleRevCb.addEventListener('change', paintScalePreview);
   scaleModal.addEventListener('click', (e) => {
     if (e.target === scaleModal || e.target.dataset.closeModal !== undefined) scaleModal.close();
@@ -2185,8 +2210,8 @@
     const fixed = !!entry.scale.domain;
     const isLog = !!entry.scale.log;
     const o = {};
-    if (scaleRampSel.value !== entry.scale.ramp || scaleRevCb.checked !== !!entry.scale.rev) {
-      o.ramp = scaleRampSel.value;
+    if (currentEditorRamp() !== entry.scale.ramp || scaleRevCb.checked !== !!entry.scale.rev) {
+      o.ramp = currentEditorRamp();
       o.rev = scaleRevCb.checked;
     }
     const minRaw = scaleMinIn.value.trim(), maxRaw = scaleMaxIn.value.trim();

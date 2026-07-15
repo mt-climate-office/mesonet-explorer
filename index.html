@@ -574,6 +574,11 @@
       height: 12px; border-radius: 3px;
       border: 1px solid var(--border-glass);
       margin: 2px 2px 3px;
+      /* Fractional widths + the default background-repeat wrap the gradient,
+         bleeding the far end's color into each edge (Chromium). JS must set
+         background-image (not the background shorthand, which resets these). */
+      background-repeat: no-repeat;
+      background-size: calc(100% + 1px) 100%;
     }
     #legend-scale-labels {
       display: flex; justify-content: space-between;
@@ -803,13 +808,39 @@
       display: block; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em;
       text-transform: uppercase; color: var(--text-secondary); margin-bottom: 5px;
     }
-    .scale-ramp-row { display: flex; align-items: center; gap: 10px; }
-    .scale-ramp-row select { flex: 1; max-width: none; }
+    .scale-ramp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+    .scale-ramp-head .scale-label { margin-bottom: 0; }
     .scale-rev { display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; color: var(--text-secondary); cursor: pointer; white-space: nowrap; }
     .scale-rev input { accent-color: var(--accent); }
+    #scale-ramp-list {
+      max-height: 200px; overflow-y: auto;
+      border: 1px solid var(--ctrl-border); border-radius: var(--radius-md);
+      padding: 4px; display: flex; flex-direction: column; gap: 1px;
+    }
+    .scale-ramp-group {
+      font-size: 0.6rem; font-weight: 600; letter-spacing: 0.07em;
+      text-transform: uppercase; color: var(--text-dim);
+      padding: 6px 4px 2px;
+    }
+    .scale-ramp-opt {
+      display: flex; align-items: center; gap: 8px;
+      padding: 3px 6px; border-radius: 4px; cursor: pointer;
+    }
+    .scale-ramp-opt:hover { background: var(--accent-hover); }
+    .scale-ramp-opt:has(input:checked) { background: var(--accent-hover); box-shadow: inset 0 0 0 1px var(--accent); }
+    .scale-ramp-opt input { accent-color: var(--accent); flex-shrink: 0; margin: 0; }
+    .scale-ramp-name { font-size: 0.75rem; color: var(--text-secondary); width: 62px; flex-shrink: 0; }
+    .scale-ramp-strip {
+      flex: 1; height: 10px; border-radius: 2px;
+      border: 1px solid var(--border-glass);
+      background-repeat: no-repeat;
+      background-size: calc(100% + 1px) 100%;
+    }
     #scale-preview {
       height: 12px; border-radius: 3px; margin-top: 8px;
       border: 1px solid var(--border-glass);
+      background-repeat: no-repeat;
+      background-size: calc(100% + 1px) 100%;
     }
     .scale-domain-grid {
       display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
@@ -1164,11 +1195,11 @@
     </div>
 
     <div class="scale-field">
-      <label class="scale-label" for="scale-ramp">Ramp</label>
-      <div class="scale-ramp-row">
-        <select id="scale-ramp"></select>
+      <div class="scale-ramp-head">
+        <span class="scale-label" id="scale-ramp-label">Ramp</span>
         <label class="scale-rev"><input type="checkbox" id="scale-rev"> Reverse</label>
       </div>
+      <div id="scale-ramp-list" role="radiogroup" aria-labelledby="scale-ramp-label"></div>
       <div id="scale-preview" aria-hidden="true"></div>
     </div>
 
