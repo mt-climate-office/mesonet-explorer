@@ -896,7 +896,7 @@
   </div>
 </header>
 
-<div id="control-bar">
+<div id="control-bar" role="region" aria-label="Data controls">
   <div class="control-group">
     <span class="control-label">Time</span>
     <div class="seg-btns" role="group" aria-label="Time mode">
@@ -966,7 +966,7 @@
   </div>
 </div>
 
-<div id="map-container">
+<main id="map-container">
   <div id="map" role="application" aria-label="Mesonet data explorer map"></div>
   <!-- Ships active: boot() waits on the map 'load' event, and the very first
        paint should already show a loading cue. First render clears it. -->
@@ -988,7 +988,7 @@
     </div>
     <div id="legend-body">
       <div id="legend-gradient" aria-hidden="true"></div>
-      <div id="legend-scale-labels" aria-hidden="true"></div>
+      <div id="legend-scale-labels"></div>
       <div id="legend-rows"></div>
       <hr class="legend-divider">
       <div class="legend-section-title">Overlays</div>
@@ -997,7 +997,13 @@
       <div class="legend-meta" id="legend-meta"></div>
     </div>
   </aside>
-</div>
+
+  <!-- Non-visual dataset access: the WebGL station dots are invisible to
+       assistive tech, so each render also fills this hidden table. -->
+  <section class="sr-only" aria-label="Station data">
+    <table id="sr-station-table"></table>
+  </section>
+</main>
 
 <div id="tooltip" aria-hidden="true"></div>
 <div id="toast" role="status" aria-live="polite"></div>

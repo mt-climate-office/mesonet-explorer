@@ -402,6 +402,8 @@
     const dark = document.documentElement.dataset.theme !== 'light';
     document.getElementById('icon-moon').style.display = dark ? 'none' : '';
     document.getElementById('icon-sun') .style.display = dark ? ''     : 'none';
+    document.getElementById('btn-theme').setAttribute('aria-label',
+      dark ? 'Switch to light theme' : 'Switch to dark theme');
   }
   syncThemeIcons();
 
@@ -1305,6 +1307,60 @@
     updateSyncStampFromData();
     hideLoading();
     refreshOpenPopup();
+    renderSRTable();
+    if (!background) {
+      // Tell screen-reader users the map updated — nothing else announces it.
+      const disp = scale.displayDomain;
+      const scalePart = Number.isFinite(disp[0]) && Number.isFinite(disp[1])
+        ? `, scale ${fmt(disp[0])} to ${fmt(disp[1])}${unit ? ' ' + unit : ''}` : '';
+      srAnnounceEl.textContent = `${entry.label}: ${counts.ok} stations reporting${scalePart}.`;
+    }
+  }
+
+  // Non-visual access to the dataset: the WebGL dots are unreachable by
+  // keyboard and invisible to AT, so every render also fills a hidden table.
+  const srTableEl = document.getElementById('sr-station-table');
+  function renderSRTable() {
+    if (!_lastRender || !srTableEl) return;
+    const { entry, unit } = _lastRender;
+    srTableEl.innerHTML = '';
+    const caption = document.createElement('caption');
+    caption.textContent = `${entry.label}${unit ? ` (${unit})` : ''} by station`;
+    srTableEl.appendChild(caption);
+    const thead = document.createElement('thead');
+    const hr = document.createElement('tr');
+    for (const h of ['Station', 'Network', 'Value', 'Observed']) {
+      const th = document.createElement('th');
+      th.scope = 'col';
+      th.textContent = h;
+      hr.appendChild(th);
+    }
+    thead.appendChild(hr);
+    srTableEl.appendChild(thead);
+    const tbody = document.createElement('tbody');
+    const rows = _lastFC.features
+      .map(f => f.properties)
+      .filter(p => activeNetworks.has(p.sub_network))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    for (const p of rows) {
+      const tr = document.createElement('tr');
+      const cells = [
+        `${p.name} (${p.station})`,
+        p.sub_network || '—',
+        p.cat === 'nodata' || p.value == null
+          ? 'no data'
+          : `${p.label}${unit ? ' ' + unit : ''}${p.cat === 'stale' ? ' (stale)' : ''}`,
+        typeof p.dt === 'number' ? formatStampMT(p.dt) : '—',
+      ];
+      cells.forEach((text, i) => {
+        const cell = document.createElement(i === 0 ? 'th' : 'td');
+        if (i === 0) cell.scope = 'row';
+        cell.textContent = text;
+        tr.appendChild(cell);
+      });
+      tbody.appendChild(tr);
+    }
+    srTableEl.appendChild(tbody);
   }
 
   // Keep an open popup in step with the map — variable/time/unit changes and
@@ -1882,12 +1938,14 @@
     if (matches.length === 0) {
       const li = document.createElement('li');
       li.className = 'empty';
+      li.setAttribute('role', 'option');   // listbox children must be options
       li.setAttribute('aria-disabled', 'true');
       li.textContent = `No stations match "${rawQuery.trim()}"`;
       searchDropdown.appendChild(li);
       searchDropdown.hidden = false;
       searchInput.setAttribute('aria-expanded', 'true');
       _activeSearchIndex = -1;
+      srAnnounceEl.textContent = 'No matching stations.';
       return;
     }
     for (const s of matches) {
@@ -1913,6 +1971,8 @@
     searchInput.setAttribute('aria-expanded', 'true');
     _activeSearchIndex = -1;
     searchInput.removeAttribute('aria-activedescendant');
+    srAnnounceEl.textContent =
+      `${matches.length} station${matches.length === 1 ? '' : 's'} found.`;
   }
 
   function hideSearchDropdown() {
@@ -1935,7 +1995,10 @@
     if (idx < 0)             idx = items.length - 1;
     if (idx >= items.length) idx = 0;
     _activeSearchIndex = idx;
-    items.forEach((it, i) => it.classList.toggle('active', i === idx));
+    items.forEach((it, i) => {
+      it.classList.toggle('active', i === idx);
+      it.setAttribute('aria-selected', i === idx ? 'true' : 'false');
+    });
     items[idx].scrollIntoView({ block: 'nearest' });
     searchInput.setAttribute('aria-activedescendant', items[idx].id);
   }
@@ -2037,7 +2100,7 @@
           <button type="button" class="pop-carousel-btn prev" aria-label="Previous photo">&#8249;</button>
           <button type="button" class="pop-carousel-btn next" aria-label="Next photo">&#8250;</button>
         </div>
-        <div class="pop-carousel-caption">
+        <div class="pop-carousel-caption" role="status">
           <span class="pop-carousel-dir"></span>
           <span class="pop-carousel-counter"></span>
         </div>
@@ -2103,6 +2166,9 @@
       const f = frames[idx];
       dirEl.textContent = f.caption;
       cntEl.textContent = `${idx + 1} / ${frames.length}`;
+      img.alt = f.state === 'bad'
+        ? 'No photo for this time'
+        : `Station camera: ${f.caption}, photo ${idx + 1} of ${frames.length}`;
       frame.classList.toggle('unavailable', f.state === 'bad');
       img.classList.toggle('loading', f.state !== 'ok');
       if (f.state === 'bad') { img.removeAttribute('src'); return; }
