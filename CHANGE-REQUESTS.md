@@ -52,6 +52,38 @@ short note on what was done.
 
 ## Done
 
+- [x] **Header height, units picker, label default, share links, export suite.**
+      Five items *(July 2026)*:
+      *Navbar height* — it was jumping to 100-109px below 1200px wide, against 53px
+      above it and 54px on the status map. Cause was a bug from the sidebar work:
+      `.controls` is empty on desktop (every data control moved to the sidebar) but
+      a stale `@media (max-width: 1200px)` rule still gave it `flex-basis: 100%`,
+      so an invisible empty div claimed a whole navbar row. `:empty` couldn't hide
+      it — moving the children out leaves whitespace text nodes behind — so
+      `layoutControls()` hides it explicitly and the 1200px rule is gone (it existed
+      to wrap the search box, which now lives in the sidebar). 53px at every width,
+      matching mesonet-status.
+      *Units picker* — `.seg-btn` was 30px beside 34px `.nav-btn` neighbours, which
+      read as a mistake. Now 34px with matching 0.78rem text; the time-mode segments
+      pick this up too, so all segmented controls agree.
+      *Value labels default to on.* `labels` therefore emits `off` (the new
+      non-default) rather than `on`.
+      *Share links are fully specified.* `pushState` and the share button now share
+      one `viewParams({full})` builder: the address bar omits defaults, the share
+      button writes all ~20 parameters explicitly. Verified by loading a shared URL
+      in a context with the OPPOSITE OS theme and empty storage — theme, mode,
+      variable, date, hour, units, labels, camera, station and sidebar all
+      reproduced identically. `kbd` is deliberately excluded as the sharer's input
+      preference rather than part of the view.
+      *PNG export test suite* — 35 checks: download fires for both themes, valid
+      PNG at 2800x1400, filename pattern, map/branding/colour-ramp present, light
+      and dark genuinely differ (99.4% of pixels), five variable and mode
+      combinations, and the navbar button path as well as the `?export=` hook.
+      All 35 pass. Window-independence was checked against a measured live-data
+      noise floor and then confirmed by interleaving: plain-vs-plain differed by
+      1169px and panel-vs-panel by 1541px, while plain-vs-panel differed by 0 and
+      372px — so viewport size, sidebar state and an open station panel provably
+      have no effect on the output.
 - [x] **Default view gets a clean URL.** Every parameter has a default, and now
       none is written while its value matches it — so a fresh load carries no
       query string at all, and a parameter appears only as the view diverges.

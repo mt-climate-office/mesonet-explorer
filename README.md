@@ -17,7 +17,7 @@ Interactive map explorer for [Montana Mesonet](https://climate.umt.edu/mesonet/)
 - **Station search** — tiered name/ID matching, keyboard navigation, `/` shortcut, flies to the station and opens its detail panel.
 - **Station details** — metadata, the current variable's value and timestamp, co-located stations as tappable rows, dashboard + API links, and a **photo carousel** cycling every camera direction, time-matched to the selected hour (or morning + afternoon frames in Daily mode). One panel, two dock edges: the **right** edge of the map on desktop, the **bottom** edge on phones and short viewports. Because it's docked rather than anchored to the dot, it covers no stations — you can click straight from one station to the next and the content swaps in place. The selected dot gets a ring. On compact viewports it opens as a *peek* (name, network, value) and drags up for the rest; swipe down, tap the map, press <kbd>Esc</kbd>, or hit the close button to dismiss.
 - **Overlays** — Montana outline and tribal lands (always on), counties, watersheds (HUC6 basins, FlatGeobuf), and live NEXRAD radar (Latest mode only, courtesy of the [Iowa Environmental Mesonet](https://mesonet.agron.iastate.edu/)).
-- **Toggleable value labels** with collision dodging; sub-network chips (HydroMet / AgriMet) with live counts.
+- **Value labels** on by default, with collision dodging; sub-network chips (HydroMet / AgriMet) with live counts.
 - **US / metric units** (°F/°C toggle) applied to values, legend, and the detail panel.
 - **PNG export** — one click downloads a branded 2800×1400 map of the current view (fixed Montana framing independent of your window, MCO logo, timestamp, and color scale), emulating the Mesonet Photo Explorer's export.
 - **Shareable URLs** — every choice lives in the query string; light/dark theme.
@@ -42,6 +42,12 @@ Two consequences worth knowing:
   choice is remembered in `localStorage` regardless; the parameter exists so a link
   can carry a deliberate one.
 
+The **share button is the exception**: it copies a *fully specified* URL with every
+parameter written out, so the recipient sees precisely what the sharer saw —
+regardless of their OS theme, their saved preferences, or what "today" happens to
+be when they open it. (`kbd` is left out: it's the sharer's input preference, not
+part of the view.) The address bar stays minimal either way.
+
 | Param | Values | Default | Meaning |
 |---|---|---|---|
 | `mode` | `latest` \| `hourly` \| `daily` | `latest` | Time mode |
@@ -50,7 +56,7 @@ Two consequences worth knowing:
 | `hour` | `0`–`23` | last complete hour | Hourly mode hour (Mountain Time) |
 | `units` | `us` \| `si` | `us` | Unit system |
 | `net` | `hydromet`, `agrimet` (space/comma list) | both | Visible sub-networks; omitted from the URL when both are on |
-| `labels` | `on` | off | Value labels on markers |
+| `labels` | `on` \| `off` | **on** | Value labels on markers |
 | `agg` | `min` \| `max` \| `avg` \| `sum` \| `stddev` | variable's default | Aggregation function (Hourly/Daily, observed variables); only non-default choices appear in the URL |
 | `scale` | `min,mid,max` (each may be `-`) | automatic | Custom color-scale range/pivot for the current variable; setting min/max locks the scale across time steps |
 | `ramp` | ramp name, `-r` suffix = reversed (e.g. `vik`, `batlow-r`) | variable's default | Color ramp override (ColorBrewer + Crameri names) |

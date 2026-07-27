@@ -525,10 +525,13 @@
   })();
   if (activeNetworks.size === 0) activeNetworks = new Set(KNOWN_NETWORKS);
 
+  const LABELS_DEFAULT = true;
   let labelsOn = (() => {
     const u = getLower('labels');
     if (u === 'on' || u === 'off') return u === 'on';
-    return localStorage.getItem('mco-explorer-labels') === 'on';
+    const saved = localStorage.getItem('mco-explorer-labels');
+    if (saved === 'on' || saved === 'off') return saved === 'on';
+    return LABELS_DEFAULT;
   })();
 
   let radarOn = getLower('radar') === 'on';
@@ -623,7 +626,7 @@
   // ── Share ────────────────────────────────────────────────────────────────
   document.getElementById('btn-share').addEventListener('click', async () => {
     try {
-      await navigator.clipboard.writeText(location.href);
+      await navigator.clipboard.writeText(shareURL());
       showToast('Link copied to clipboard');
     } catch {
       showToast('Could not copy — copy the URL from the address bar');
@@ -3228,6 +3231,11 @@
       sec.hidden = !sec.querySelector(':scope > *:not(.sb-title):not([hidden])');
     }
     controlBarEl.hidden = !controlBarEl.querySelector(':scope > *:not([hidden])');
+    // And .controls, whose children all move to the sidebar on desktop. CSS
+    // :empty can't do this: moving the children out leaves whitespace text nodes
+    // behind, so the selector never matches and the empty div still takes part in
+    // the navbar's flex layout.
+    if (navControlsEl) navControlsEl.hidden = !navControlsEl.querySelector(':scope > *:not([hidden])');
   }
 
   function setSidebarOpen(open, { persist = true, refit = true } = {}) {
@@ -3575,28 +3583,39 @@
         && Math.abs(c.lat - wlat) < 0.01;
   }
 
-  function pushState() {
+  // Builds the URL parameters for the current view.
+  //
+  // `full: false` (the address bar) omits anything sitting at its default, so a
+  // default view has no query string at all and the URL stays the shortest
+  // description of what changed.
+  //
+  // `full: true` (the share button) writes every parameter explicitly, so the
+  // recipient sees exactly what the sharer saw — independent of their OS theme,
+  // their saved preferences, or what "today" happens to be when they open it.
+  function viewParams({ full = false } = {}) {
     const params = {};
-    if (activeMode !== 'latest') params.mode = activeMode;
-    if (activeVar !== 'air_temp') params.var = activeVar;
-    // Date and hour default to the newest data available for the mode, which is
-    // also what a load with no parameter resolves to — so a view of the latest
-    // day/hour needs neither. NOTE the consequence for sharing: a link with no
-    // date shows the RECIPIENT's latest day, not the sender's. That is right for
-    // "here are current conditions" and wrong for "look at this specific time";
-    // the latter always carries an explicit date, since a past date is by
-    // definition not the default.
-    if (activeMode !== 'latest' && activeDate !== maxDateForMode()) params.date = activeDate;
-    if (activeMode === 'hourly' && activeHour !== lastCompleteHourMT().hour) {
+    const entry = REGISTRY_BY_KEY.get(activeVar);
+    const put = (key, value, isDefault) => {
+      if (full || !isDefault) params[key] = value;
+    };
+
+    put('mode', activeMode, activeMode === 'latest');
+    put('var', activeVar, activeVar === 'air_temp');
+    // Date and hour only mean anything outside Latest. Their default is the newest
+    // data available, which is also what a load with no parameter resolves to —
+    // so a shared link pins them explicitly and the address bar does not.
+    if (full ? activeMode !== 'latest' : (activeMode !== 'latest' && activeDate !== maxDateForMode())) {
+      params.date = activeDate;
+    }
+    if (full ? activeMode === 'hourly'
+             : (activeMode === 'hourly' && activeHour !== lastCompleteHourMT().hour)) {
       params.hour = String(activeHour);
     }
-    if (activeUnits !== 'us') params.units = activeUnits;
-    if (aggActive(REGISTRY_BY_KEY.get(activeVar))) params.agg = activeAgg;
-    // Default is every known sub-network, so only a narrowed selection is worth
-    // putting in the URL.
-    if (activeNetworks.size !== KNOWN_NETWORKS.length) {
-      params.net = [...activeNetworks].map(n => n.toLowerCase()).join(' ');
-    }
+    put('units', activeUnits, activeUnits === 'us');
+    if (aggActive(entry)) params.agg = activeAgg;
+    else if (full && activeMode !== 'latest' && aggSupported(entry) && activeAgg) params.agg = activeAgg;
+    put('net', [...activeNetworks].map(n => n.toLowerCase()).join(' '),
+        activeNetworks.size === KNOWN_NETWORKS.length);
     if (scaleOverride) {
       const f = (v) => Number.isFinite(v) ? String(v) : '-';
       if (scaleLocked() || Number.isFinite(scaleOverride.mid)) {
@@ -3604,28 +3623,23 @@
       }
       if (scaleOverride.ramp) params.ramp = scaleOverride.ramp + (scaleOverride.rev ? '-r' : '');
     }
-    if (labelsOn) params.labels = 'on';
-    if (radarOn) params.radar = 'on';
-    if (!nodataShown) params.nodata = 'hide';
-    if (staleShown) params.stale = 'show';
-    if (overlayCounties) params.counties = 'on';
-    if (overlayWatersheds) params.watersheds = 'on';
-    // Emit whenever the legend differs from what this viewport would default to,
-    // so a shared link reproduces what the sender is looking at. Only
-    // 'collapsed' used to be written, which meant an expanded legend on a phone
-    // (where collapsed is the default) was silently dropped from the URL.
-    if (legendCollapsed) params.legend = 'collapsed';
+    put('labels', labelsOn ? 'on' : 'off', labelsOn === LABELS_DEFAULT);
+    put('radar', radarOn ? 'on' : 'off', !radarOn);
+    put('nodata', nodataShown ? 'show' : 'hide', nodataShown);
+    put('stale', staleShown ? 'show' : 'hide', !staleShown);
+    put('counties', overlayCounties ? 'on' : 'off', !overlayCounties);
+    put('watersheds', overlayWatersheds ? 'on' : 'off', !overlayWatersheds);
+    put('legend', legendCollapsed ? 'collapsed' : 'open', !legendCollapsed);
     // Only meaningful on desktop, where the sidebar is a fixture rather than a
-    // transient drawer.
-    if (!isCompact && !sidebarOpen) params.sidebar = 'closed';
-    // The theme's default is the OS preference, so emit it only when the user has
-    // gone against that. (Their own choice is remembered in localStorage either
-    // way — the parameter exists so a shared link can carry a deliberate one.)
+    // transient drawer — so a share from a phone shouldn't force it on a desktop.
+    if (!isCompact) put('sidebar', sidebarOpen ? 'open' : 'closed', sidebarOpen);
+    // The theme's default is the viewer's OS preference, so the address bar only
+    // shows a deliberate override. A shared link always pins it.
     const theme = document.documentElement.dataset.theme;
-    if (theme && theme !== osTheme()) params.theme = theme;
-    // The camera's default is the fitted Montana extent. Emitted as a set,
-    // because the parser needs all three to position the map.
-    if (!atDefaultExtent()) {
+    if (theme) put('theme', theme, theme === osTheme());
+    // The camera's default is the fitted Montana extent. All three or none — the
+    // parser needs the set to position the map.
+    if (full || !atDefaultExtent()) {
       const c = map.getCenter();
       params.lng  = c.lng.toFixed(4);
       params.lat  = c.lat.toFixed(4);
@@ -3635,10 +3649,21 @@
     // Not previously round-tripped, so it was silently lost on the first
     // pushState. It's the WCAG 2.1.4 escape hatch for the single-character
     // shortcut — someone who needs it shouldn't have to re-add it every visit.
+    // Deliberately NOT forced into a shared link: it is the sharer's input
+    // preference, not part of what they were looking at.
     if (!kbdShortcuts) params.kbd = 'off';
+    return params;
+  }
+
+  function pushState() {
     // A default view gets a clean URL — no trailing '?'.
-    const qs = new URLSearchParams(params).toString();
+    const qs = new URLSearchParams(viewParams()).toString();
     history.replaceState(null, '', qs ? `?${qs}` : location.pathname);
+  }
+
+  function shareURL() {
+    const qs = new URLSearchParams(viewParams({ full: true })).toString();
+    return `${location.origin}${location.pathname}?${qs}`;
   }
 
   // ── Map events ───────────────────────────────────────────────────────────

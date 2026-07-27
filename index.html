@@ -247,8 +247,9 @@
     #navbar > #btn-drawer   { order: 0; }
     #navbar > .controls     { order: 3; }
     #navbar > .nav-meta     { order: 4; }
-    /* Empty at desktop widths — every data control lives in the sidebar. */
-    #navbar > .controls:empty { display: none; }
+    /* Hidden at desktop widths by layoutControls() — every data control lives in
+       the sidebar there. Not :empty, which stays false because moving the
+       children out leaves whitespace text nodes behind. */
     #navbar {
     }
     .logo-link { display: flex; flex-shrink: 0; }
@@ -286,10 +287,12 @@
     #btn-info:hover { background: var(--accent); color: #fff; }
 
     .seg-btns { display: flex; gap: 0; }
+    /* Height and font-size track .nav-btn: as a 30px group beside 34px buttons
+       the units picker read as a mistake. */
     .seg-btn {
-      padding: 4px 10px; min-height: 30px; height: 30px;
+      padding: 4px 12px; min-height: 34px; height: 34px;
       border-radius: 0; border-right-width: 0;
-      font-size: 0.74rem; font-weight: 600;
+      font-size: 0.78rem; font-weight: 600;
     }
     .seg-btn:first-child { border-radius: var(--radius-md) 0 0 var(--radius-md); }
     .seg-btn:last-child  { border-radius: 0 var(--radius-md) var(--radius-md) 0; border-right-width: 1px; }
@@ -1237,10 +1240,6 @@
     #scale-apply:hover { background: var(--accent-dk); }
 
     /* ── Responsive ──────────────────────────────────────────────────────── */
-    @media (max-width: 1200px) {
-      .nav-meta  { order: 1; }
-      .controls  { order: 2; flex-basis: 100%; margin-left: 0; }
-    }
     @media (max-width: 1060px) {
       #navbar, #control-bar {
         padding-left: max(0.6rem, env(safe-area-inset-left));
