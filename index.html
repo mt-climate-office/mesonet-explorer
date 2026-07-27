@@ -651,10 +651,11 @@
       padding: 2px 0 10px; margin-bottom: 4px;
       border-bottom: 1px solid var(--border-glass);
     }
-    #sb-brand .logo-img { width: 30px; height: 30px; }
-    #sb-brand .brand { display: block; }
-    #sb-brand .brand-title { font-size: 0.8rem; }
-    #sb-brand .brand-subtitle { display: none; }
+    #sb-brand .logo-img { width: 32px; height: 32px; }
+    #sb-brand .brand { flex-shrink: 1; min-width: 0; }
+    #sb-brand .brand-title { font-size: 0.72rem; color: var(--text-secondary); }
+    /* The header hides this at narrow widths; the drawer has room for it. */
+    #sb-brand .brand-subtitle { display: block; font-size: 0.58rem; white-space: normal; }
     /* Actions tray inside the drawer. */
     #sb-actions .nav-meta { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-left: 0; }
     #sb-actions .refresh-status { display: none; }
@@ -1260,15 +1261,7 @@
        a short-and-WIDE window — a 1440x520 desktop — has plenty of room for the
        full navbar and must not be given the phone layout. */
     @media (max-width: 640px) {
-      /* Row 1: logo + search + ⋯ . The <h1> stays in the a11y tree. */
       #navbar { min-height: 44px; padding-top: 0.3rem; padding-bottom: 0.3rem; }
-      .brand, .nav-divider {
-        position: absolute !important;
-        width: 1px !important; height: 1px !important;
-        padding: 0 !important; margin: -1px !important;
-        overflow: hidden !important; clip: rect(0, 0, 0, 0) !important;
-        white-space: nowrap !important; border: 0 !important;
-      }
       .controls { order: 0; flex: 1; flex-basis: auto; flex-wrap: nowrap; min-width: 0; }
       .search-wrap { flex: 1; min-width: 0; }
       input[type="search"], input[type="search"]:focus { width: 100%; }
