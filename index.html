@@ -15,7 +15,8 @@
     connect-src 'self' https://mesonet2.climate.umt.edu https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com https://mesonet.agron.iastate.edu;
     base-uri 'none';
     form-action 'none'">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- viewport-fit=cover so env(safe-area-inset-*) resolves on notched phones. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Mesonet Explorer · Montana Climate Office</title>
   <meta name="description" content="Interactive map explorer for Montana Mesonet station data — current conditions, hourly and daily history, by the Montana Climate Office.">
   <meta name="author" content="Montana Climate Office">
@@ -121,6 +122,30 @@
       --input-bg:       #f4f5f7;
     }
 
+    :root { --sidebar-w: 272px; }
+
+    /* ── Stacking tiers ──────────────────────────────────────────────────────
+       One ladder for every floating surface. Add to a tier, don't invent a
+       number. MapLibre's own .maplibregl-ctrl-* containers are z-index 2 from
+       the vendor stylesheet, so anything meant to sit over the map controls —
+       notably the station popup, which ships with no z-index at all — has to be
+       above that. The detail tier stays BELOW the chrome so an open popup can
+       never cover the navbar or control bar; <dialog> lives in the browser's
+       top layer and outranks all of these regardless. */
+    :root {
+      --z-map-ctrl:      2;   /* vendor .maplibregl-ctrl-* containers    */
+      --z-map-panel:    40;   /* #sidebar + handle; drawer scrim        */
+      --z-drawer:       70;   /* #sidebar as a drawer, over the detail  */
+      --z-map-notice:   20;   /* #empty-state                           */
+      --z-map-progress: 30;   /* #loading-bar, #loading-note            */
+      --z-detail:       60;   /* #station-sheet (docked station detail)  */
+      --z-chrome:       90;   /* #control-bar                           */
+      --z-chrome-top:  100;   /* #navbar                                */
+      --z-flyout:      150;   /* #search-dropdown                       */
+      --z-cursor:      200;   /* #tooltip — follows the pointer anywhere */
+      --z-toast:       400;   /* #toast                                 */
+    }
+
     /* ── MapLibre control polish ─────────────────────────────────────────── */
     .maplibregl-ctrl-group {
       background: var(--glass) !important;
@@ -148,6 +173,29 @@
     .maplibregl-ctrl-attrib { background: var(--glass) !important; color: var(--text-muted) !important; }
     .maplibregl-ctrl-attrib a { color: var(--text-secondary) !important; }
     .maplibregl-ctrl-attrib button.maplibregl-ctrl-attrib-button { filter: var(--ctrl-icon-filter, none); }
+    /* Vendor default is 2; restated so the whole stacking ladder is greppable.
+       With viewport-fit=cover the corner containers need the insets themselves,
+       or the attribution lands under the home indicator. */
+    .maplibregl-ctrl-top-left, .maplibregl-ctrl-top-right,
+    .maplibregl-ctrl-bottom-left, .maplibregl-ctrl-bottom-right {
+      z-index: var(--z-map-ctrl);
+    }
+    .maplibregl-ctrl-bottom-left, .maplibregl-ctrl-bottom-right {
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    /* Zoom + fit live at the map's TOP-LEFT. The detail panel docks to the right
+       edge, so anything in a right-hand corner ends up underneath it — that's
+       what made the zoom controls unclickable whenever a station was open. The
+       left corner is free now that the sidebar has its own column, and the
+       controls can just stay put. Attribution has to stay bottom-right (MapLibre
+       puts it there), so it still lifts clear of the bottom-docked sheet. */
+    .is-compact body.sheet-open .maplibregl-ctrl-bottom-right,
+    .is-compact body.sheet-open .maplibregl-ctrl-bottom-left {
+      transform: translateY(calc(-1 * var(--sheet-h, 0px)));
+      transition: transform 0.22s cubic-bezier(0.4,0,0.2,1);
+    }
+    .maplibregl-ctrl-top-left, .maplibregl-ctrl-bottom-left { padding-left: env(safe-area-inset-left); }
+    .maplibregl-ctrl-top-right, .maplibregl-ctrl-bottom-right { padding-right: env(safe-area-inset-right); }
 
     /* ── Reset & base ────────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -184,12 +232,24 @@
       flex-shrink: 0;
       position: relative;
       display: flex; align-items: center; gap: 0.75rem;
-      padding: 0.4rem 1rem;
+      padding: 0.4rem max(1rem, env(safe-area-inset-right)) 0.4rem max(1rem, env(safe-area-inset-left));
       min-height: 52px;
       background: var(--glass);
       backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
       flex-wrap: wrap; row-gap: 0.4rem;
-      z-index: 100;
+      z-index: var(--z-chrome-top);
+      /* layoutControls() relocates these nodes between the navbar and the
+         sidebar with appendChild, so DOM order is not stable. Pin it here. */
+    }
+    #navbar > .logo-link    { order: 0; }
+    #navbar > .nav-divider  { order: 1; }
+    #navbar > .brand        { order: 2; }
+    #navbar > #btn-drawer   { order: 0; }
+    #navbar > .controls     { order: 3; }
+    #navbar > .nav-meta     { order: 4; }
+    /* Empty at desktop widths — every data control lives in the sidebar. */
+    #navbar > .controls:empty { display: none; }
+    #navbar {
     }
     .logo-link { display: flex; flex-shrink: 0; }
     .logo-img  { width: 40px; height: 40px; border-radius: 6px; display: block; }
@@ -263,12 +323,12 @@
       flex-shrink: 0;
       position: relative;
       display: flex; align-items: center; gap: 0.75rem;
-      padding: 0.35rem 1rem 0.45rem;
+      padding: 0.35rem max(1rem, env(safe-area-inset-right)) 0.45rem max(1rem, env(safe-area-inset-left));
       background: var(--glass);
       backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
       border-bottom: 1px solid var(--border);
       flex-wrap: wrap; row-gap: 0.35rem;
-      z-index: 90;
+      z-index: var(--z-chrome);
     }
     #control-bar::after {
       content: ''; position: absolute; bottom: 0; left: 0; right: 0;
@@ -371,7 +431,7 @@
       margin: 0; padding: 4px;
       max-height: 280px;
       overflow-y: auto;
-      z-index: 150;
+      z-index: var(--z-flyout);
     }
     #search-dropdown[hidden] { display: none; }
     #search-dropdown li {
@@ -445,7 +505,7 @@
        is display:none on phones. */
     #loading-bar {
       position: absolute; top: 0; left: 0; right: 0; height: 3px;
-      z-index: 30; pointer-events: none; overflow: hidden;
+      z-index: var(--z-map-progress); pointer-events: none; overflow: hidden;
       display: none;
     }
     #loading-bar.active { display: block; }
@@ -463,7 +523,7 @@
     }
     #loading-note {
       position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
-      z-index: 30; pointer-events: none;
+      z-index: var(--z-map-progress); pointer-events: none;
       background: var(--bg-surface);
       border: 1px solid var(--border);
       border-radius: 999px;
@@ -479,7 +539,7 @@
     #empty-state {
       position: absolute;
       top: 18px; left: 50%; transform: translateX(-50%);
-      z-index: 20;
+      z-index: var(--z-map-notice);
       pointer-events: none;
       max-width: calc(100% - 32px);
     }
@@ -506,20 +566,133 @@
     }
     .empty-state-retry:hover { background: var(--accent-hover); border-color: var(--accent); }
 
-    /* ── Legend panel (bottom-left, collapsible) ─────────────────────────── */
+    /* ── Control sidebar ─────────────────────────────────────────────────────
+       Takes a real column: opening or closing it resizes the map, which is the
+       one camera change that IS wanted (you asked for it, and it only happens
+       when you toggle the sidebar). The station detail panel deliberately does
+       the opposite — it floats. */
+    #app-row {
+      flex: 1 1 auto; min-height: 0;
+      display: flex; align-items: stretch;
+      position: relative;
+    }
+    #map-container { flex: 1 1 auto; min-width: 0; }
+    #sidebar {
+      flex: 0 0 var(--sidebar-w);
+      width: var(--sidebar-w);
+      display: flex; flex-direction: column;
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border);
+      padding-left: env(safe-area-inset-left);
+      transition: margin-left 0.22s cubic-bezier(0.4,0,0.2,1);
+    }
+    #sidebar[hidden] { display: none; }
+    /* Collapse by sliding it out of the row, so the map claims the space. */
+    body.sidebar-closed #sidebar { margin-left: calc(-1 * var(--sidebar-w)); }
+    .sidebar-scroll {
+      flex: 1 1 auto; min-height: 0;
+      overflow-y: auto; overscroll-behavior: contain;
+      padding: 10px 12px 16px;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .sb-section { padding: 8px 0; border-bottom: 1px solid var(--border-glass); }
+    .sb-section:last-child { border-bottom: 0; }
+    .sb-title {
+      font-size: 0.62rem; font-weight: 600; letter-spacing: 0.07em;
+      text-transform: uppercase; color: var(--text-dim);
+      margin: 0 0 6px;
+    }
+    /* The control groups were built for a horizontal bar; stack them here. */
+    #sidebar .control-group { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+    /* Must out-specify the rule above, which is id-scoped: syncModeUI() hides
+       the Date/Hour/Aggregation groups per mode via the hidden attribute. */
+    #sidebar .control-group[hidden], #control-bar .control-group[hidden] { display: none; }
+    #sidebar .control-group:last-child { margin-bottom: 0; }
+    #sidebar .control-label { flex: 1 1 100%; }
+    /* The section heading already says "Time"/"Variable" — the group's own label
+       would repeat it. Date, Hour and Aggregation keep theirs: those are distinct. */
+    #sidebar #mode-group .control-label,
+    #sidebar #variable-group .control-label,
+    #sidebar #agg-group .control-label { display: none; }
+    #sidebar .search-wrap { width: 100%; }
+    #sidebar input[type="search"], #sidebar input[type="search"]:focus { width: 100%; }
+    #sidebar #variable-select, #sidebar #agg-select { width: 100%; max-width: none; }
+    #sidebar .seg-btns { width: 100%; }
+    #sidebar .seg-btn { flex: 1; justify-content: center; }
+    #sidebar .chip-group { flex-wrap: wrap; }
+    #sidebar .date-stepper { flex: 1; }
+    #sidebar #date-input { flex: 1; min-width: 0; }
+    /* Collapse handle: a tab on the sidebar's outer edge, vertically centred so it
+       never shares a corner with the map's own controls. */
+    #sidebar-toggle {
+      position: absolute; z-index: var(--z-map-panel);
+      top: 50%; margin-top: -22px;
+      left: var(--sidebar-w);
+      width: 18px; height: 44px;
+      display: flex; align-items: center; justify-content: center;
+      padding: 0;
+      background: var(--bg-surface); color: var(--text-secondary);
+      border: 1px solid var(--border); border-left: 0;
+      border-radius: 0 var(--radius-md) var(--radius-md) 0;
+      cursor: pointer; box-shadow: 2px 0 8px rgba(0,0,0,0.18);
+      transition: left 0.22s cubic-bezier(0.4,0,0.2,1), color var(--transition);
+    }
+    #sidebar-toggle:hover { color: var(--accent); }
+    #sidebar-toggle svg { width: 12px; height: 12px; }
+    body.sidebar-closed #sidebar-toggle { left: 0; }
+    body.sidebar-closed #sidebar-toggle svg { transform: rotate(180deg); }
+
+    #sidebar-scrim { display: none; }
+
+    /* Brand block at the top of the drawer (compact only — see .logo-link above). */
+    #sb-brand:empty { display: none; }
+    #sb-brand {
+      display: flex; align-items: center; gap: 0.6rem;
+      padding: 2px 0 10px; margin-bottom: 4px;
+      border-bottom: 1px solid var(--border-glass);
+    }
+    #sb-brand .logo-img { width: 30px; height: 30px; }
+    #sb-brand .brand { display: block; }
+    #sb-brand .brand-title { font-size: 0.8rem; }
+    #sb-brand .brand-subtitle { display: none; }
+    /* Actions tray inside the drawer. */
+    #sb-actions .nav-meta { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-left: 0; }
+    #sb-actions .refresh-status { display: none; }
+
+    /* Compact: an off-canvas drawer over the map, with a scrim, instead of a
+       fixture. The desktop edge handle would be a second, redundant control. */
+    .is-compact #sidebar {
+      position: absolute; z-index: var(--z-drawer);
+      top: 0; bottom: 0; left: 0;
+      flex: none;
+      width: min(300px, 86vw);
+      margin-left: 0;
+      box-shadow: 4px 0 28px rgba(0,0,0,0.45);
+      transform: translateX(0);
+      transition: transform 0.22s cubic-bezier(0.4,0,0.2,1);
+    }
+    /* A drawer slides away entirely rather than giving its column to the map. */
+    .is-compact body.sidebar-closed #sidebar { transform: translateX(-100%); margin-left: 0; }
+    .is-compact #sidebar-toggle { display: none; }
+    .is-compact #sidebar-scrim {
+      display: block; position: absolute; inset: 0;
+      z-index: var(--z-map-panel);
+      background: rgba(0,0,0,0.45);
+      -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+    }
+    .is-compact #sidebar-scrim[hidden] { display: none; }
+    /* #btn-drawer only exists for the drawer. */
+    #btn-drawer { display: none; }
+    .is-compact #btn-drawer { display: flex; flex-shrink: 0; }
+
+    /* ── Legend ──────────────────────────────────────────────────────────────
+       Lives in the sidebar (a drawer on compact viewports), never over the map.
+       It used to be an absolutely-positioned card in the bottom-left corner with
+       its own glass background, a z-index, and a height capped to the map — all
+       of that is gone with the sidebar, along with the overrides that used to
+       undo it. Collapsing is kept because ?legend= is a documented parameter. */
     #legend {
-      position: absolute;
-      bottom: max(36px, calc(12px + env(safe-area-inset-bottom)));
-      left: 12px;
-      z-index: 10;
-      min-width: 210px;
-      max-width: 280px;
-      background: var(--glass);
-      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-      border: 1px solid var(--border-glass);
-      border-radius: var(--radius-md);
-      box-shadow: var(--shadow);
-      padding: 8px 10px 8px;
+      display: flex; flex-direction: column;
       transition: padding 0.2s cubic-bezier(0.4,0,0.2,1);
     }
     /* Collapsed hides the body but keeps the header AND the color key. */
@@ -561,8 +734,12 @@
     #legend-toggle-btn:hover { color: var(--accent-light); }
     #legend.collapsed #legend-toggle-btn { transform: rotate(180deg); }
     #legend-body {
-      max-height: 420px; opacity: 1; margin-top: 6px;
-      overflow-y: auto;
+      /* A px endpoint keeps the collapse transition interpolating (it animates
+         max-height 0 -> N); the sidebar itself provides the scrolling. */
+      max-height: 420px;
+      min-height: 0;
+      opacity: 1; margin-top: 6px;
+      overflow-y: auto; overscroll-behavior: contain;
       transition: max-height 0.25s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease, margin-top 0.2s ease;
     }
     .legend-desc {
@@ -631,23 +808,31 @@
       font-size: 0.62rem; color: var(--text-muted);
       padding: 2px 4px 0; line-height: 1.5;
     }
-    /* ── Popup ───────────────────────────────────────────────────────────── */
-    .maplibregl-popup { max-width: 320px !important; }
-    .maplibregl-popup-content {
-      background: var(--bg-surface) !important;
-      color: var(--text-primary) !important;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md) !important;
-      padding: 12px 14px 12px !important;
-      box-shadow: var(--shadow) !important;
-      font-family: 'Outfit', sans-serif;
+    /* ── Station detail body ─────────────────────────────────────────────────
+       Shared by both dock edges of #station-sheet. This used to style a MapLibre
+       popup anchored to the dot; that's gone, along with its z-index fight with
+       the legend and its height clamp. */
+    /* Sticky header keeps the title and the close button reachable while the
+       body scrolls. Full-bleed, with its own gutter (see .sheet-body children). */
+    .pop-head {
+      position: sticky; top: 0; z-index: 1;
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 4px 14px 6px;
+      background: var(--bg-surface);
     }
-    .maplibregl-popup-tip { border-top-color: var(--bg-surface) !important; border-bottom-color: var(--bg-surface) !important; }
-    .maplibregl-popup-close-button {
-      color: var(--text-muted) !important;
-      font-size: 1.1rem !important; padding: 2px 6px !important;
+    .pop-heads { flex: 1; min-width: 0; }
+    .pop-close {
+      flex-shrink: 0; width: 36px; height: 36px; margin: -6px -6px 0 0;
+      display: flex; align-items: center; justify-content: center;
+      background: none; border: 1px solid transparent; border-radius: var(--radius-sm);
+      color: var(--text-muted); font-size: 1.35rem; line-height: 1; cursor: pointer;
+      transition: var(--transition);
     }
-    .pop-title { font-size: 0.95rem; font-weight: 600; color: var(--text-primary); line-height: 1.2; padding-right: 18px; }
+    .pop-close:hover {
+      color: var(--text-primary); border-color: var(--ctrl-border);
+      background: var(--accent-hover);
+    }
+    .pop-title { font-size: 0.95rem; font-weight: 600; color: var(--text-primary); line-height: 1.2; }
     .pop-sub   { font-size: 0.7rem; color: var(--text-muted); font-family: 'Space Mono', monospace; margin-top: 2px; }
     .pop-badge {
       display: inline-block; font-size: 0.62rem; font-weight: 600;
@@ -671,12 +856,26 @@
     .pop-meta { font-size: 0.75rem; color: var(--text-secondary); margin-top: 8px; line-height: 1.5; }
     .pop-meta strong { color: var(--text-primary); font-weight: 500; }
     .pop-siblings { margin-top: 8px; font-size: 0.75rem; color: var(--text-secondary); line-height: 1.5; }
-    .pop-sibling-link {
-      background: none; border: none; padding: 0;
-      font: inherit; color: var(--accent-light);
-      text-decoration: underline; cursor: pointer;
+    .pop-siblings-label {
+      font-size: 0.62rem; font-weight: 600; letter-spacing: 0.07em;
+      text-transform: uppercase; color: var(--text-dim); margin-bottom: 3px;
     }
-    .pop-sibling-link:hover { color: var(--accent); }
+    /* Full-width rows, not inline links: on touch this is the primary route to a
+       co-located station, since the canvas spider needs a hover to discover. */
+    .pop-sibling-link {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      width: 100%; min-height: 34px; padding: 5px 8px; margin-top: 2px;
+      background: var(--bg-raised); border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font: inherit; text-align: left; color: var(--accent-light);
+      cursor: pointer; transition: var(--transition);
+    }
+    .pop-sibling-link:hover { border-color: var(--accent); background: var(--accent-hover); color: var(--accent); }
+    .pop-sibling-name { font-weight: 500; }
+    .pop-sibling-net {
+      flex-shrink: 0; font-size: 0.6rem; font-weight: 600; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--text-muted);
+    }
     .pop-links { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
     .pop-links a {
       font-size: 0.78rem; color: var(--accent-light); text-decoration: none;
@@ -693,11 +892,25 @@
       transition: opacity 0.15s;
     }
     .pop-carousel-img.loading { opacity: 0.35; }
-    .pop-carousel-frame.unavailable::after {
+    /* The frame keeps its 4:3 box in every state. A photo arriving late — or
+       turning out not to exist — must never change the container's height, or
+       MapLibre re-anchors the popup while the user is reading it. */
+    .pop-carousel-frame.unavailable::after,
+    .pop-carousel[data-state="loading"] .pop-carousel-frame::after,
+    .pop-carousel[data-state="none"] .pop-carousel-frame::after {
       content: 'No photo for this time'; position: absolute; inset: 0;
       display: flex; align-items: center; justify-content: center;
       font-size: 0.75rem; color: var(--text-muted);
     }
+    .pop-carousel[data-state="loading"] .pop-carousel-frame::after { content: 'Loading photo…'; }
+    .pop-carousel[data-state="loading"] .pop-carousel-img,
+    .pop-carousel[data-state="none"] .pop-carousel-img { visibility: hidden; }
+    /* Nothing to page through in these states. */
+    .pop-carousel[data-state="loading"] .pop-carousel-btn,
+    .pop-carousel[data-state="none"] .pop-carousel-btn { display: none; }
+    /* Caption is meaningless until a frame is chosen — reserve its line anyway. */
+    .pop-carousel[data-state="loading"] .pop-carousel-caption,
+    .pop-carousel[data-state="none"] .pop-carousel-caption { visibility: hidden; }
     .pop-carousel-btn {
       position: absolute; top: 50%; transform: translateY(-50%);
       width: 26px; height: 26px; border-radius: 50%;
@@ -713,6 +926,120 @@
       font-family: 'Space Mono', monospace; font-size: 0.66rem; color: var(--text-muted);
     }
 
+    /* ── Station detail panel ────────────────────────────────────────────────
+       One panel, two dock edges: bottom on compact viewports, right on desktop
+       (see the .is-compact branch below). It always opens in the same place, so
+       there is no anchor to flip, nothing to clip, and — unlike the anchored
+       popup this replaced — it never sits on top of the dots. Reuses every
+       .pop-* rule above for its body. */
+    #station-sheet {
+      position: fixed; z-index: var(--z-detail);
+      left: 0; right: 0; bottom: 0;
+      display: flex; flex-direction: column;
+      max-height: calc((100dvh - var(--chrome-h, 96px)) * 0.5);
+      background: var(--bg-surface);
+      border-top: 1px solid var(--border);
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      box-shadow: 0 -6px 28px rgba(0,0,0,0.45);
+      /* No horizontal padding: .sheet-body's children carry their own inset so
+         the sticky .pop-head can span edge to edge without a negative margin,
+         which would otherwise overflow this fixed-width box and make it
+         horizontally pannable. */
+      padding: 0 0 max(14px, env(safe-area-inset-bottom));
+      transform: translateY(0);
+      transition: transform 0.22s cubic-bezier(0.4,0,0.2,1),
+                  max-height 0.22s cubic-bezier(0.4,0,0.2,1);
+    }
+    #station-sheet[hidden] { display: none; }
+
+    /* Right dock (desktop default). Slides in from the right edge of the map;
+       --chrome-h is kept in step with the navbar + control bar by JS. */
+    #station-sheet {
+      top: var(--chrome-h, 100px); bottom: 0; right: 0; left: auto;
+      width: min(360px, 34vw);
+      max-height: none;
+      border-top: 0; border-left: 1px solid var(--border);
+      border-radius: 0;
+      box-shadow: -6px 0 28px rgba(0,0,0,0.35);
+      padding: 0 0 12px;
+      transform: translateX(0);
+      transition: transform 0.22s cubic-bezier(0.4,0,0.2,1);
+    }
+    #station-sheet.enter, #station-sheet.leaving { transform: translateX(100%); }
+    /* The grab handle and the peek/expand affordance are bottom-sheet gestures. */
+    #station-sheet .sheet-grab, #station-sheet .sheet-expand { display: none; }
+    #station-sheet .sheet-head { cursor: default; touch-action: auto; justify-content: flex-start; }
+
+    /* Bottom dock (compact viewports). */
+    .is-compact #station-sheet {
+      top: auto; left: 0; right: 0; bottom: 0;
+      width: auto;
+      /* Half the MAP area. This was min(72dvh, 560px, …) = 560px of a 691px map
+         at 390x844 — 81% of it. --chrome-h is the navbar + control bar. */
+      max-height: calc((100dvh - var(--chrome-h, 96px)) * 0.5);
+      border-top: 1px solid var(--border); border-left: 0;
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      box-shadow: 0 -6px 28px rgba(0,0,0,0.45);
+      padding: 0 0 max(14px, env(safe-area-inset-bottom));
+      transform: translateY(0);
+      transition: transform 0.22s cubic-bezier(0.4,0,0.2,1),
+                  max-height 0.22s cubic-bezier(0.4,0,0.2,1);
+    }
+    .is-compact #station-sheet.enter,
+    .is-compact #station-sheet.leaving { transform: translateY(100%); }
+    .is-compact #station-sheet .sheet-grab { display: block; }
+    .is-compact #station-sheet .sheet-expand { display: block; }
+    .is-compact #station-sheet .sheet-head { cursor: grab; touch-action: none; justify-content: center; }
+    /* Peek shows just the header + value block — the lightweight readout that
+       hover gives a mouse. .pop-head/.pop-value come first in popupHTML, so
+       hiding everything after them is all it takes. The height is measured from
+       the rendered value block (JS sets --sheet-peek-h) because the block grows
+       with the variable: compass readings add a degrees line, and "no data for
+       this selection" wraps. */
+    .is-compact #station-sheet[data-state="peek"] { max-height: var(--sheet-peek-h, 200px); }
+    .is-compact #station-sheet[data-state="peek"] .pop-meta,
+    .is-compact #station-sheet[data-state="peek"] .pop-siblings,
+    .is-compact #station-sheet[data-state="peek"] .pop-links,
+    .is-compact #station-sheet[data-state="peek"] .pop-carousel { display: none; }
+    .is-compact #station-sheet[data-state="peek"] .sheet-body { overflow: hidden; }
+    /* Tall enough to contain the 44px close button. If the head is shorter, the
+       button overflows into .sheet-body, whose sticky .pop-head (z-index 1)
+       then covers its centre and swallows the tap. */
+    .sheet-head {
+      position: relative; flex-shrink: 0;
+      margin: 0 14px;
+      min-height: 44px;
+      display: flex; align-items: center; justify-content: center;
+      touch-action: none; cursor: grab;
+    }
+    .sheet-grab { width: 40px; height: 4px; border-radius: 999px; background: var(--ctrl-border); }
+    /* Covers the head so a tap or drag anywhere on it toggles peek/full; the
+       close button sits above it in DOM order and wins the corner. */
+    .sheet-expand { position: absolute; inset: 0 48px 0 0; background: none; border: 0; cursor: pointer; }
+    .sheet-close { position: absolute; top: 50%; right: 0; transform: translateY(-50%); }
+    .sheet-body {
+      flex: 1 1 auto; min-height: 0;
+      overflow-y: auto; overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+    }
+    /* Everything except the sticky header carries the 14px gutter itself. */
+    .sheet-body > *:not(.pop-head) { margin-left: 14px; margin-right: 14px; }
+    /* The sheet has its own close button in .sheet-head — the one popupHTML
+       renders for the anchored popup would be a second, redundant control. */
+    .sheet-body .pop-head .pop-close { display: none; }
+    /* The sheet is as wide as the screen, and the photo frame is 4:3 — left
+       unbounded it wants ~612px of height in an 844px-wide landscape sheet,
+       burying the links below it. Cap the frame and keep text lines readable. */
+    .sheet-body .pop-carousel-frame { max-width: min(100%, 360px); }
+    .sheet-body .pop-value,
+    .sheet-body .pop-meta,
+    .sheet-body .pop-siblings,
+    .sheet-body .pop-links { max-width: 560px; }
+    /* The toast is the one floating element left that the bottom-docked panel can
+       cover. The legend needs no special case any more: it lives in the sidebar,
+       so it and the panel never occupy the same space. */
+    .is-compact body.sheet-open #toast { bottom: calc(var(--sheet-h, 0px) + 1rem); }
+
     /* ── Tooltip ─────────────────────────────────────────────────────────── */
     #tooltip {
       position: fixed;
@@ -723,7 +1050,7 @@
       font-size: 0.75rem; font-weight: 500;
       color: var(--text-primary);
       pointer-events: none;
-      z-index: 50;
+      z-index: var(--z-cursor);
       white-space: nowrap;
       opacity: 0;
       transition: opacity 0.1s;
@@ -756,7 +1083,7 @@
       border-radius: 6px; padding: 0.5rem 1rem;
       font-size: 0.82rem; color: var(--text-primary);
       opacity: 0; transition: opacity 0.2s, transform 0.2s;
-      pointer-events: none; z-index: 400;
+      pointer-events: none; z-index: var(--z-toast);
       box-shadow: var(--shadow);
     }
     #toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -768,9 +1095,29 @@
       background: var(--bg-surface); border: 1px solid var(--border);
       border-radius: 10px; width: min(560px, calc(100vw - 4rem));
       max-height: calc(100dvh - 4rem); overflow-y: auto;
+      overscroll-behavior: contain;
       padding: 1.5rem; box-shadow: var(--shadow);
+      /* Scroll affordance: a soft shade pinned to the bottom of the scrollport
+         so a long modal doesn't just end mid-sentence with no cue. It fades out
+         once you reach the end (background-attachment: local on the last layer). */
+      background-image:
+        linear-gradient(var(--bg-surface), var(--bg-surface)),
+        linear-gradient(to top, color-mix(in srgb, var(--bg-surface) 0%, transparent), var(--bg-surface));
+      background-repeat: no-repeat;
+      background-size: 100% 100%, 100% 28px;
+      background-position: 0 0, 0 100%;
+      background-attachment: local, scroll;
     }
-    .info-modal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem; gap: 1rem; }
+    /* Sticky header keeps the title and the close button reachable while the
+       body scrolls — both modals are taller than a phone screen. */
+    .info-modal-header {
+      position: sticky; top: -1.5rem; z-index: 1;
+      display: flex; justify-content: space-between; align-items: flex-start;
+      gap: 1rem;
+      margin: -1.5rem -1.5rem 1.25rem; padding: 1.5rem 1.5rem 0.75rem;
+      background: var(--bg-surface);
+      border-radius: 10px 10px 0 0;
+    }
     .info-modal-title    { font-size: 1.05rem; font-weight: 700; color: var(--accent-light); margin: 0; }
     .info-modal-subtitle { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem; }
     .modal-close { display: flex; align-items: center; justify-content: center; background: none; border: 1px solid var(--ctrl-border); border-radius: 6px; color: var(--text-muted); font-size: 1.2rem; cursor: pointer; line-height: 1; flex-shrink: 0; min-width: 34px; min-height: 34px; transition: var(--transition); }
@@ -799,6 +1146,23 @@
       border-radius: 3px;
       padding: 1px 4px;
     }
+    .info-lede { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 1.25rem; }
+    /* Long-form reference sits behind disclosures so the modal opens short. */
+    .info-more > summary {
+      display: flex; align-items: center; gap: 6px;
+      min-height: 40px; cursor: pointer; list-style: none;
+      font-size: 0.8rem; font-weight: 600; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--accent-light);
+      border-bottom: 1px solid var(--border);
+    }
+    .info-more > summary::-webkit-details-marker { display: none; }
+    .info-more > summary::before {
+      content: '▸'; font-size: 0.85em;
+      transition: transform var(--transition);
+    }
+    .info-more[open] > summary::before { transform: rotate(90deg); }
+    .info-more > summary:hover { color: var(--accent); }
+    .info-more > *:not(summary) { margin-top: 0.5rem; }
 
     /* ── Scale editor modal ──────────────────────────────────────────────── */
     #scale-modal { background: transparent; border: none; padding: 1rem; position: fixed; inset: 0; margin: auto; width: fit-content; height: fit-content; max-width: calc(100vw - 2rem); max-height: calc(100dvh - 2rem); }
@@ -812,12 +1176,17 @@
     .scale-ramp-head .scale-label { margin-bottom: 0; }
     .scale-rev { display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; color: var(--text-secondary); cursor: pointer; white-space: nowrap; }
     .scale-rev input { accent-color: var(--accent); }
+    /* One scroll surface only. This used to be a 200px window holding 423px of
+       ramps, nested inside .info-modal-box's own scroller — a scroll-within-a-
+       scroll that's miserable on touch and cut a section heading at the fold.
+       The dialog's scroller now does all the scrolling. */
     #scale-ramp-list {
-      max-height: 200px; overflow-y: auto;
       border: 1px solid var(--ctrl-border); border-radius: var(--radius-md);
-      padding: 4px; display: flex; flex-direction: column; gap: 1px;
+      padding: 4px;
+      display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px 10px;
     }
     .scale-ramp-group {
+      grid-column: 1 / -1;
       font-size: 0.6rem; font-weight: 600; letter-spacing: 0.07em;
       text-transform: uppercase; color: var(--text-dim);
       padding: 6px 4px 2px;
@@ -872,31 +1241,122 @@
       .controls  { order: 2; flex-basis: 100%; margin-left: 0; }
     }
     @media (max-width: 1060px) {
-      #navbar, #control-bar { padding-left: 0.6rem; padding-right: 0.6rem; gap: 0.5rem; }
+      #navbar, #control-bar {
+        padding-left: max(0.6rem, env(safe-area-inset-left));
+        padding-right: max(0.6rem, env(safe-area-inset-right));
+        gap: 0.5rem;
+      }
       .nav-meta { gap: 0.3rem; }
       .brand-subtitle { display: none; }
     }
+    .seg-short { display: none; }
+
+    /* NARROW LAYOUT — width only. Two tight rows, and nothing behind a
+       horizontal scroll: the control bar used to be 939px wide inside a 390px
+       viewport, which put the variable picker — the app's primary control —
+       completely off-screen.
+       Deliberately NOT keyed on height as well. COMPACT_MQ in app.js also
+       matches short viewports (so a landscape phone gets the bottom sheet), but
+       a short-and-WIDE window — a 1440x520 desktop — has plenty of room for the
+       full navbar and must not be given the phone layout. */
     @media (max-width: 640px) {
-      input[type="search"] { width: 150px; }
-      input[type="search"]:focus { width: 190px; }
+      /* Row 1: logo + search + ⋯ . The <h1> stays in the a11y tree. */
+      #navbar { min-height: 44px; padding-top: 0.3rem; padding-bottom: 0.3rem; }
+      .brand, .nav-divider {
+        position: absolute !important;
+        width: 1px !important; height: 1px !important;
+        padding: 0 !important; margin: -1px !important;
+        overflow: hidden !important; clip: rect(0, 0, 0, 0) !important;
+        white-space: nowrap !important; border: 0 !important;
+      }
+      .controls { order: 0; flex: 1; flex-basis: auto; flex-wrap: nowrap; min-width: 0; }
+      .search-wrap { flex: 1; min-width: 0; }
+      input[type="search"], input[type="search"]:focus { width: 100%; }
       .refresh-status { display: none; }
-      #control-bar {
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
+
+      /* Row 1 carries exactly three things: the menu, the time segments and the
+         variable picker. Everything else is behind the one menu button. The logo
+         moves into the drawer because its 40px is the difference between
+         "Air Temperature" fitting in the picker (177px) and truncating (129px). */
+      #navbar > .logo-link, #navbar > .nav-divider, #navbar > .brand { display: none; }
+      #navbar { flex-wrap: nowrap; }
+      .controls { flex: 1; min-width: 0; gap: 8px; }
+      #mode-group { flex: 0 0 auto; }
+      #variable-group { flex: 1 1 auto; min-width: 0; }
+      #variable-group .control-label { display: none; }
+      #variable-select { width: 100%; min-width: 0; }
+      /* Row 2 is the date/time controls only, so they get the full width. Two
+         unlabelled ‹ › pairs side by side would be ambiguous, so in Hourly the
+         date's day-steppers are dropped: the hour steppers already roll over
+         midnight, and the date field itself handles bigger jumps. That leaves one
+         stepper pair — "07/27/2026  14:00 ‹ ›" — and fits Hourly in two rows. */
+      #control-bar { border-top: 1px solid var(--border-glass); }
+      #date-group, #hour-group { flex: 0 1 auto; }
+      #date-group .control-label, #hour-group .control-label { display: none; }
+      #control-bar:has(#hour-group:not([hidden])) #date-group .date-step-btns { display: none; }
+      #hour-readout { min-width: 3.6em; text-align: center; }
+
+      /* Row 2+: wrap, never scroll. Variable comes first and full-width, then
+         the groups pair up two-to-a-row so no mode needs more than three rows:
+           Latest  → variable / mode
+           Hourly  → variable / mode + date / hour + aggregation
+           Daily   → variable / mode + date / aggregation                     */
+      #control-bar { flex-wrap: wrap; row-gap: 6px; gap: 8px; padding-top: 6px; padding-bottom: 8px; }
+      #control-bar .control-group { min-width: 0; }
+      #variable-group { order: 1; flex: 1 1 100%; }
+      #mode-group { order: 2; }
+      #date-group { order: 3; }
+      #hour-group { order: 4; }
+      #agg-group  { order: 5; }
+      /* Every one of these controls carries an aria-label (and #hour-readout an
+         aria-labelledby that still resolves through display:none), so at this
+         width the captions are pure bulk. "Hour" stays — a bare "14:00" beside
+         a date field is the one readout that isn't self-describing. */
+      #variable-group .control-label,
+      #mode-group .control-label,
+      #date-group .control-label,
+      #agg-group .control-label { display: none; }
+      #variable-select { flex: 1; width: 100%; min-width: 0; max-width: none; }
+      .seg-long { display: none; }
+      .seg-short { display: inline; }
+      /* Trimmed so mode + date still share a row at 375px. Flexbox breaks lines
+         on base size before it shrinks anything, so the saving has to come out
+         of the padding — the 40px touch height is untouched. */
+      #mode-group .seg-btn { padding-left: 6px; padding-right: 6px; }
+      #date-input { min-width: 0; padding-left: 6px; padding-right: 4px; }
+      #scale-ramp-list { grid-template-columns: 1fr; }
+    }
+
+    /* SHORT VIEWPORTS — height only (landscape phones, stubby desktop windows).
+       These get the bottom sheet from COMPACT_MQ, so the squeeze is vertical:
+       give the sheet less of the screen and trim the chrome, or the map ends up
+       with nothing left. Keep the legend capped in width too, since a landscape
+       phone matches this but not the narrow query above. */
+    @media (max-height: 560px) {
+      #navbar { min-height: 44px; padding-top: 0.25rem; padding-bottom: 0.25rem; }
+      #control-bar { padding-top: 0.25rem; padding-bottom: 0.35rem; }
+      .brand-subtitle { display: none; }
+      /* 52% instead of 72% so a strip of map stays visible behind the sheet. */
+      /* Landscape: half of an already-short map is unreadable, so allow more and
+         let the body scroll. */
+      .is-compact #station-sheet {
+        max-height: min(62dvh, calc(100dvh - var(--chrome-h, 96px) - 8px));
       }
-      #control-bar::-webkit-scrollbar { display: none; }
-      /* Fade the right edge while controls sit off-screen (class set in JS). */
-      #control-bar.scroll-fade {
-        -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent);
-        mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent);
+    }
+    /* Short AND wide (a landscape phone): the sheet has ~800px of width and
+       almost no height, so lay the peek row out horizontally — name, network,
+       value side by side — instead of stacking it. syncSheetPeekHeight()
+       measures the result, so the sheet shrinks to match automatically. */
+    @media (max-height: 560px) and (min-width: 700px) {
+      .is-compact #station-sheet[data-state="peek"] .sheet-body {
+        display: flex; align-items: center; gap: 16px;
       }
-      #variable-select { min-width: 160px; }
-      #legend { max-width: calc(100vw - 24px); }
+      .is-compact #station-sheet[data-state="peek"] .sheet-body > * { margin-top: 0; flex-shrink: 0; }
+      .is-compact #station-sheet[data-state="peek"] .pop-head { position: static; background: none; }
+      .is-compact #station-sheet[data-state="peek"] .pop-value { margin-top: 0; }
     }
     @media (hover: none) {
-      .nav-btn, .seg-btn, .chip, input[type="search"], select { min-height: 40px; }
+      .nav-btn, .seg-btn, .chip, input[type="search"], input[type="date"], select { min-height: 40px; }
       #btn-info { width: 40px; height: 40px; }
       .nav-btn.icon-only { min-width: 40px; }
       .nav-btn.date-step { min-height: 40px; height: 40px; min-width: 40px; }
@@ -904,7 +1364,10 @@
       #search-dropdown li { min-height: 40px; padding: 10px 8px; }
       .legend-row, .legend-check { min-height: 36px; padding: 7px 6px; }
       .pop-carousel-btn { width: 40px; height: 40px; }
-      .maplibregl-popup-close-button { min-width: 40px !important; min-height: 40px !important; }
+      .pop-close, .sheet-close { width: 44px; height: 44px; }
+      /* 15px-tall text links are not a touch target. */
+      .pop-links a { min-height: 40px; }
+      .pop-sibling-link { min-height: 44px; }
       .search-kbd { display: none; }
     }
   </style>
@@ -912,6 +1375,16 @@
 <body>
 
 <header id="navbar">
+  <!-- Compact viewports only: opens #sidebar as an off-canvas drawer. -->
+  <button class="nav-btn icon-only" id="btn-drawer" aria-controls="sidebar" aria-expanded="false"
+          title="Controls" aria-label="Controls">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+      <line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/>
+      <line x1="4" y1="17" x2="20" y2="17"/>
+    </svg>
+  </button>
+
   <a href="https://climate.umt.edu" target="_blank" rel="noopener noreferrer"
      class="logo-link" aria-label="Montana Climate Office">
     <img src="https://climate.umt.edu/assets/images/MCO_logo_icon_only.png" alt="" class="logo-img">
@@ -936,9 +1409,10 @@
     </div>
 
     <div class="chip-group" id="subnet-filters" role="group" aria-label="Sub-network filter"></div>
+
   </div>
 
-  <div class="nav-meta">
+  <div class="nav-meta" id="nav-tools">
     <span class="refresh-status" title="Data currency">
       <span class="dot" aria-hidden="true"></span>
       <span id="refresh-stamp">loading…</span>
@@ -992,12 +1466,15 @@
 </header>
 
 <div id="control-bar" role="region" aria-label="Data controls">
-  <div class="control-group">
+  <div class="control-group" id="mode-group">
     <span class="control-label">Time</span>
     <div class="seg-btns" role="group" aria-label="Time mode">
-      <button class="nav-btn seg-btn" data-mode="latest" aria-pressed="true">Latest</button>
-      <button class="nav-btn seg-btn" data-mode="hourly" aria-pressed="false">Hourly</button>
-      <button class="nav-btn seg-btn" data-mode="daily"  aria-pressed="false">Daily</button>
+      <button class="nav-btn seg-btn" data-mode="latest" aria-pressed="true" aria-label="Latest">
+        <span class="seg-long">Latest</span><span class="seg-short">Now</span></button>
+      <button class="nav-btn seg-btn" data-mode="hourly" aria-pressed="false" aria-label="Hourly">
+        <span class="seg-long">Hourly</span><span class="seg-short">Hour</span></button>
+      <button class="nav-btn seg-btn" data-mode="daily"  aria-pressed="false" aria-label="Daily">
+        <span class="seg-long">Daily</span><span class="seg-short">Day</span></button>
     </div>
   </div>
 
@@ -1043,7 +1520,7 @@
     </div>
   </div>
 
-  <div class="control-group">
+  <div class="control-group" id="variable-group">
     <label class="control-label" for="variable-select">Variable</label>
     <select id="variable-select" aria-label="Variable to display"></select>
   </div>
@@ -1060,6 +1537,52 @@
     </select>
   </div>
 </div>
+
+<!-- Flex row: the sidebar takes a real column and the map fills the rest, so
+     opening or closing it genuinely resizes the map. The station detail panel is
+     the opposite — it floats over the map and never resizes it, so clicking a
+     station leaves the camera exactly where it was. -->
+<div id="app-row">
+
+  <!-- Left control sidebar. Sections are populated at boot by MOVING the existing
+       control nodes in (see layoutControls in app.js) rather than duplicating
+       them, so every listener, aria relationship and pressed-state sync survives
+       — and the same mechanism relocates Time/Variable to the top control bar on
+       compact viewports, where they stay inline instead of behind the drawer. -->
+  <aside id="sidebar" aria-label="Map controls">
+    <div class="sidebar-scroll">
+      <!-- Compact only: the logo and title move in here, because row 1 of the
+           header needs their 40px for the variable picker. -->
+      <div id="sb-brand"></div>
+      <div class="sb-section" id="sb-search">
+        <h2 class="sb-title" id="sb-search-title">Search</h2>
+      </div>
+      <div class="sb-section" id="sb-networks">
+        <h2 class="sb-title">Networks</h2>
+      </div>
+      <div class="sb-section" id="sb-time">
+        <h2 class="sb-title">Time</h2>
+      </div>
+      <div class="sb-section" id="sb-variable">
+        <h2 class="sb-title">Variable</h2>
+      </div>
+      <div class="sb-section" id="sb-agg">
+        <h2 class="sb-title">Aggregation</h2>
+      </div>
+      <div class="sb-section" id="sb-legend"></div>
+      <!-- Compact only: units, labels, export, share, theme, help land here,
+           since the ⋯ tray they used to live in has merged into this drawer. -->
+      <div class="sb-section" id="sb-actions"></div>
+    </div>
+  </aside>
+  <div id="sidebar-scrim" hidden></div>
+  <button id="sidebar-toggle" type="button" aria-controls="sidebar" aria-expanded="true"
+          title="Hide controls" aria-label="Hide controls">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <polyline points="15 18 9 12 15 6"/>
+    </svg>
+  </button>
 
 <main id="map-container">
   <div id="map" role="application" aria-label="Mesonet data explorer map"></div>
@@ -1114,8 +1637,26 @@
     <table id="sr-station-table"></table>
   </section>
 </main>
+</div><!-- /#app-row -->
 
 <div id="tooltip" aria-hidden="true"></div>
+
+<!-- Station detail on phones and short viewports. Deliberately NOT a <dialog>:
+     showModal() would take Escape before the keyboard section in app.js can
+     route it (killing the closeSpider half of that path), and its ::backdrop
+     would make the map underneath non-interactive. Body-level so #map's
+     overflow:hidden can't clip it and its safe-area math is viewport-relative. -->
+<section id="station-sheet" class="sheet" hidden role="dialog" aria-modal="false" tabindex="-1">
+  <div class="sheet-head" id="sheet-head">
+    <span class="sheet-grab" aria-hidden="true"></span>
+    <button type="button" class="sheet-expand" id="sheet-expand" aria-expanded="false">
+      <span class="sr-only">Expand station details</span>
+    </button>
+    <button type="button" class="pop-close sheet-close" aria-label="Close station details">&times;</button>
+  </div>
+  <div class="sheet-body" id="sheet-body"></div>
+</section>
+
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="sr-announce" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
@@ -1129,38 +1670,57 @@
       <button class="modal-close" aria-label="Close" data-close-modal>×</button>
     </div>
 
+    <p class="info-lede">An interactive map of live and historical weather &amp; soil
+      observations from every Montana Mesonet station. Pick a variable, pick a time,
+      and read the network at a glance.</p>
+
     <div class="info-section">
-      <h3>Time modes</h3>
+      <h3>Start here</h3>
       <ul>
-        <li><strong>Latest</strong> — most recent observation at each station, auto-refreshed. Stations reporting more than 3 hours ago are hidden as stale (toggle them back in the legend).</li>
-        <li><strong>Hourly</strong> — pick any date and hour to see hourly values across the network.</li>
-        <li><strong>Daily</strong> — pick any date to see daily aggregates (totals for precipitation, means for most other variables).</li>
+        <li><strong>Variable</strong> — the dropdown picks what the dots show: air, wind,
+          precipitation, soil, ET, and groundwater measurements.</li>
+        <li><strong>Time</strong> — <strong>Latest</strong> is live and auto-refreshes;
+          <strong>Hourly</strong> and <strong>Daily</strong> let you pick any date.</li>
+        <li><strong>A station</strong> — tap or click a dot for its value, details, a photo,
+          and a link to its dashboard.</li>
+        <li><strong>Share</strong> — the URL reflects every choice, so a bookmark or a
+          copied link reopens exactly this view.</li>
       </ul>
     </div>
 
     <div class="info-section">
-      <h3>How to use it</h3>
-      <ul>
-        <li><strong>Variable</strong> — choose from air, wind, precipitation, soil, ET, and groundwater measurements. The list adapts to the time mode: precipitation accumulations and soil-moisture change appear in Latest, reference ET in Hourly/Daily, and growing degree days in Daily.</li>
-        <li><strong>Search</strong> — press <kbd>/</kbd> to jump there; <kbd>↑</kbd>/<kbd>↓</kbd> + <kbd>Enter</kbd> to pick a station. (Add <code>?kbd=off</code> to the URL to disable the <kbd>/</kbd> shortcut.)</li>
-        <li><strong>Networks</strong> — chips toggle HydroMet / AgriMet stations.</li>
-        <li><strong>Hover</strong> a dot for the station's value; <strong>click</strong> for details, a photo, and a dashboard link.</li>
-        <li><strong>Stacked stations</strong> — a small count badge marks sites with more than one station; hovering or clicking fans them out, and each popup lists the others under "Also at this site".</li>
-        <li><strong>Units</strong> — °F/°C toggles between U.S. and metric units.</li>
-        <li><strong>Legend</strong> — click the No-data / Stale rows to show or hide those stations; check boxes to add counties, watersheds, or live radar.</li>
-        <li><strong>Color scale</strong> — click the color strip to pick a different ramp or set a custom range; the pin locks the scale in place while you step through dates and hours. "≤"/"≥" on the ends means a few extreme values share the end colors.</li>
-        <li><strong>Export</strong> — download a branded PNG of the current view (fixed Montana framing, color scale included).</li>
-        <li><kbd>Esc</kbd> closes any popup.</li>
-      </ul>
+      <details class="info-more">
+        <summary>Time modes in detail</summary>
+        <ul>
+          <li><strong>Latest</strong> — most recent observation at each station, auto-refreshed. Stations reporting more than 3 hours ago are hidden as stale (toggle them back in the legend).</li>
+          <li><strong>Hourly</strong> — pick any date and hour to see hourly values across the network.</li>
+          <li><strong>Daily</strong> — pick any date to see daily aggregates (totals for precipitation, means for most other variables).</li>
+        </ul>
+      </details>
     </div>
 
     <div class="info-section">
-      <h3>Share or bookmark</h3>
-      <p>The URL reflects every choice — use the share button or copy it from the address bar. <code>?station=&lt;id&gt;</code> deep-links a single station.</p>
+      <details class="info-more">
+        <summary>All controls &amp; shortcuts</summary>
+        <ul>
+          <li><strong>Variable</strong> — the list adapts to the time mode: precipitation accumulations and soil-moisture change appear in Latest, reference ET in Hourly/Daily, and growing degree days in Daily.</li>
+          <li><strong>Search</strong> — press <kbd>/</kbd> to jump there; <kbd>↑</kbd>/<kbd>↓</kbd> + <kbd>Enter</kbd> to pick a station. (Add <code>?kbd=off</code> to the URL to disable the <kbd>/</kbd> shortcut.)</li>
+          <li><strong>Networks</strong> — chips toggle HydroMet / AgriMet stations.</li>
+          <li><strong>Hover</strong> a dot for the station's value; <strong>click</strong> for details, a photo, and a dashboard link. On a phone the details open as a sheet you can drag up for more or swipe down to dismiss.</li>
+          <li><strong>Stacked stations</strong> — a small count badge marks sites with more than one station; hovering or clicking fans them out, and the details panel lists the others under "Also at this site".</li>
+          <li><strong>Units</strong> — °F/°C toggles between U.S. and metric units.</li>
+          <li><strong>Legend</strong> — click the No-data / Stale rows to show or hide those stations; check boxes to add counties, watersheds, or live radar.</li>
+          <li><strong>Color scale</strong> — click the color strip to pick a different ramp or set a custom range; the pin locks the scale in place while you step through dates and hours. "≤"/"≥" on the ends means a few extreme values share the end colors.</li>
+          <li><strong>Export</strong> — download a branded PNG of the current view (fixed Montana framing, color scale included).</li>
+          <li><strong>On a narrow screen</strong> — the <strong>⋯</strong> button in the header holds units, labels, export, share, theme, and the network chips.</li>
+          <li><kbd>Esc</kbd> closes any popup. <code>?station=&lt;id&gt;</code> deep-links a single station.</li>
+        </ul>
+      </details>
     </div>
 
     <div class="info-section">
-      <h3>What the terms mean</h3>
+      <details class="info-more">
+        <summary>What the terms mean</summary>
       <!-- DRAFT copy — MCO review welcome -->
       <ul>
         <li><strong>HydroMet / AgriMet</strong> — the Mesonet's two sub-networks: core weather &amp; water-supply stations, and agriculture-focused stations with expanded soil sensing.</li>
@@ -1175,6 +1735,7 @@
         <li><strong>Growing Degree Days (GDD)</strong> — accumulated warmth above a crop base temperature, used to track crop development.</li>
         <li><strong>Stale</strong> — a station whose latest report is more than 3 hours old (usually a connectivity gap); hidden by default in Latest mode.</li>
       </ul>
+      </details>
     </div>
 
     <div class="info-section">

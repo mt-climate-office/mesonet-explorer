@@ -6,6 +6,9 @@
   const TZ = 'America/Denver';
 
   const MT_FIT_BOUNDS = [[-116.10, 44.30], [-104.00, 49.05]];   // [SW, NE]
+  // Main-map fits go through fitOpts(), which widens the padding on whichever
+  // side a panel is floating over. The PNG export builds its own map with a flat
+  // padding of 24 — its framing is deliberately independent of the window.
   const FIT_OPTS      = { padding: 24, animate: false };
 
   const STALE_MS          = 3 * 60 * 60 * 1000;   // latest mode: hide obs older than 3 h
@@ -277,6 +280,29 @@
   let reduceMotion = _reduceMotionMq.matches;
   _reduceMotionMq.addEventListener('change', (e) => { reduceMotion = e.matches; });
 
+  // ── Viewport class (live — the single source of truth) ────────────────────
+  // "Compact" means a viewport where a ~320px anchored popup can't be shown
+  // whole inside the map container: narrow phones AND short/landscape ones.
+  // Layout itself stays in real @media queries (so there's no flash of the
+  // desktop layout before this deferred module runs); these flags drive the
+  // choices JS has to make — sheet vs. anchored popup, the legend default.
+  // KEEP THE QUERY IN SYNC with the "COMPACT BREAKPOINT" @media in index.html.
+  const COMPACT_MQ = '(max-width: 640px), (max-height: 560px)';
+  const _compactMq = window.matchMedia(COMPACT_MQ);
+  const _touchMq   = window.matchMedia('(hover: none)');
+  let isCompact = _compactMq.matches;
+  let isTouch   = _touchMq.matches;
+  const _viewportSubs = new Set();
+  function onViewportChange(fn) { _viewportSubs.add(fn); return fn; }
+  function _emitViewport() {
+    document.documentElement.classList.toggle('is-compact', isCompact);
+    document.documentElement.classList.toggle('is-touch', isTouch);
+    for (const fn of _viewportSubs) { try { fn(); } catch (e) { console.error(e); } }
+  }
+  _compactMq.addEventListener('change', (e) => { isCompact = e.matches; _emitViewport(); });
+  _touchMq.addEventListener('change',   (e) => { isTouch   = e.matches; _emitViewport(); });
+  _emitViewport();   // stamp .is-compact / .is-touch before first paint of JS-built UI
+
   // ── DOM refs ─────────────────────────────────────────────────────────────
   const toastEl        = document.getElementById('toast');
   const refreshStampEl = document.getElementById('refresh-stamp');
@@ -301,6 +327,13 @@
   const dateInput      = document.getElementById('date-input');
   const hourReadout    = document.getElementById('hour-readout');
   const emptyStateEl   = document.getElementById('empty-state');
+  const navbarEl       = document.getElementById('navbar');
+  const controlBarEl   = document.getElementById('control-bar');
+  const sheetEl        = document.getElementById('station-sheet');
+  const sheetBodyEl    = document.getElementById('sheet-body');
+  const sheetHeadEl    = document.getElementById('sheet-head');
+  const sheetExpandEl  = document.getElementById('sheet-expand');
+  let _sheetOpen = false;
 
   let _toastTimer;
   function showToast(msg, ms = 2800) {
@@ -568,8 +601,18 @@
     btnInfo.focus();
     lsSet('mco-explorer-seen-intro', '1');
   });
-  if (!localStorage.getItem('mco-explorer-seen-intro') && !_exportParam) {
+  // A deep link is an explicit request to see something specific, so don't cover
+  // it with the intro — a shared ?station= link used to land on this modal. The
+  // seen-intro flag is still set, so it won't ambush them on a later visit
+  // either; the ? button is always there. urlParams was snapshotted at boot, so
+  // pushState()'s rewrites can't affect this test.
+  const DEEP_LINK_PARAMS = ['station', 'var', 'mode', 'date', 'hour', 'scale',
+                            'ramp', 'agg', 'net', 'lng', 'lat', 'zoom'];
+  const _isDeepLink = DEEP_LINK_PARAMS.some(k => urlParams.has(k));
+  if (!localStorage.getItem('mco-explorer-seen-intro') && !_exportParam && !_isDeepLink) {
     setTimeout(() => { if (!infoModal.open) infoModal.showModal(); }, 350);
+  } else if (_isDeepLink) {
+    lsSet('mco-explorer-seen-intro', '1');
   }
 
   // ── Share ────────────────────────────────────────────────────────────────
@@ -979,8 +1022,6 @@
   let _spiderBucket = null;        // bucket key currently fanned out, or null
   let _lastFC = { type: 'FeatureCollection', features: [] };
   let _lastRender = null;          // {entry, unit, scale, fmt, counts, maxDt}
-  let _popup = null;
-  let _suppressNextPopupClose = false;
   let _popupFocusReturn = null;    // element to refocus when the popup closes
   let earliestDate = EARLIEST_DATE;
 
@@ -994,10 +1035,12 @@
       ? { center: [_initLng, _initLat], zoom: _initZoom }
       : { bounds: MT_FIT_BOUNDS, fitBoundsOptions: FIT_OPTS }),
   });
-  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+  // Top-LEFT on purpose: the station detail panel docks to the right edge, and
+  // anything in a right-hand corner ends up underneath it.
+  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left');
 
   (function addFitToExtentButton() {
-    const navGroup = document.querySelector('.maplibregl-ctrl-top-right .maplibregl-ctrl-group');
+    const navGroup = document.querySelector('.maplibregl-ctrl-top-left .maplibregl-ctrl-group');
     if (!navGroup) return;
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -1007,7 +1050,7 @@
     btn.innerHTML = `<span class="maplibregl-ctrl-icon" aria-hidden="true"></span>`;
     btn.addEventListener('click', () => {
       closeSpider();
-      map.fitBounds(MT_FIT_BOUNDS, { ...FIT_OPTS, animate: !reduceMotion });
+      map.fitBounds(MT_FIT_BOUNDS, { ...fitOpts(), animate: !reduceMotion });
     });
     navGroup.appendChild(btn);
   })();
@@ -1155,6 +1198,20 @@
         id: 'dots-value', type: 'circle', source: 'stations',
         filter: valueFilter(),
         paint: valueDotPaint(),
+      });
+    }
+    // The detail panel is docked at the edge rather than attached to the dot,
+    // so the dot itself has to say which station you're reading.
+    if (!map.getLayer('dots-selected')) {
+      map.addLayer({
+        id: 'dots-selected', type: 'circle', source: 'stations',
+        filter: ['==', ['get', 'station'], '__none__'],
+        paint: {
+          'circle-radius': 11,
+          'circle-color': 'rgba(0,0,0,0)',
+          'circle-stroke-width': 3,
+          'circle-stroke-color': '#5aaee8',
+        },
       });
     }
     if (!map.getLayer('stations-badge')) {
@@ -1558,14 +1615,21 @@
 
   // Keep an open popup in step with the map — variable/time/unit changes and
   // the auto-refresh would otherwise leave it showing a stale snapshot.
+  // Scroll position is preserved across the rebuild: the 5-minute auto-refresh
+  // would otherwise yank a mid-read popup back to the top.
   function refreshOpenPopup() {
-    if (!_popup || !_selectedStation) return;
-    const el = _popup.getElement();
-    const hadFocus = el && el.contains(document.activeElement);
-    _popup.setHTML(popupHTML(_selectedStation));
-    initPhotoCarousel(_popup, _selectedStation);
-    wireSiblingLinks(_popup);
-    if (hadFocus) focusPopupContent(_popup);
+    if (!_selectedStation || !_sheetOpen) return;
+    const keepScroll = sheetBodyEl.scrollTop;
+    const hadFocus = sheetEl.contains(document.activeElement);
+    sheetBodyEl.innerHTML = popupHTML(_selectedStation);
+    sheetBodyEl.scrollTop = keepScroll;
+    initPhotoCarousel(() => sheetEl, _selectedStation);
+    wireSiblingLinks(sheetEl);
+    wireDetailChrome(sheetEl);
+    // The value block's height varies by variable, so peek has to re-measure.
+    if (sheetEl.dataset.state === 'peek') syncSheetPeekHeight();
+    if (hadFocus && !sheetEl.contains(document.activeElement)) focusDetailRoot(sheetEl);
+    syncOverlayMetrics();
   }
 
   function updateSyncStampFromData() {
@@ -1884,6 +1948,9 @@
   // ── Aggregation selector ─────────────────────────────────────────────────
   function syncAggUI() {
     aggGroup.hidden = activeMode === 'latest';
+    // Runs after syncModeUI in boot(), so this is the last word on which control
+    // groups are visible — re-derive which sidebar sections have any content.
+    syncSidebarSections();
     const entry = REGISTRY_BY_KEY.get(activeVar);
     const ok = aggSupported(entry);
     aggSelect.disabled = !ok;
@@ -1921,7 +1988,10 @@
     const rs = document.querySelector('.refresh-status');
     rs.classList.toggle('static', activeMode !== 'latest');
     rs.title = activeMode === 'latest' ? 'Updates every 5 minutes' : 'Selected time';
-    updateControlBarFade();
+    syncSidebarSections();
+    // Showing/hiding the date + hour groups changes the control bar's height,
+    // which changes how much room the popup and legend have.
+    syncOverlayMetrics();
   }
 
   function setMode(mode) {
@@ -2099,33 +2169,40 @@
   // ── Legend collapse ──────────────────────────────────────────────────────
   const legendEl        = document.getElementById('legend');
   const legendToggleBtn = document.getElementById('legend-toggle-btn');
-  let legendCollapsed = (() => {
-    const u = getLower('legend');
-    if (u === 'open' || u === 'collapsed') return u === 'collapsed';
-    const saved = localStorage.getItem('mco-explorer-legend');
-    if (saved === 'collapsed' || saved === 'expanded') return saved === 'collapsed';
-    // First visit on a small screen: start collapsed so the map isn't covered.
-    return window.matchMedia('(max-width: 640px)').matches;
-  })();
-  function setLegendCollapsed(collapsed) {
+  const _legendUrlChoice = getLower('legend');
+  const _legendSaved = localStorage.getItem('mco-explorer-legend');
+  let legendCollapsed =
+    _legendUrlChoice === 'collapsed' ? true :
+    _legendUrlChoice === 'open'      ? false :
+    _legendSaved === 'collapsed'     ? true :
+    _legendSaved === 'expanded'      ? false :
+    // Expanded by default everywhere: the legend sits in the sidebar (a drawer on
+    // compact viewports) rather than over the map, so collapsing it no longer
+    // buys any map back.
+    false;
+  function setLegendCollapsed(collapsed, { persist = true } = {}) {
     legendCollapsed = !!collapsed;
     legendEl.classList.toggle('collapsed', legendCollapsed);
     legendToggleBtn.setAttribute('aria-expanded', legendCollapsed ? 'false' : 'true');
     legendToggleBtn.setAttribute('aria-label', legendCollapsed ? 'Expand legend' : 'Collapse legend');
-    lsSet('mco-explorer-legend', legendCollapsed ? 'collapsed' : 'expanded');
+    if (persist) lsSet('mco-explorer-legend', legendCollapsed ? 'collapsed' : 'expanded');
     updateLegendTitle();   // the collapsed title carries the hidden-stale count
   }
-  setLegendCollapsed(legendCollapsed);
+  setLegendCollapsed(legendCollapsed, { persist: false });
+  function toggleLegend() {
+    setLegendCollapsed(!legendCollapsed);
+    pushState();
+  }
   legendToggleBtn.addEventListener('click', (e) => {
     e.stopPropagation();   // the header row toggles too — don't double-fire
-    setLegendCollapsed(!legendCollapsed);
-    pushState();
+    toggleLegend();
   });
   // The whole header row is a natural click target, not just the 22px chevron.
-  document.getElementById('legend-header').addEventListener('click', () => {
-    setLegendCollapsed(!legendCollapsed);
-    pushState();
-  });
+  document.getElementById('legend-header').addEventListener('click', toggleLegend);
+  // Rotating a phone re-applies the small-screen default — but never overrides a
+  // choice the user made. Was a one-shot matchMedia read, so landscape used to
+  // inherit portrait's decision and overflow the map.
+
 
   // ── Scale editor (click the legend gradient) ─────────────────────────────
   const scaleModal    = document.getElementById('scale-modal');
@@ -2395,11 +2472,15 @@
       render({ background: true });   // recompute colocation for the re-enabled network
     }
     closeSpider();
+    // Open the detail FIRST, then fly. Waiting for moveend left the previous
+    // station's panel on screen showing the wrong data for the whole flight
+    // (~2-4 s), which reads as the search having done nothing. The panel is
+    // geo-anchored, so it simply rides along with the camera.
+    openPopupFor(stationId, [s.longitude, s.latitude]);
     map.flyTo({
       center: [s.longitude, s.latitude],
       zoom: SEARCH_FLY_ZOOM, speed: SEARCH_FLY_SPEED, animate: !reduceMotion,
     });
-    map.once('moveend', () => openPopupFor(stationId));
   }
 
   // ── Popup ────────────────────────────────────────────────────────────────
@@ -2450,14 +2531,28 @@
     // Co-located stations, reachable without the pointer-only spider.
     const sibs = (bucketMembers.get(bucketById.get(stationId)) || [])
       .filter(m => m.station !== stationId);
+    // One row per sibling rather than inline comma-separated links: on touch the
+    // canvas spider is a poor affordance (it needs a hover to discover and a
+    // grace timer to travel), so this list is the primary way across.
     const sibBlock = sibs.length ? `
-      <div class="pop-siblings">Also at this site: ${sibs.map(m =>
-        `<button type="button" class="pop-sibling-link" data-station="${escapeHTML(m.station)}">${escapeHTML(m.name)} (${escapeHTML(m.sub_network || '—')})</button>`
-      ).join(', ')}</div>` : '';
+      <div class="pop-siblings">
+        <div class="pop-siblings-label">Also at this site</div>
+        ${sibs.map(m =>
+          `<button type="button" class="pop-sibling-link" data-station="${escapeHTML(m.station)}">
+             <span class="pop-sibling-name">${escapeHTML(m.name)}</span>
+             <span class="pop-sibling-net">${escapeHTML(m.sub_network || '—')}</span>
+           </button>`
+        ).join('')}
+      </div>` : '';
 
     return `
-      <div class="pop-title">${escapeHTML(s.name)}</div>
-      <div class="pop-sub">${escapeHTML(s.station)}${s.county ? ` · ${escapeHTML(s.county)} County` : ''}</div>
+      <div class="pop-head">
+        <div class="pop-heads">
+          <div class="pop-title">${escapeHTML(s.name)}</div>
+          <div class="pop-sub">${escapeHTML(s.station)}${s.county ? ` · ${escapeHTML(s.county)} County` : ''}</div>
+        </div>
+        <button type="button" class="pop-close" aria-label="Close station details">&times;</button>
+      </div>
       <div style="margin-top:6px">
         <span class="pop-badge">${escapeHTML(s.sub_network || '—')}</span>
       </div>
@@ -2471,18 +2566,27 @@
         <a href="${DASH_URL(stationId)}" target="_blank" rel="noopener">Station dashboard →</a>
         <a href="${API}/latest/?stations=${encodeURIComponent(stationId)}" target="_blank" rel="noopener">Latest data (API) →</a>
       </div>
-      <div class="pop-carousel" hidden>
+      ${carouselShell(stationId)}
+    `;
+  }
+
+  // The photo frame is reserved at full height from the first paint (never
+  // `hidden`), so filling it in later can't resize the popup. Omitted outright
+  // only when we already KNOW there's no photo.
+  function carouselShell(stationId) {
+    if (photoFrameWanted(stationId) === false) return '';
+    return `
+      <div class="pop-carousel" data-state="loading">
         <div class="pop-carousel-frame">
-          <img class="pop-carousel-img" alt="Station camera photo">
-          <button type="button" class="pop-carousel-btn prev" aria-label="Previous photo">&#8249;</button>
-          <button type="button" class="pop-carousel-btn next" aria-label="Next photo">&#8250;</button>
+          <img class="pop-carousel-img" alt="">
+          <button type="button" class="pop-carousel-btn prev" aria-label="Previous photo" hidden>&#8249;</button>
+          <button type="button" class="pop-carousel-btn next" aria-label="Next photo" hidden>&#8250;</button>
         </div>
         <div class="pop-carousel-caption" role="status">
           <span class="pop-carousel-dir"></span>
           <span class="pop-carousel-counter"></span>
         </div>
-      </div>
-    `;
+      </div>`;
   }
 
   // ── Photo carousel ───────────────────────────────────────────────────────
@@ -2490,19 +2594,36 @@
   // served time-matched via the dt param. One metadata fetch serves all
   // popups; a failure clears the cache so a later popup retries.
   let _photoMetaPromise = null;
+  let _photoMetaMap = null;          // resolved value, or null while still pending
   function fetchPhotoMeta() {
     if (!_photoMetaPromise) {
-      _photoMetaPromise = fetchJSON(`${API}/photos/?type=json`).then(rows => new Map(
-        rows.map(r => [r['Station ID'], {
-          start: r['Photo Start Date'] || null,
-          dirs: (r['Photo Directions'] || []).map(d => {
-            const m = d.match(/^(\S+)\s*\(([^)]*)\)/);   // "NS (North Sky)" → ns / North Sky
-            return { code: (m ? m[1] : d).toLowerCase(), label: m ? m[2] : d };
-          }),
-        }]))
-      ).catch(err => { _photoMetaPromise = null; throw err; });
+      _photoMetaPromise = fetchJSON(`${API}/photos/?type=json`).then(rows => {
+        _photoMetaMap = new Map(
+          rows.map(r => [r['Station ID'], {
+            start: r['Photo Start Date'] || null,
+            dirs: (r['Photo Directions'] || []).map(d => {
+              const m = d.match(/^(\S+)\s*\(([^)]*)\)/);   // "NS (North Sky)" → ns / North Sky
+              return { code: (m ? m[1] : d).toLowerCase(), label: m ? m[2] : d };
+            }),
+          }]));
+        return _photoMetaMap;
+      }).catch(err => { _photoMetaPromise = null; throw err; });
     }
     return _photoMetaPromise;
+  }
+
+  // Will this station show a photo frame? Answered synchronously so popupHTML
+  // can reserve the frame's space in the FIRST paint — a frame that appears (or
+  // vanishes) later changes the popup's height and makes MapLibre re-anchor it
+  // while the user is reading. boot() warms the cache, so by the time anyone
+  // clicks a dot this returns a real boolean; null means "not known yet", in
+  // which case we reserve the space and correct it once (see markCarousel).
+  function photoFrameWanted(stationId) {
+    if (!_photoMetaMap) return null;
+    const m = _photoMetaMap.get(stationId);
+    if (!m || !m.dirs.length) return false;
+    if (activeMode !== 'latest' && m.start && activeDate < m.start) return false;
+    return true;
   }
 
   function photoFrames(stationId, dirs) {
@@ -2522,13 +2643,28 @@
     ]);
   }
 
-  async function initPhotoCarousel(popup, stationId) {
+  // Settle the reserved frame into a terminal state without changing the
+  // container's height. Dropping the block entirely is the one case that can
+  // resize it, so it only happens on the cold-start path — metadata not yet in
+  // when the popup was built, which boot()'s prefetch makes vanishingly rare.
+  function markCarousel(root, state) {
+    if (!root) return;
+    if (state === 'absent') { root.remove(); return; }
+    root.dataset.state = state;
+  }
+
+  // `host` is a thunk returning the element that contains .pop-carousel, so the
+  // anchored popup and the bottom sheet can share this verbatim.
+  async function initPhotoCarousel(host, stationId) {
+    const rootNow = () => host()?.querySelector('.pop-carousel');
     let meta;
-    try { meta = (await fetchPhotoMeta()).get(stationId); } catch { return; }
-    if (!meta || !meta.dirs.length) return;
-    if (activeMode !== 'latest' && meta.start && activeDate < meta.start) return;
-    if (_popup !== popup || !popup.isOpen()) return;    // replaced while awaiting
-    const root = popup.getElement()?.querySelector('.pop-carousel');
+    try { meta = (await fetchPhotoMeta()).get(stationId); }
+    catch { markCarousel(rootNow(), 'none'); return; }
+    if (_selectedStation !== stationId) return;         // replaced while awaiting
+    const noPhoto = !meta || !meta.dirs.length ||
+      (activeMode !== 'latest' && meta.start && activeDate < meta.start);
+    if (noPhoto) { markCarousel(rootNow(), 'absent'); return; }
+    const root = rootNow();
     if (!root) return;
 
     const frames = photoFrames(stationId, meta.dirs);
@@ -2557,61 +2693,130 @@
     });
     img.addEventListener('error', () => {
       frames[idx].state = 'bad';
-      if (frames.every(f => f.state === 'bad')) { root.hidden = true; return; }
+      // Every direction failed: keep the reserved box and say so, rather than
+      // collapsing it and shifting everything below out from under the reader.
+      if (frames.every(f => f.state === 'bad')) { markCarousel(root, 'none'); return; }
       show(idx + 1);   // auto-skip; each error removes a frame from rotation
     });
     root.querySelector('.prev').addEventListener('click', () => show(idx - 1));
     root.querySelector('.next').addEventListener('click', () => show(idx + 1));
-    if (frames.length < 2) root.querySelectorAll('.pop-carousel-btn').forEach(b => b.hidden = true);
-    root.hidden = false;
+    if (frames.length > 1) root.querySelectorAll('.pop-carousel-btn').forEach(b => b.hidden = false);
+    markCarousel(root, 'ok');
     show(0);
   }
 
+  // Every clamp derives from the live MAP container, not the viewport: popups
+  // are clipped by .maplibregl-map's overflow:hidden, and the chrome above the
+  // map is 130-250px depending on mode and width.
+  function syncOverlayMetrics() {
+    if (!map) return;
+    const chrome = (navbarEl?.offsetHeight || 0) + (controlBarEl?.offsetHeight || 0);
+    const root = document.documentElement;
+    root.style.setProperty('--chrome-h', `${chrome}px`);
+    if (_sheetOpen) root.style.setProperty('--sheet-h', `${sheetEl.offsetHeight}px`);
+  }
+
+  // Flat padding, independent of what is open. The sidebar has its own column, so
+  // its effect on the map already shows up in the container size; the detail panel
+  // floats and must not influence the camera at all — that is what keeps the map
+  // dead still when you click a station. Keeping this constant also means the
+  // zoom-out spring-back always returns to the same framing.
+  const FIT_PAD = { top: 24, bottom: 44, left: 24, right: 24 };
+  function fitOpts() { return { padding: FIT_PAD, animate: false }; }
+
+  // Re-fit only when the user is already looking at the whole state; if they have
+  // zoomed into a region, a container resize must not yank them out of it.
+  function refitIfAtExtent() {
+    if (!_mapReady || _fitZoom === undefined) return;
+    const atExtent = map.getZoom() <= _fitZoom + 0.1;
+    _fitZoom = map.cameraForBounds(MT_FIT_BOUNDS, fitOpts()).zoom;
+    if (atExtent) map.fitBounds(MT_FIT_BOUNDS, { ...fitOpts(), animate: !reduceMotion });
+  }
+
+  // Pan the minimum needed to get the selected dot out from under the panel, and
+  // only if it is actually under it. A blanket pan on every open would move the
+  // map on every click, which is the behaviour we deliberately removed.
+  //
+  // panBy([dx,dy]) moves the CAMERA, so content moves by (-dx,-dy): to push the
+  // dot left, clear of a right-docked panel, dx must be positive.
+  const REVEAL_MARGIN_PX = 44;
+  function revealSelectedDot(ll) {
+    if (!_sheetOpen || !ll) return;
+    requestAnimationFrame(() => {
+      if (!_sheetOpen) return;
+      const panel = sheetEl.getBoundingClientRect();
+      if (!panel.width || !panel.height) return;
+      const c = map.getContainer().getBoundingClientRect();
+      const pt = map.project(ll);
+      const x = c.left + pt.x, y = c.top + pt.y;
+      const M = REVEAL_MARGIN_PX;
+      const nearPanel = x > panel.left - M && x < panel.right + M &&
+                        y > panel.top - M && y < panel.bottom + M;
+      if (!nearPanel) return;
+      // Push along whichever edge the panel is docked to.
+      const dx = isCompact ? 0 : x - (panel.left - M);
+      const dy = isCompact ? y - (panel.top - M) : 0;
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+      map.panBy([dx, dy], { animate: !reduceMotion, duration: 260 });
+    });
+  }
+
+  function highlightSelectedDot() {
+    if (!map.getLayer('dots-selected')) return;
+    map.setFilter('dots-selected', ['==', ['get', 'station'], _selectedStation || '__none__']);
+  }
+
+  // One docked panel, two dock edges — bottom on compact viewports, right on
+  // desktop. This replaced a MapLibre Popup anchored to the dot, which sat on
+  // top of the map: with one open, 38% of the surrounding dots were underneath
+  // it and simply unclickable. A docked panel covers no dots at all, so any
+  // station can be selected while another is showing, and the content swaps in
+  // place. Everything downstream (popupHTML, the carousel, sibling links,
+  // announcements, pushState) is dock-agnostic and shared.
   function openPopupFor(stationId, lngLat) {
     const s = stationById.get(stationId);
     if (!s) return;
-    if (_popup) { _suppressNextPopupClose = true; _popup.remove(); _popup = null; }
+    const ll = lngLat || [s.longitude, s.latitude];
     _selectedStation = stationId;
-    const p = new maplibregl.Popup({ closeOnClick: false, maxWidth: '320px', offset: 12 })
-      .setLngLat(lngLat || [s.longitude, s.latitude])
-      .setHTML(popupHTML(stationId))
-      .addTo(map);
-    p.on('close', () => {
-      if (_suppressNextPopupClose) { _suppressNextPopupClose = false; return; }
-      if (_popup === p) {
-        _popup = null;
-        _selectedStation = null;
-        restorePopupFocus();
-        pushState();
-      }
-    });
-    _popup = p;
-    initPhotoCarousel(p, stationId);
-    wireSiblingLinks(p);
+    openSheetFor(stationId, ll);
     announcePopup(stationId);
-    focusPopupContent(p);
+    highlightSelectedDot();
+    // No re-fit — the panel floats, so the scale never changes. The only camera
+    // move is a targeted nudge when the dot you just picked would sit underneath
+    // the panel; otherwise the map doesn't budge.
+    revealSelectedDot(ll);
     pushState();
   }
 
-  // Focus the content container (not the close button — MapLibre appends it
-  // as the LAST tabbable, so Tab would immediately exit the popup).
-  function focusPopupContent(p) {
-    const content = p.getElement()?.querySelector('.maplibregl-popup-content');
-    if (content) { content.tabIndex = -1; content.focus(); }
+  // Our close button is the FIRST tabbable in the body (MapLibre's was appended
+  // last, which is why focus goes to the content container rather than to it).
+  function wireDetailChrome(root) {
+    if (!root) return;
+    root.querySelectorAll('.pop-close').forEach(btn => {
+      btn.addEventListener('click', (e) => { e.stopPropagation(); closeDetail(); });
+    });
   }
 
-  function restorePopupFocus() {
+  function focusDetailRoot(el) { if (el) { el.tabIndex = -1; el.focus(); } }
+
+  // `force` skips the stranded-focus test for callers that already know focus is
+  // inside the surface being torn down — the sheet's chrome is persistent
+  // markup, and Chrome only reassigns activeElement asynchronously after it is
+  // hidden, so the test below would bail and leave focus on <body>.
+  function restorePopupFocus({ force = false } = {}) {
     const target = _popupFocusReturn || map.getCanvas();
     _popupFocusReturn = null;
     // Only restore when removal stranded focus on <body> (it was inside the
     // popup); a click elsewhere already put focus where the user wants it.
-    if (document.activeElement && document.activeElement !== document.body) return;
+    if (!force && document.activeElement && document.activeElement !== document.body) return;
     target.focus?.();
   }
 
-  // Keyboard path to co-located stations (the canvas spider is pointer-only).
-  function wireSiblingLinks(p) {
-    p.getElement().querySelectorAll('.pop-sibling-link').forEach(btn => {
+  // Keyboard and touch path to co-located stations (the canvas spider is
+  // pointer-only). Takes an element so the popup and the sheet share it.
+  function wireSiblingLinks(root) {
+    if (!root) return;
+    root.querySelectorAll('.pop-sibling-link').forEach(btn => {
       btn.addEventListener('click', () => openPopupFor(btn.dataset.station));
     });
   }
@@ -2630,17 +2835,137 @@
     srAnnounceEl.textContent = `${s.name} (${s.station}), ${s.sub_network || 'station'}, ${valPart}.`;
   }
 
-  function closePopup() {
-    if (!_popup) return;
-    _suppressNextPopupClose = true;
-    _popup.remove();
-    _popup = null;
-    restorePopupFocus();
-    if (_selectedStation) {
+  // Tears down whichever presentation is open. `silent` is for the swap path
+  // (re-opening the same station in the other presentation), where clearing
+  // _selectedStation would drop `?station=` from the URL.
+  function closeDetail({ silent = false } = {}) {
+    const had = _sheetOpen;
+    // The panel's own chrome (grab handle, close button) is persistent markup,
+    // so focus can still be inside it here; hiding it later would strand focus
+    // on <body> after restorePopupFocus() had already decided to bail.
+    const focusWasInSheet = _sheetOpen && sheetEl.contains(document.activeElement);
+    if (_sheetOpen) closeSheet({ restoreFocus: !silent && focusWasInSheet });
+    if (!had) return;
+    if (!silent && !focusWasInSheet) restorePopupFocus();
+    if (!silent && _selectedStation) {
       _selectedStation = null;
+      highlightSelectedDot();
       pushState();
     }
   }
+  const closePopup = closeDetail;   // keep the existing call sites honest
+
+  // ── Station sheet (compact viewports) ────────────────────────────────────
+  function openSheetFor(stationId, ll) {
+    const s = stationById.get(stationId);
+    if (!s) return;
+    sheetEl.setAttribute('aria-label', `${s.name} station details`);
+    sheetBodyEl.innerHTML = popupHTML(stationId);
+    sheetBodyEl.scrollTop = 0;
+    // Unhide before sizing — a hidden element has no layout to measure.
+    sheetEl.hidden = false;
+    // Touch gets the peek readout first — the analogue of hovering a dot.
+    setSheetState(isTouch ? 'peek' : 'full', { focus: false });
+    sheetEl.classList.add('enter');
+    requestAnimationFrame(() => sheetEl.classList.remove('enter'));
+    document.body.classList.add('sheet-open');
+    _sheetOpen = true;
+    initPhotoCarousel(() => sheetEl, stationId);
+    wireSiblingLinks(sheetEl);
+    wireDetailChrome(sheetEl);
+    focusDetailRoot(sheetEl);
+    syncOverlayMetrics();
+  }
+
+  function setSheetState(state, { focus = true } = {}) {
+    sheetEl.dataset.state = state;
+    sheetExpandEl.setAttribute('aria-expanded', state === 'full' ? 'true' : 'false');
+    sheetExpandEl.querySelector('.sr-only').textContent =
+      state === 'full' ? 'Collapse station details' : 'Expand station details';
+    if (state === 'peek') syncSheetPeekHeight();
+    syncOverlayMetrics();
+    if (focus && state === 'full') sheetBodyEl.scrollTop = 0;
+  }
+
+  // Peek must show the value block whole — including its timestamp line — so
+  // measure it rather than guessing. Safe to read while clipped: getBoundingClientRect
+  // reports layout position regardless of the ancestor's overflow.
+  function syncSheetPeekHeight() {
+    const v = sheetBodyEl.querySelector('.pop-value') ||
+              sheetBodyEl.querySelector('.pop-badge');
+    if (!v) return;
+    const need = v.getBoundingClientRect().bottom - sheetBodyEl.getBoundingClientRect().top;
+    if (!(need > 0)) return;
+    const h = Math.round(sheetHeadEl.offsetHeight + need + 18);   // 18 = bottom padding
+    sheetEl.style.setProperty('--sheet-peek-h', `${h}px`);
+  }
+
+  function closeSheet({ restoreFocus = false } = {}) {
+    if (!_sheetOpen) return;
+    _sheetOpen = false;
+    sheetEl.classList.add('leaving');
+    const done = () => {
+      // Move focus out BEFORE hiding, so it never strands on <body>.
+      if (restoreFocus) restorePopupFocus({ force: true });
+      sheetEl.hidden = true;
+      sheetEl.classList.remove('leaving');
+      sheetBodyEl.innerHTML = '';
+    };
+    if (reduceMotion) done(); else setTimeout(done, 220);
+    document.body.classList.remove('sheet-open');
+    document.documentElement.style.setProperty('--sheet-h', '0px');
+  }
+
+  // Tap or keyboard on the header toggles peek ↔ full.
+  sheetExpandEl.addEventListener('click', () => {
+    setSheetState(sheetEl.dataset.state === 'full' ? 'peek' : 'full');
+  });
+
+  // max-height animates, so the height read inside setSheetState is a frame or
+  // two stale. Re-sync once it lands so --sheet-h (which lifts the legend and
+  // toast clear of the sheet) settles on the real value.
+  sheetEl.addEventListener('transitionend', (e) => {
+    if (e.target === sheetEl && e.propertyName === 'max-height') syncOverlayMetrics();
+  });
+
+  // Drag the header to dismiss (down) or expand (up). Bound to the head only,
+  // so the body keeps its own scrolling.
+  let _sheetDrag = null;
+  sheetHeadEl.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('.sheet-close')) return;
+    _sheetDrag = { y0: e.clientY, t0: performance.now(), h: sheetEl.offsetHeight, moved: false };
+    sheetHeadEl.setPointerCapture(e.pointerId);
+    sheetEl.style.transition = 'none';
+  });
+  sheetHeadEl.addEventListener('pointermove', (e) => {
+    if (!_sheetDrag) return;
+    const dy = e.clientY - _sheetDrag.y0;
+    if (Math.abs(dy) > 3) _sheetDrag.moved = true;
+    if (dy < -24 && sheetEl.dataset.state === 'peek') setSheetState('full');
+    sheetEl.style.transform = `translateY(${Math.max(0, dy)}px)`;
+  });
+  for (const ev of ['pointerup', 'pointercancel']) {
+    sheetHeadEl.addEventListener(ev, (e) => {
+      if (!_sheetDrag) return;
+      const { y0, t0, h, moved } = _sheetDrag;
+      _sheetDrag = null;
+      const dy = e.clientY - y0;
+      const v  = dy / Math.max(1, performance.now() - t0);   // px/ms
+      sheetEl.style.transition = '';
+      sheetEl.style.transform = '';
+      if (!moved) return;                                    // a tap — let click handle it
+      if (dy > Math.min(96, h * 0.3) || v > 0.6) closeDetail();
+    });
+  }
+
+  // Crossing the breakpoint swaps which edge the panel is docked to (CSS, via
+  // .is-compact). Only the peek state is dock-specific, so re-derive that.
+  onViewportChange(() => {
+    syncOverlayMetrics();
+    if (!_sheetOpen) return;
+    if (!isCompact) setSheetState('full', { focus: false });
+    else if (sheetEl.dataset.state === 'peek') syncSheetPeekHeight();
+  });
 
   // ── Spider fan-out lifecycle (ported from mesonet-status) ────────────────
   function openSpider(key, anchorLngLat) {
@@ -2715,13 +3040,30 @@
 
   // Single dispatcher: foot click opens its popup; anchor click opens the
   // spider AND the anchor's popup (mobile-friendly); empty click closes both.
+  // A fingertip is much bigger than a dot; a mouse pointer is precise but the
+  // dots are only ~10px across, so a few px of slop stops near-misses from
+  // reading as "click did nothing" (they'd hit empty map and close the panel).
+  const TOUCH_SLOP_PX = 10;
+  const MOUSE_SLOP_PX = 6;
   map.on('click', (e) => {
     const layers = HOVER_LAYERS.filter(lid => map.getLayer(lid));
-    const feats = layers.length ? map.queryRenderedFeatures(e.point, { layers }) : [];
+    const slop = isTouch ? TOUCH_SLOP_PX : MOUSE_SLOP_PX;
+    // A box query returns features in layer order, NOT by distance, so sort by
+    // distance from the click before the layer-priority pass below.
+    const query = [[e.point.x - slop, e.point.y - slop],
+                   [e.point.x + slop, e.point.y + slop]];
+    let feats = layers.length ? map.queryRenderedFeatures(query, { layers }) : [];
     if (feats.length === 0) {
       closeSpider();
       closePopup();
       return;
+    }
+    if (feats.length > 1) {
+      const d2 = (ft) => {
+        const p = map.project(ft.geometry.coordinates);
+        return (p.x - e.point.x) ** 2 + (p.y - e.point.y) ** 2;
+      };
+      feats = [...feats].sort((a, b) => d2(a) - d2(b));
     }
     const f =
       feats.find(x => x.layer.id === 'spider-layer' || x.layer.id === 'spider-label') ||
@@ -2773,6 +3115,11 @@
 
   let _hovered = false;
   map.on('mousemove', (e) => {
+    // Touch browsers synthesize a mousemove on tap, which would fire the
+    // tooltip and spiderfy the bucket right under the finger — where the user
+    // can't see either. On touch the tap opens the sheet instead, whose peek
+    // state is the readout hover gives a mouse.
+    if (isTouch) return;
     const layers = HOVER_LAYERS.filter(lid => map.getLayer(lid));
     const feats = layers.length ? map.queryRenderedFeatures(e.point, { layers }) : [];
     const f = feats[0] || null;
@@ -2800,16 +3147,120 @@
     _hovered = false;
   });
 
-  // ── Control-bar overflow affordance ──────────────────────────────────────
-  // ≤640px the bar scrolls horizontally with the scrollbar hidden; fade the
-  // right edge while more controls sit off-screen.
-  const controlBarEl = document.getElementById('control-bar');
-  function updateControlBarFade() {
-    const more = controlBarEl.scrollWidth - controlBarEl.clientWidth - controlBarEl.scrollLeft > 4;
-    controlBarEl.classList.toggle('scroll-fade', more);
+  // ── Control sidebar ──────────────────────────────────────────────────────
+  // Controls live in ONE place in the DOM and get moved between the sidebar and
+  // the top control bar as the breakpoint changes. Moving (rather than cloning)
+  // keeps every listener, aria-pressed sync and label association intact.
+  let _sidebarReady = false;
+  const sidebarEl     = document.getElementById('sidebar');
+  const sidebarToggle = document.getElementById('sidebar-toggle');
+  const sidebarScrim  = document.getElementById('sidebar-scrim');
+  const btnDrawer     = document.getElementById('btn-drawer');
+  const navMetaEl     = document.getElementById('nav-tools');
+  const logoLinkEl    = document.querySelector('.logo-link');
+  const brandEl       = document.querySelector('.brand');
+  const searchWrapEl  = document.querySelector('.search-wrap');
+  const navControlsEl = document.querySelector('#navbar .controls');
+  const modeGroupEl   = document.getElementById('mode-group');
+  const variableGroupEl = document.getElementById('variable-group');
+
+  // Desktop: remembered open/closed. Compact: always starts closed (it is a
+  // drawer there, not a fixture) — a drawer that opens by itself over the map
+  // would be worse than useless on a phone.
+  let sidebarOpen = (() => {
+    const u = getLower('sidebar');
+    if (u === 'open' || u === 'closed') return u === 'open';
+    return localStorage.getItem('mco-explorer-sidebar') !== 'closed';
+  })();
+
+  // Which container each control belongs to at the current breakpoint.
+  // On compact viewports Time and Variable stay inline in the top bar: they are
+  // the two controls people change constantly, and burying them behind the
+  // drawer would make every change cost two taps.
+  function layoutControls() {
+    const place = (el, parent) => { if (el && el.parentElement !== parent) parent.appendChild(el); };
+    const sb = (id) => document.getElementById(id);
+    place(subnetFiltersEl, sb('sb-networks'));
+    place(legendEl, sb('sb-legend'));
+    place(aggGroup, sb('sb-agg'));
+    if (isCompact) {
+      // Header row 1 = menu + time mode + variable, the two controls people
+      // change constantly. Row 2 (the control bar) is left free for the date and
+      // hour steppers, which only exist in Hourly/Daily. Everything else —
+      // search, networks, aggregation, legend, brand and the global actions —
+      // is behind the one menu button.
+      place(modeGroupEl, navControlsEl);
+      place(variableGroupEl, navControlsEl);
+      place(dateGroup, controlBarEl);
+      place(hourGroup, controlBarEl);
+      place(searchWrapEl, sb('sb-search'));
+      place(logoLinkEl, sb('sb-brand'));
+      place(brandEl, sb('sb-brand'));
+      place(navMetaEl, sb('sb-actions'));
+    } else {
+      place(logoLinkEl, navbarEl);
+      place(brandEl, navbarEl);
+      place(navMetaEl, navbarEl);
+      place(searchWrapEl, sb('sb-search'));
+      place(modeGroupEl, sb('sb-time'));
+      place(dateGroup, sb('sb-time'));
+      place(hourGroup, sb('sb-time'));
+      place(variableGroupEl, sb('sb-variable'));
+    }
+    syncSidebarSections();
+    syncOverlayMetrics();
   }
-  controlBarEl.addEventListener('scroll', updateControlBarFade, { passive: true });
-  window.addEventListener('resize', updateControlBarFade);
+
+  // A section showing nothing but its own heading is noise — and which groups are
+  // hidden changes with the time mode (Date/Hour/Aggregation), so this re-runs
+  // from syncModeUI too.
+  function syncSidebarSections() {
+    // syncModeUI/syncAggUI can fire during module init, before the sidebar block
+    // below has initialised its const bindings. layoutControls() calls this again
+    // once they exist, so bailing here loses nothing.
+    if (!_sidebarReady) return;
+    for (const sec of sidebarEl.querySelectorAll('.sb-section')) {
+      sec.hidden = !sec.querySelector(':scope > *:not(.sb-title):not([hidden])');
+    }
+    controlBarEl.hidden = !controlBarEl.querySelector(':scope > *:not([hidden])');
+  }
+
+  function setSidebarOpen(open, { persist = true, refit = true } = {}) {
+    sidebarOpen = !!open;
+    document.body.classList.toggle('sidebar-closed', !sidebarOpen);
+    const label = sidebarOpen ? 'Hide controls' : 'Show controls';
+    sidebarToggle.setAttribute('aria-expanded', sidebarOpen ? 'true' : 'false');
+    sidebarToggle.setAttribute('aria-label', label);
+    sidebarToggle.title = label;
+    btnDrawer.setAttribute('aria-expanded', sidebarOpen ? 'true' : 'false');
+    if (isCompact) sidebarScrim.hidden = !sidebarOpen;
+    if (persist && !isCompact) lsSet('mco-explorer-sidebar', sidebarOpen ? 'open' : 'closed');
+    syncOverlayMetrics();
+    if (refit && !isCompact) {
+      // The map container just changed width. MapLibre needs telling, and the
+      // resize handler then re-fits if the user was at full extent.
+      const settle = () => { _resizeFromSidebar = true; map.resize(); };
+      if (reduceMotion) settle(); else setTimeout(settle, 240);   // after the slide
+    }
+    pushState();
+  }
+
+  sidebarToggle.addEventListener('click', () => setSidebarOpen(!sidebarOpen));
+  btnDrawer.addEventListener('click', () => setSidebarOpen(!sidebarOpen));
+  sidebarScrim.addEventListener('click', () => setSidebarOpen(false));
+
+  _sidebarReady = true;
+  layoutControls();
+  setSidebarOpen(isCompact ? false : sidebarOpen, { persist: false, refit: false });
+
+  onViewportChange(() => {
+    layoutControls();
+    // Crossing into compact turns the sidebar into a drawer: close it so it
+    // isn't covering the map. Crossing back out restores the saved preference.
+    if (isCompact) setSidebarOpen(false, { persist: false, refit: false });
+    else setSidebarOpen(localStorage.getItem('mco-explorer-sidebar') !== 'closed',
+                        { persist: false });
+  });
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
   // ?kbd=off disables the single-character shortcut (WCAG 2.1.4 — speech-input
@@ -2826,6 +3277,10 @@
         t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
       if (inField) return;
       e.preventDefault();
+      // On desktop the box lives in the sidebar; on a phone it's in the top bar
+      // but the drawer may be what the user expects to open. Reveal it either way
+      // before focusing, so the shortcut can't focus something invisible.
+      if (!isCompact && !sidebarOpen) setSidebarOpen(true);
       searchInput.focus();
       searchInput.select();
     }
@@ -3117,7 +3572,14 @@
     if (staleShown) params.stale = 'show';
     if (overlayCounties) params.counties = 'on';
     if (overlayWatersheds) params.watersheds = 'on';
+    // Emit whenever the legend differs from what this viewport would default to,
+    // so a shared link reproduces what the sender is looking at. Only
+    // 'collapsed' used to be written, which meant an expanded legend on a phone
+    // (where collapsed is the default) was silently dropped from the URL.
     if (legendCollapsed) params.legend = 'collapsed';
+    // Only meaningful on desktop, where the sidebar is a fixture rather than a
+    // transient drawer.
+    if (!isCompact && !sidebarOpen) params.sidebar = 'closed';
     const theme = document.documentElement.dataset.theme;
     if (theme) params.theme = theme;
     const c = map.getCenter();
@@ -3131,18 +3593,23 @@
   // ── Map events ───────────────────────────────────────────────────────────
   map.on('load', () => {
     addCustomLayers();
-    _fitZoom = map.cameraForBounds(MT_FIT_BOUNDS, FIT_OPTS).zoom;
+    _fitZoom = map.cameraForBounds(MT_FIT_BOUNDS, fitOpts()).zoom;
     _mapReady = true;
+    syncOverlayMetrics();
+    // The constructor fit used flat padding (the sidebar's width isn't known
+    // that early), so re-fit now that the panels are laid out — unless the URL
+    // pinned an explicit camera.
+    if (!_hasInitPos) map.fitBounds(MT_FIT_BOUNDS, fitOpts());
     boot();
   });
 
-  map.on('zoomend', () => {
-    if (_mapReady && _fitZoom !== undefined && map.getZoom() < _fitZoom) {
-      map.fitBounds(MT_FIT_BOUNDS, { ...FIT_OPTS, animate: !reduceMotion });
-    }
-  });
-
   let _resizeTimer = null;
+  let _lastMapSize = null;
+  // Set by setSidebarOpen: a sidebar toggle is a deliberate request for the map to
+  // take (or give up) that column, so it re-fits even with a station open. The
+  // guards below are for INCIDENTAL resizes — a mobile URL bar, our own chrome
+  // re-wrapping — which must never yank the camera.
+  let _resizeFromSidebar = false;
   map.on('resize', () => {
     if (!_mapReady) return;
     // Zoom doesn't change when the container resizes, so comparing against the
@@ -3153,11 +3620,40 @@
     clearTimeout(_resizeTimer);
     _resizeTimer = setTimeout(() => {
       _resizeTimer = null;
-      _fitZoom = map.cameraForBounds(MT_FIT_BOUNDS, FIT_OPTS).zoom;
-      if (wasAtExtent || map.getZoom() < _fitZoom) {
-        map.fitBounds(MT_FIT_BOUNDS, { ...FIT_OPTS, animate: !reduceMotion });
-      }
+      const fromSidebar = _resizeFromSidebar;
+      _resizeFromSidebar = false;
+      const c = map.getContainer();
+      const w = c.clientWidth, h = c.clientHeight;
+      // A mobile URL bar showing/hiding, or our own chrome re-wrapping, changes
+      // the height only. That must not move the camera.
+      const chromeOnly = _lastMapSize && w === _lastMapSize.w && Math.abs(h - _lastMapSize.h) < 120;
+      _lastMapSize = { w, h };
+      _fitZoom = map.cameraForBounds(MT_FIT_BOUNDS, fitOpts()).zoom;
+      syncOverlayMetrics();
+      if (chromeOnly && !fromSidebar) return;
+      // Never yank the camera out from under an open detail on an incidental
+      // resize — but a sidebar toggle is the user asking for exactly that.
+      if (_selectedStation && !fromSidebar) return;
+      if (wasAtExtent) map.fitBounds(MT_FIT_BOUNDS, { ...fitOpts(), animate: !reduceMotion });
     }, 200);
+  });
+
+  // Zooming out past the whole state springs the camera back to the Montana
+  // extent. A `setMinZoom` clamp was tried instead and was wrong twice over: it
+  // made zooming out do nothing at all, and MapLibre disables its own zoom-out
+  // button at minZoom, so the control greyed out with no explanation.
+  //
+  // No loop: the fitBounds below settles at _fitZoom, so the guard is false on
+  // the zoomend it raises. _springingBack covers the animated case, where more
+  // zoomend events can arrive while the flight is still in progress.
+  const SPRING_EPS = 0.01;
+  let _springingBack = false;
+  map.on('zoomend', () => {
+    if (!_mapReady || _springingBack || _fitZoom === undefined) return;
+    if (map.getZoom() >= _fitZoom - SPRING_EPS) return;
+    _springingBack = true;
+    map.once('moveend', () => { _springingBack = false; });
+    map.fitBounds(MT_FIT_BOUNDS, { ...fitOpts(), animate: !reduceMotion });
   });
 
   map.on('moveend', pushState);
@@ -3214,10 +3710,12 @@
     populateSearch();
     if (overlayWatersheds) loadHucOnce().catch(() => {});
 
+    // Warmed before the first render (which takes seconds) so photoFrameWanted()
+    // can answer synchronously by the time anyone opens a station.
+    fetchPhotoMeta().catch(() => {});   // popups retry on failure
+
     await render();
     scheduleRefresh();
-
-    fetchPhotoMeta().catch(() => {});   // warm the cache; popups retry on failure
 
     // Headless export (?export=…): trigger once the first render has landed.
     if (_exportParam) setTimeout(exportPNG, 1500);

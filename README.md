@@ -13,14 +13,16 @@ Interactive map explorer for [Montana Mesonet](https://climate.umt.edu/mesonet/)
 - **Aggregation selector** (Hourly/Daily) — min / max / average / sum / std dev for observed variables, next to the variable picker. It auto-selects each variable's own default (average for most, sum for precipitation), so the selection is always explicit.
 - **~55 variables**, grouped in the picker: air temperature, RH, pressure, solar, VPD, feels-like / heat index / wind chill / wet bulb / CCI / sea-level pressure, wind speed / gust / direction, precipitation (period + since-midnight/24 h/2/7/14/30/60/90/180 d/YTD windows), snow depth, soil VWC / percent saturation / soil water potential / temperature / bulk EC at three depths, soil-moisture change (Δ VWC over 1/7/14/30 days), frost depth, reference ET, growing degree days, and well level / temperature / EC. The picker adapts to the time mode (precipitation accumulations and Δ VWC in Latest, reference ET in Hourly/Daily, GDD in Daily).
 - **Color-scaled markers** with ColorBrewer and [Scientific colour map](https://www.fabiocrameri.ch/colourmaps/) (Crameri) ramps and semantic midpoints (temperatures pivot at freezing, RH at 50 %, Δ VWC at 0), robust 2nd–98th percentile domains (trimmed extremes are marked ≤/≥ in the legend), and a live gradient legend. When a pivot falls outside the day's data (e.g. every station above freezing), only the matching half of the diverging ramp is used, so blue always means below freezing. Wind direction uses the cyclic, CVD-safe romaO ramp (0° and 360° share a color). Soil water potential uses a log₁₀ color scale (it spans several orders of magnitude). **Click the legend gradient** to pick a different ramp or set a custom min/mid/max; the **pin** locks the scale while stepping through time.
-- **Co-located stations** (HydroMet + AgriMet pairs) show a count badge and fan out into a hover/click "spider" so both dots are reachable — ported from the [status map](https://github.com/mt-climate-office/mesonet-status).
-- **Station search** — tiered name/ID matching, keyboard navigation, `/` shortcut, flies to and opens the station popup.
-- **Popups** — station metadata, the current variable's value and timestamp, dashboard + API links, and a **photo carousel** cycling every camera direction, time-matched to the selected hour (or morning + afternoon frames in Daily mode).
+- **Co-located stations** (HydroMet + AgriMet pairs) show a count badge and fan out into a hover/click "spider" so both dots are reachable — ported from the [status map](https://github.com/mt-climate-office/mesonet-status). The details panel also lists them as full-width tappable rows, which is the primary route on touch (the spider needs a hover to discover).
+- **Station search** — tiered name/ID matching, keyboard navigation, `/` shortcut, flies to the station and opens its detail panel.
+- **Station details** — metadata, the current variable's value and timestamp, co-located stations as tappable rows, dashboard + API links, and a **photo carousel** cycling every camera direction, time-matched to the selected hour (or morning + afternoon frames in Daily mode). One panel, two dock edges: the **right** edge of the map on desktop, the **bottom** edge on phones and short viewports. Because it's docked rather than anchored to the dot, it covers no stations — you can click straight from one station to the next and the content swaps in place. The selected dot gets a ring. On compact viewports it opens as a *peek* (name, network, value) and drags up for the rest; swipe down, tap the map, press <kbd>Esc</kbd>, or hit the close button to dismiss.
 - **Overlays** — Montana outline and tribal lands (always on), counties, watersheds (HUC6 basins, FlatGeobuf), and live NEXRAD radar (Latest mode only, courtesy of the [Iowa Environmental Mesonet](https://mesonet.agron.iastate.edu/)).
 - **Toggleable value labels** with collision dodging; sub-network chips (HydroMet / AgriMet) with live counts.
-- **US / metric units** (°F/°C toggle) applied to values, legend, and popups.
+- **US / metric units** (°F/°C toggle) applied to values, legend, and the detail panel.
 - **PNG export** — one click downloads a branded 2800×1400 map of the current view (fixed Montana framing independent of your window, MCO logo, timestamp, and color scale), emulating the Mesonet Photo Explorer's export.
-- **Shareable URLs** — every choice lives in the query string; light/dark theme; responsive down to phones.
+- **Shareable URLs** — every choice lives in the query string; light/dark theme.
+- **Left control sidebar** — search, networks, time, variable, aggregation and the legend in one column, collapsible via the tab on its outer edge. It takes a real column, so toggling it resizes the map and re-fits Montana. The detail panel is deliberately the opposite: it floats, so selecting a station never moves the camera. Zoom and fit-to-extent sit at the map's **top-left**, clear of the panel.
+- **Built for phones as well as desks** — below 640 px the sidebar becomes a **☰** drawer (networks, aggregation, legend) while time and variable stay inline in the top bar, and a **⋯** tray holds units, labels, export, share and theme. Nothing hides behind a horizontal scroll. Touch gets a 10 px tap tolerance, 40–44 px targets, and the peek sheet in place of hover.
 
 ## URL parameters
 
@@ -41,11 +43,12 @@ Interactive map explorer for [Montana Mesonet](https://climate.umt.edu/mesonet/)
 | `stale` | `show` | hide | Show stale (> 3 h) stations (Latest only) |
 | `counties` | `on` | off | County-boundary overlay |
 | `watersheds` | `on` | off | HUC6 watershed overlay |
-| `legend` | `collapsed` \| `open` | open (collapsed ≤ 640 px) | Legend state |
+| `legend` | `collapsed` \| `open` | open | Legend state (it lives in the sidebar, so collapsing it no longer buys map back) |
+| `sidebar` | `open` \| `closed` | open | Left control sidebar. Desktop only — on compact viewports it's a drawer that always starts closed |
 | `theme` | `light` \| `dark` | OS preference | Color theme |
 | `kbd` | `off` | on | Disable the `/` search shortcut (WCAG 2.1.4) |
 | `lng`, `lat`, `zoom` | floats | Montana extent | Map camera |
-| `station` | station ID (e.g. `acemocca`) | — | Deep link: fly to + open popup |
+| `station` | station ID (e.g. `acemocca`) | — | Deep link: fly to + open the detail panel |
 | `export` | `light` \| `dark` | — | Headless hook: forces the theme and auto-downloads a PNG after load |
 
 Example: `?mode=hourly&var=wind_spd&date=2026-07-01&hour=18&units=si&station=acemocca`
@@ -62,7 +65,7 @@ All station data come live from the **[Montana Mesonet API v2](https://mesonet2.
 | `/derived/ppt/` | Precipitation accumulation windows (Latest only) |
 | `/derived/change/` | Soil-moisture change (Latest only; fetched in station batches — the unfiltered call times out) |
 | `/latest/`, `/observations/hourly/`, `/observations/daily/` | VPD and well variables (`elements=` list); also all aggregation (`agg_func=`) queries |
-| `/photos/`, `/photos/{station}/{dir}/` | Camera metadata + time-matched popup photos (`dt=` param) |
+| `/photos/`, `/photos/{station}/{dir}/` | Camera metadata + time-matched station photos (`dt=` param) |
 
 Responses are cached per `(source, units, timestamp)` as promises (deduping in-flight requests); Latest-keyed entries are invalidated by the auto-refresh timer. All timestamps and date logic use `America/Denver`.
 
@@ -86,6 +89,8 @@ Deliberately zero-build, matching the MCO pattern ([mesonet-status](https://gith
 - [MapLibre GL JS 5.18.0](https://maplibre.org/) (pinned, unpkg CDN); CARTO Positron / Dark Matter basemaps; [flatgeobuf](https://flatgeobuf.org/) 3.38.0 (pinned, jsDelivr) for the watershed overlay. All three carry SRI hashes (see Security).
 - Fonts: Outfit (UI) + Space Mono (numerals/metadata), Google Fonts.
 - Dark-first theme tokens with a light theme; `localStorage['mco-theme']` is shared across MCO apps.
+- **Every z-index is a token**, declared with its tier in one commented block in `index.html` (`--z-map-overlay` … `--z-toast`). Add to a tier rather than inventing a number — MapLibre's own corner controls sit at z-index 2, so anything floating over the map has to clear that.
+- **One breakpoint lives in two places.** `COMPACT_MQ` in `app.js` (`max-width: 640px`, `max-height: 560px`) decides *behaviour* — which edge the detail panel docks to, whether the sidebar is a fixture or a drawer, and where each control group lives. The CSS decides *layout*, and splits the two on purpose: the narrow rules are width-only (`max-width: 640px`), because a short-but-wide window has plenty of room for the full header and must not get the phone layout; short-viewport rules are height-only. Keep the JS query in sync with the two `@media` blocks marked `NARROW LAYOUT` and `SHORT VIEWPORTS`.
 
 ## Security
 
@@ -108,6 +113,19 @@ python -m http.server 8000
 ```
 
 No build step. The app talks to the production API directly.
+
+There are no unit tests; the URL parameters are the verification harness. Useful
+deterministic states for a headless browser:
+
+| URL | Checks |
+|---|---|
+| `?station=acemocca&legend=open` | Station detail — docked bottom below 640 px wide or 560 px tall, docked right above. Assert its rect is inside the viewport, that `elementFromPoint()` over every link returns the panel, and that **no station dot** is covered by it |
+| `?sidebar=closed` | Sidebar collapsed; Montana re-fits to the wider strip |
+| `?mode=daily` at 390×844 | `#control-bar.scrollWidth === clientWidth` (nothing hidden) and `#variable-select` fully on-screen |
+| `?legend=open` at 844×390 | `#legend` fits inside `#map-container` |
+| `?export=light` / `?export=dark` | Auto-downloads the PNG 1.5 s after first render — the output should stay pixel-identical across UI changes |
+| `?theme=light` | `documentElement.dataset.theme` is set, which also proves the pinned CSP hash still matches the inline theme script |
+| `?kbd=off` | `/` does not focus the search box; <kbd>Esc</kbd> still closes panels |
 
 ## Deployment
 
