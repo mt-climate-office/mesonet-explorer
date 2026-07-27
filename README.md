@@ -26,6 +26,22 @@ Interactive map explorer for [Montana Mesonet](https://climate.umt.edu/mesonet/)
 
 ## URL parameters
 
+Every parameter is optional and every one has a default, so **the default view has
+a clean URL with no query string at all**. A parameter appears only once its value
+differs from the default, and disappears again when you return to it — so the URL
+is always the shortest description of what you're looking at. All of them remain
+valid as input whether or not the app would emit them.
+
+Two consequences worth knowing:
+
+- `date`/`hour` default to the newest data available, so a link with no date shows
+  the **recipient's** latest day rather than the sender's. That's right for "here
+  are current conditions" and wrong for "look at this specific time" — but the
+  latter always carries an explicit date, since a past date isn't the default.
+- `theme` is emitted only when it differs from the viewer's OS preference. Your own
+  choice is remembered in `localStorage` regardless; the parameter exists so a link
+  can carry a deliberate one.
+
 | Param | Values | Default | Meaning |
 |---|---|---|---|
 | `mode` | `latest` \| `hourly` \| `daily` | `latest` | Time mode |
@@ -33,7 +49,7 @@ Interactive map explorer for [Montana Mesonet](https://climate.umt.edu/mesonet/)
 | `date` | `YYYY-MM-DD` | today (MT) | Hourly/Daily date, clamped to network history |
 | `hour` | `0`–`23` | last complete hour | Hourly mode hour (Mountain Time) |
 | `units` | `us` \| `si` | `us` | Unit system |
-| `net` | `hydromet`, `agrimet` (space/comma list) | both | Visible sub-networks |
+| `net` | `hydromet`, `agrimet` (space/comma list) | both | Visible sub-networks; omitted from the URL when both are on |
 | `labels` | `on` | off | Value labels on markers |
 | `agg` | `min` \| `max` \| `avg` \| `sum` \| `stddev` | variable's default | Aggregation function (Hourly/Daily, observed variables); only non-default choices appear in the URL |
 | `scale` | `min,mid,max` (each may be `-`) | automatic | Custom color-scale range/pivot for the current variable; setting min/max locks the scale across time steps |
@@ -45,13 +61,15 @@ Interactive map explorer for [Montana Mesonet](https://climate.umt.edu/mesonet/)
 | `watersheds` | `on` | off | HUC6 watershed overlay |
 | `legend` | `collapsed` \| `open` | open | Legend state (it lives in the sidebar, so collapsing it no longer buys map back) |
 | `sidebar` | `open` \| `closed` | open | Left control sidebar. Desktop only — on compact viewports it's a drawer that always starts closed |
-| `theme` | `light` \| `dark` | OS preference | Color theme |
-| `kbd` | `off` | on | Disable the `/` search shortcut (WCAG 2.1.4) |
-| `lng`, `lat`, `zoom` | floats | Montana extent | Map camera |
+| `theme` | `light` \| `dark` | OS preference | Color theme; emitted only when it differs from the OS preference |
+| `kbd` | `off` | on | Disable the `/` search shortcut (WCAG 2.1.4). Round-trips, so it survives a reload |
+| `lng`, `lat`, `zoom` | floats | Montana extent | Map camera. All three or none; omitted while the map is at the fitted extent |
 | `station` | station ID (e.g. `acemocca`) | — | Deep link: fly to + open the detail panel |
 | `export` | `light` \| `dark` | — | Headless hook: forces the theme and auto-downloads a PNG after load |
 
 Example: `?mode=hourly&var=wind_spd&date=2026-07-01&hour=18&units=si&station=acemocca`
+
+A default load, by contrast, leaves the URL bare — no `?` at all.
 
 ## Data sources
 

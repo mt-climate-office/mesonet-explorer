@@ -542,6 +542,11 @@
 
   // Headless export hook: ?export=light|dark forces the theme before the map
   // is built, then boot() auto-triggers a PNG export (photo-explorer pattern).
+  // Read here with the rest of the URL state rather than down in the keyboard
+  // section: pushState() emits it, and pushState can run during init, which put
+  // the old late `const` in its temporal dead zone.
+  const kbdShortcuts = getLower('kbd') !== 'off';
+
   const _exportParam = getLower('export');
   if (_exportParam === 'light' || _exportParam === 'dark') {
     document.documentElement.dataset.theme = _exportParam;
@@ -3265,7 +3270,6 @@
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
   // ?kbd=off disables the single-character shortcut (WCAG 2.1.4 — speech-input
   // users can misfire it); Escape handling is unaffected.
-  const kbdShortcuts = getLower('kbd') !== 'off';
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       if (infoModal.open || scaleModal.open) return;   // native dialogs own their Escape
@@ -3550,15 +3554,49 @@
   }
 
   // ── URL state push ───────────────────────────────────────────────────────
+  function osTheme() {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+
+  // Is the camera where a fresh load would have put it? cameraForBounds gives the
+  // same answer fitBounds acts on, so this stays correct as the container resizes
+  // (a collapsed sidebar means a wider map and therefore a different fit).
+  function atDefaultExtent() {
+    if (!_mapReady) return true;
+    let want;
+    try { want = map.cameraForBounds(MT_FIT_BOUNDS, fitOpts()); } catch { return false; }
+    if (!want) return false;
+    const wc = want.center;
+    const wlng = typeof wc.lng === 'number' ? wc.lng : wc[0];
+    const wlat = typeof wc.lat === 'number' ? wc.lat : wc[1];
+    const c = map.getCenter();
+    return Math.abs(map.getZoom() - want.zoom) < 0.02
+        && Math.abs(c.lng - wlng) < 0.01
+        && Math.abs(c.lat - wlat) < 0.01;
+  }
+
   function pushState() {
     const params = {};
     if (activeMode !== 'latest') params.mode = activeMode;
     if (activeVar !== 'air_temp') params.var = activeVar;
-    if (activeMode !== 'latest') params.date = activeDate;
-    if (activeMode === 'hourly') params.hour = String(activeHour);
+    // Date and hour default to the newest data available for the mode, which is
+    // also what a load with no parameter resolves to — so a view of the latest
+    // day/hour needs neither. NOTE the consequence for sharing: a link with no
+    // date shows the RECIPIENT's latest day, not the sender's. That is right for
+    // "here are current conditions" and wrong for "look at this specific time";
+    // the latter always carries an explicit date, since a past date is by
+    // definition not the default.
+    if (activeMode !== 'latest' && activeDate !== maxDateForMode()) params.date = activeDate;
+    if (activeMode === 'hourly' && activeHour !== lastCompleteHourMT().hour) {
+      params.hour = String(activeHour);
+    }
     if (activeUnits !== 'us') params.units = activeUnits;
     if (aggActive(REGISTRY_BY_KEY.get(activeVar))) params.agg = activeAgg;
-    params.net = [...activeNetworks].map(n => n.toLowerCase()).join(' ');
+    // Default is every known sub-network, so only a narrowed selection is worth
+    // putting in the URL.
+    if (activeNetworks.size !== KNOWN_NETWORKS.length) {
+      params.net = [...activeNetworks].map(n => n.toLowerCase()).join(' ');
+    }
     if (scaleOverride) {
       const f = (v) => Number.isFinite(v) ? String(v) : '-';
       if (scaleLocked() || Number.isFinite(scaleOverride.mid)) {
@@ -3580,14 +3618,27 @@
     // Only meaningful on desktop, where the sidebar is a fixture rather than a
     // transient drawer.
     if (!isCompact && !sidebarOpen) params.sidebar = 'closed';
+    // The theme's default is the OS preference, so emit it only when the user has
+    // gone against that. (Their own choice is remembered in localStorage either
+    // way — the parameter exists so a shared link can carry a deliberate one.)
     const theme = document.documentElement.dataset.theme;
-    if (theme) params.theme = theme;
-    const c = map.getCenter();
-    params.lng  = c.lng.toFixed(4);
-    params.lat  = c.lat.toFixed(4);
-    params.zoom = map.getZoom().toFixed(2);
+    if (theme && theme !== osTheme()) params.theme = theme;
+    // The camera's default is the fitted Montana extent. Emitted as a set,
+    // because the parser needs all three to position the map.
+    if (!atDefaultExtent()) {
+      const c = map.getCenter();
+      params.lng  = c.lng.toFixed(4);
+      params.lat  = c.lat.toFixed(4);
+      params.zoom = map.getZoom().toFixed(2);
+    }
     if (_selectedStation) params.station = _selectedStation;
-    history.replaceState(null, '', `?${new URLSearchParams(params)}`);
+    // Not previously round-tripped, so it was silently lost on the first
+    // pushState. It's the WCAG 2.1.4 escape hatch for the single-character
+    // shortcut — someone who needs it shouldn't have to re-add it every visit.
+    if (!kbdShortcuts) params.kbd = 'off';
+    // A default view gets a clean URL — no trailing '?'.
+    const qs = new URLSearchParams(params).toString();
+    history.replaceState(null, '', qs ? `?${qs}` : location.pathname);
   }
 
   // ── Map events ───────────────────────────────────────────────────────────

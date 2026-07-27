@@ -52,6 +52,27 @@ short note on what was done.
 
 ## Done
 
+- [x] **Default view gets a clean URL.** Every parameter has a default, and now
+      none is written while its value matches it — so a fresh load carries no
+      query string at all, and a parameter appears only as the view diverges.
+      `net`, `theme` and `lng`/`lat`/`zoom` were previously written unconditionally
+      (and `date` whenever the mode wasn't Latest). The camera triple is compared
+      against `cameraForBounds`, so it stays correct as the container resizes — a
+      collapsed sidebar means a wider map and a different fit. `theme` is measured
+      against the OS preference rather than the saved choice, so a deliberate
+      override still travels in a shared link while a fresh load stays bare.
+      An empty parameter set now replaces the URL with the bare path instead of a
+      trailing `?`. Also fixed: `?kbd=off` was never emitted, so the WCAG 2.1.4
+      escape hatch was silently lost on the first `pushState` — it round-trips now,
+      which required hoisting `kbdShortcuts` up with the rest of the URL parsing
+      (`pushState` can run during init, putting the old late `const` in its
+      temporal dead zone). Verified: bare load → empty URL; each of net, units,
+      theme, camera, sidebar, labels, mode round-trips and vanishes on return to
+      default; zoom-out springs back and clears the camera params with it.
+      **Note for sharing:** `date`/`hour` default to the newest data, so a link
+      without a date shows the recipient's latest day, not the sender's. Right for
+      current conditions, wrong for a specific past moment — but past dates aren't
+      the default and so are always written. *(July 2026)*
 - [x] **Zoom-out spring-back restored.** A `setMinZoom` clamp had replaced the
       original `zoomend` re-fit. Wrong twice over: zooming out past the state did
       nothing at all (a wall, not a spring), and MapLibre disables its own
