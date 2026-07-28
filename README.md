@@ -138,8 +138,21 @@ python -m http.server 8000
 
 No build step. The app talks to the production API directly.
 
-There are no unit tests; the URL parameters are the verification harness. Useful
-deterministic states for a headless browser:
+### Checks
+
+```sh
+cd test && npm install && npm test
+```
+
+Headless browser checks live in [`test/`](test/) — layout and reachability across
+six viewport sizes, URL round-tripping and share links, map camera behaviour, and
+the PNG export. They are a separate package so the app itself stays
+dependency-free, and the runner starts its own static server, so nothing needs to
+be running first. See [`test/README.md`](test/README.md), in particular the two
+notes on live-data drift and stale coordinates — the ways these checks mislead
+you if you skim the output.
+
+The URL parameters double as a manual harness. Useful deterministic states:
 
 | URL | Checks |
 |---|---|

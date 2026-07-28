@@ -1,0 +1,16 @@
+{
+  "name": "mesonet-explorer-tests",
+  "private": true,
+  "type": "module",
+  "description": "Headless checks for mesonet-explorer. Kept in its own package so the app itself stays dependency-free.",
+  "scripts": {
+    "test": "node run.mjs",
+    "test:export": "node run.mjs export",
+    "test:layout": "node run.mjs layout",
+    "test:url": "node run.mjs url",
+    "test:map": "node run.mjs map"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.59.1"
+  }
+}
