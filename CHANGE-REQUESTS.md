@@ -54,15 +54,25 @@ short note on what was done.
 
 - [x] **Header height, units picker, label default, share links, export suite.**
       Five items *(July 2026)*:
-      *Navbar height* — it was jumping to 100-109px below 1200px wide, against 53px
-      above it and 54px on the status map. Cause was a bug from the sidebar work:
+      *Navbar height* — two separate causes. The first: it jumped to 100-109px below
+      1200px wide, against 53px above it and 54px on the status map. Cause was a bug from the sidebar work:
       `.controls` is empty on desktop (every data control moved to the sidebar) but
       a stale `@media (max-width: 1200px)` rule still gave it `flex-basis: 100%`,
       so an invisible empty div claimed a whole navbar row. `:empty` couldn't hide
       it — moving the children out leaves whitespace text nodes behind — so
       `layoutControls()` hides it explicitly and the 1200px rule is gone (it existed
-      to wrap the search box, which now lives in the sidebar). 53px at every width,
-      matching mesonet-status.
+      to wrap the search box, which now lives in the sidebar).
+      The second, and the one that was still visibly wrong: `#control-bar` is empty
+      and hidden on desktop, but `[hidden]` loses to any rule that sets `display`
+      explicitly — and it is `display: flex`. So it never actually hid, leaving a
+      14px strip of its own padding and border between the navbar and the map.
+      Measured as `mapTop` 67 against the status map's 54. A global
+      `[hidden] { display: none !important }` fixes it and the same latent bug on
+      `.controls`. Header is now 53.8px with the map starting at 54 at every width,
+      matching mesonet-status exactly. Restoring the hidden bar also meant the
+      header lost its divider and brand accent line on desktop, so the navbar now
+      carries both, suppressed by `:has()` when the control bar is visible so the
+      accent never doubles.
       *Units picker* — `.seg-btn` was 30px beside 34px `.nav-btn` neighbours, which
       read as a mistake. Now 34px with matching 0.78rem text; the time-mode segments
       pick this up too, so all segmented controls agree.
