@@ -5,7 +5,9 @@
   const DASH_URL  = (s) => `https://mesonet.climate.umt.edu/dash/${encodeURIComponent(s)}/`;
   const TZ = 'America/Denver';
 
-  const MT_FIT_BOUNDS = [[-116.10, 44.30], [-104.00, 49.05]];   // [SW, NE]
+  // Kit defaults (MCO.map.MT_FIT_BOUNDS / .FIT_OPTS), aliased for the direct
+  // fitBounds/cameraForBounds calls below.
+  const MT_FIT_BOUNDS = MCO.map.MT_FIT_BOUNDS;
   // Main-map fits go through fitOpts(), which widens the padding on whichever
   // side a panel is floating over. The PNG export builds its own map with a flat
   // padding of 24 — its framing is deliberately independent of the window.
@@ -59,7 +61,11 @@
   };
   // Editor picker grouping + display names.
   const RAMP_GROUPS = [
-    { label: 'ColorBrewer', ramps: ['RdBu','BrBG','Spectral','YlGnBu','YlOrRd','Blues','PuRd'] },
+    // 'Spectral' is deliberately ABSENT: it traverses red→green and is not
+    // colorblind-safe, so HOUSE-STYLE §6 bans it. The ramp DATA is kept above
+    // so an already-shared ?ramp=Spectral link still renders what its sender
+    // saw — it just can't be newly chosen here.
+    { label: 'ColorBrewer', ramps: ['RdBu','BrBG','YlGnBu','YlOrRd','Blues','PuRd'] },
     { label: 'Scientific colour maps (Crameri)',
       ramps: ['batlow','lajolla','davos','bamako','vik','roma','broc','cork','romaO','vikO'] },
   ];
@@ -272,39 +278,26 @@
   const bucketKey = (lat, lon) =>
     `${lat.toFixed(BUCKET_PRECISION)},${lon.toFixed(BUCKET_PRECISION)}`;
 
-  function lsSet(key, value) {
-    try { localStorage.setItem(key, value); } catch {}
-  }
 
-  const _reduceMotionMq = window.matchMedia('(prefers-reduced-motion: reduce)');
-  let reduceMotion = _reduceMotionMq.matches;
-  _reduceMotionMq.addEventListener('change', (e) => { reduceMotion = e.matches; });
 
-  // ── Viewport class (live — the single source of truth) ────────────────────
-  // "Compact" means a viewport where a ~320px anchored popup can't be shown
-  // whole inside the map container: narrow phones AND short/landscape ones.
-  // Layout itself stays in real @media queries (so there's no flash of the
-  // desktop layout before this deferred module runs); these flags drive the
-  // choices JS has to make — sheet vs. anchored popup, the legend default.
-  // KEEP THE QUERY IN SYNC with the "COMPACT BREAKPOINT" @media in index.html.
-  const COMPACT_MQ = '(max-width: 640px), (max-height: 560px)';
-  const _compactMq = window.matchMedia(COMPACT_MQ);
-  const _touchMq   = window.matchMedia('(hover: none)');
-  let isCompact = _compactMq.matches;
-  let isTouch   = _touchMq.matches;
-  const _viewportSubs = new Set();
-  function onViewportChange(fn) { _viewportSubs.add(fn); return fn; }
-  function _emitViewport() {
-    document.documentElement.classList.toggle('is-compact', isCompact);
-    document.documentElement.classList.toggle('is-touch', isTouch);
-    for (const fn of _viewportSubs) { try { fn(); } catch (e) { console.error(e); } }
-  }
-  _compactMq.addEventListener('change', (e) => { isCompact = e.matches; _emitViewport(); });
-  _touchMq.addEventListener('change',   (e) => { isTouch   = e.matches; _emitViewport(); });
-  _emitViewport();   // stamp .is-compact / .is-touch before first paint of JS-built UI
+  // ── Viewport class ────────────────────────────────────────────────────────
+  // MCO.viewport owns this now, including the .is-compact / .is-touch stamping
+  // on <html>. Its query is character-for-character the one this file used —
+  // "compact" is a viewport where a ~320px anchored popup can't be shown whole
+  // inside the map container: narrow phones AND short/landscape ones. Layout
+  // itself stays in real @media rules, so there is no flash of the desktop
+  // layout before this deferred module runs; these flags only drive the choices
+  // JS has to make (sheet vs. anchored popup, the legend default).
+  //
+  // Adopting the kit's copy is the point: this file previously carried a
+  // "KEEP THE QUERY IN SYNC" comment, and a duplicated breakpoint is exactly
+  // the thing that drifts. The kit's mco-theme.css @media and MCO.viewport are
+  // now the single pair to keep aligned, for every consumer at once.
+  // Return value differs from the old local helper: the kit hands back an
+  // unsubscribe function rather than the callback. Nothing here used either.
+  const onViewportChange = (fn) => MCO.viewport.onChange(fn);
 
   // ── DOM refs ─────────────────────────────────────────────────────────────
-  const toastEl        = document.getElementById('toast');
   const refreshStampEl = document.getElementById('refresh-stamp');
   const subnetFiltersEl= document.getElementById('subnet-filters');
   const legendTitleEl  = document.getElementById('legend-title');
@@ -335,13 +328,6 @@
   const sheetExpandEl  = document.getElementById('sheet-expand');
   let _sheetOpen = false;
 
-  let _toastTimer;
-  function showToast(msg, ms = 2800) {
-    clearTimeout(_toastTimer);
-    toastEl.textContent = msg;
-    toastEl.classList.add('visible');
-    _toastTimer = setTimeout(() => toastEl.classList.remove('visible'), ms);
-  }
 
   const srAnnounceEl = document.getElementById('sr-announce');
 
@@ -362,67 +348,22 @@
     loadingNoteEl.hidden = !text;
   }
 
-  function escapeHTML(str) {
-    return String(str).replace(/[&<>"']/g, (c) => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-    }[c]));
-  }
-  function escapeRe(str) {
-    return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  }
+  // escapeHTML and escapeRe are both the kit's (MCO.escapeHTML / MCO.escapeRe).
 
   // ── Mountain-time helpers ────────────────────────────────────────────────
-  function todayMT() {
-    return new Date().toLocaleDateString('en-CA', { timeZone: TZ });
-  }
-  function currentHourMT() {
-    return parseInt(new Intl.DateTimeFormat('en-US',
-      { timeZone: TZ, hour: 'numeric', hourCycle: 'h23' }).format(new Date()), 10);
-  }
-  function hhmmNowMT() {
-    return new Intl.DateTimeFormat('en-GB',
-      { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date());
-  }
-  function shiftDate(dateStr, deltaDays) {
-    const d = new Date(`${dateStr}T12:00:00`);
-    d.setDate(d.getDate() + deltaDays);
-    return d.toISOString().slice(0, 10);
-  }
-  const pad2 = (n) => String(n).padStart(2, '0');
-  function formatStampMT(ms) {
-    return new Date(ms).toLocaleString('en-US', {
-      timeZone: TZ,
-      month: 'short', day: 'numeric',
-      hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
-    });
-  }
-  function formatDateMT(ms) {
-    return new Date(ms).toLocaleDateString('en-US', {
-      timeZone: TZ, year: 'numeric', month: 'short', day: 'numeric',
-    });
-  }
-  function formatDateStr(dateStr) {
-    return new Date(`${dateStr}T12:00:00`).toLocaleDateString('en-US', {
-      month: 'long', day: 'numeric', year: 'numeric',
-    });
-  }
-
-  // The last complete clock hour for hourly mode, as {date, hour} in MT.
-  function lastCompleteHourMT() {
-    const t = todayMT();
-    const h = currentHourMT() - 1;
-    if (h < 0) return { date: shiftDate(t, -1), hour: 23 };
-    return { date: t, hour: h };
-  }
-
+  // Every MT date/time helper below is the kit's now. They were byte-equivalent
+  // here with ONE exception that matters: this file's shiftDate ended in
+  // `toISOString().slice(0, 10)`, which re-projects the noon anchor to UTC. The
+  // date stepper therefore did NOTHING at UTC+13/+14 and skipped two days at
+  // UTC-12 — reproduced before this migration, correct in Mountain Time, which
+  // is why it went unnoticed. lastCompleteHourMT calls shiftDate and inherited
+  // it. The kit fixed this in v0.4.0; adopting the helpers fixes it here.
   // ── URL state ────────────────────────────────────────────────────────────
-  const urlParams = new URLSearchParams(location.search);
-  const getLower = (key) => {
-    const v = urlParams.get(key);
-    return v == null ? null : v.toLowerCase();
-  };
-  const splitTokens = (raw) =>
-    raw == null ? null : raw.split(/[,\s]+/).filter(Boolean).map(s => s.toLowerCase());
+  // Read once at boot. getLower / splitTokens are the kit's — this file carried
+  // byte-identical copies of both.
+  const urlParams = MCO.urlParams();
+  const getLower = (key) => MCO.getParamLower(key, urlParams);
+  const splitTokens = MCO.splitTokens;
 
   const KNOWN_NETWORKS = ['HydroMet', 'AgriMet'];
   const networkByLowerName = new Map(KNOWN_NETWORKS.map(n => [n.toLowerCase(), n]));
@@ -483,7 +424,7 @@
   let activeUnits = (() => {
     const u = getLower('units');
     if (u === 'us' || u === 'si') return u;
-    const saved = localStorage.getItem('mco-explorer-units');
+    const saved = MCO.lsGet('mco-explorer-units');
     return (saved === 'si') ? 'si' : 'us';
   })();
 
@@ -498,13 +439,13 @@
   let activeDate = (() => {
     const u = urlParams.get('date');
     if (u && /^\d{4}-\d{2}-\d{2}$/.test(u)) return u;
-    return activeMode === 'hourly' ? lastCompleteHourMT().date : todayMT();
+    return activeMode === 'hourly' ? MCO.lastCompleteHourMT().date : MCO.todayMT();
   })();
 
   let activeHour = (() => {
     const u = parseInt(urlParams.get('hour'), 10);
     if (Number.isInteger(u) && u >= 0 && u <= 23) return u;
-    return lastCompleteHourMT().hour;
+    return MCO.lastCompleteHourMT().hour;
   })();
 
   let activeNetworks = (() => {
@@ -513,7 +454,7 @@
       return new Set(tokens.map(t => networkByLowerName.get(t)).filter(Boolean));
     }
     try {
-      const saved = JSON.parse(localStorage.getItem('mco-explorer-networks') || 'null');
+      const saved = JSON.parse(MCO.lsGet('mco-explorer-networks') || 'null');
       // localStorage is shared across every mt-climate-office.github.io app —
       // validate members the same way as ?net= rather than trusting them.
       if (Array.isArray(saved)) {
@@ -529,7 +470,7 @@
   let labelsOn = (() => {
     const u = getLower('labels');
     if (u === 'on' || u === 'off') return u === 'on';
-    const saved = localStorage.getItem('mco-explorer-labels');
+    const saved = MCO.lsGet('mco-explorer-labels');
     if (saved === 'on' || saved === 'off') return saved === 'on';
     return LABELS_DEFAULT;
   })();
@@ -563,19 +504,23 @@
   let _selectedStation = _initStation;
 
   // ── Theme ────────────────────────────────────────────────────────────────
-  function basemapStyleUrl() {
-    const variant = document.documentElement.dataset.theme === 'dark'
-      ? 'dark-matter-gl-style' : 'positron-gl-style';
-    return `https://basemaps.cartocdn.com/gl/${variant}/style.json`;
-  }
+  // The basemap URL is the kit's MCO.map.cartoStyleUrl(). Its `=== 'dark'` test
+  // is why the local copy had to go: high-contrast is a dark-family theme and
+  // would have been dropped onto the light basemap.
   function dotStrokeColor() {
-    return document.documentElement.dataset.theme === 'dark' ? '#ffffff' : '#2a2a3a';
+    // --dot-stroke is a kit token precisely because every MCO map needs a
+    // marker outline that survives all three themes.
+    return getComputedStyle(document.documentElement)
+      .getPropertyValue('--dot-stroke').trim() || (isDarkTheme() ? '#ffffff' : '#2a2a3a');
   }
   function mutedStrokeColor() {
     // Hollow stale/no-data dots are ONLY a stroke — it must clear 3:1
-    // against the basemap in both themes (WCAG 1.4.11).
-    return document.documentElement.dataset.theme === 'dark' ? '#7a8aa0' : '#6e7787';
+    // against the basemap in every theme (WCAG 1.4.11).
+    return isDarkTheme() ? '#7a8aa0' : '#6e7787';
   }
+  // High-contrast counts as dark for palette purposes, so this tests
+  // `!== 'light'` rather than `=== 'dark'`.
+  function isDarkTheme() { return MCO.getTheme() !== 'light'; }
   function syncThemeIcons() {
     const dark = document.documentElement.dataset.theme !== 'light';
     document.getElementById('icon-moon').style.display = dark ? 'none' : '';
@@ -588,9 +533,9 @@
   document.getElementById('btn-theme').addEventListener('click', () => {
     const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
     document.documentElement.dataset.theme = next;
-    lsSet('mco-theme', next);
+    MCO.lsSet('mco-theme', next);
     syncThemeIcons();
-    map.setStyle(basemapStyleUrl());
+    map.setStyle(MCO.map.cartoStyleUrl());
     map.once('style.load', () => {
       addCustomLayers();
       map.getSource('stations')?.setData(_lastFC);
@@ -607,7 +552,7 @@
   });
   infoModal.addEventListener('close', () => {
     btnInfo.focus();
-    lsSet('mco-explorer-seen-intro', '1');
+    MCO.lsSet('mco-explorer-seen-intro', '1');
   });
   // A deep link is an explicit request to see something specific, so don't cover
   // it with the intro — a shared ?station= link used to land on this modal. The
@@ -617,19 +562,19 @@
   const DEEP_LINK_PARAMS = ['station', 'var', 'mode', 'date', 'hour', 'scale',
                             'ramp', 'agg', 'net', 'lng', 'lat', 'zoom'];
   const _isDeepLink = DEEP_LINK_PARAMS.some(k => urlParams.has(k));
-  if (!localStorage.getItem('mco-explorer-seen-intro') && !_exportParam && !_isDeepLink) {
+  if (!MCO.lsGet('mco-explorer-seen-intro') && !_exportParam && !_isDeepLink) {
     setTimeout(() => { if (!infoModal.open) infoModal.showModal(); }, 350);
   } else if (_isDeepLink) {
-    lsSet('mco-explorer-seen-intro', '1');
+    MCO.lsSet('mco-explorer-seen-intro', '1');
   }
 
   // ── Share ────────────────────────────────────────────────────────────────
   document.getElementById('btn-share').addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(shareURL());
-      showToast('Link copied to clipboard');
+      MCO.showToast('Link copied to clipboard');
     } catch {
-      showToast('Could not copy — copy the URL from the address bar');
+      MCO.showToast('Could not copy — copy the URL from the address bar');
     }
   });
 
@@ -731,11 +676,8 @@
   const cache = new Map();
   let renderToken = 0;
 
-  async function fetchJSON(url, timeoutMs = 60_000) {
-    const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
-    return res.json();
-  }
+  // MCO.fetchJSON is the kit's; it takes the timeout as an option rather than a
+  // positional argument, hence the { timeoutMs } at each call below.
   // Network-wide daily aggregates can take 30–60 s on the production API
   // (cost scales with station count server-side), so give them extra headroom.
   const timeoutForMode = (mode) => mode === 'daily' ? 150_000 : 60_000;
@@ -754,22 +696,25 @@
 
   // Time window helpers for hourly/daily queries.
   function hourWindow(date, hour) {
-    const start = `${date}T${pad2(hour)}:00:00`;
-    const end = hour < 23 ? `${date}T${pad2(hour + 1)}:00:00` : `${shiftDate(date, 1)}T00:00:00`;
+    const start = `${date}T${MCO.pad2(hour)}:00:00`;
+    const end = hour < 23 ? `${date}T${MCO.pad2(hour + 1)}:00:00` : `${MCO.shiftDate(date, 1)}T00:00:00`;
     return { start, end };
   }
 
   // timeKey identifies the temporal slice a fetch belongs to.
   function timeKeyFor(mode, date, hour) {
     if (mode === 'latest') return 'latest';
-    if (mode === 'hourly') return `${date}T${pad2(hour)}`;
+    if (mode === 'hourly') return `${date}T${MCO.pad2(hour)}`;
     return date;
   }
 
   // Source fetchers → arrays of wide rows [{station, datetime?, "<Name> [unit]": v, …}]
-  function fetchObs(mode, date, hour, units) {
+  // `els` is the active variable's element list. DAILY ONLY uses it — see below.
+  function fetchObs(mode, date, hour, units, els) {
     const tk = timeKeyFor(mode, date, hour);
-    return cached(`obs|${units}|${tk}`, () => {
+    // Daily is fetched per-variable, so the element set is part of the key.
+    const elsKey = mode === 'daily' && els && els.length ? els.join(',') : 'all';
+    return cached(`obs|${units}|${tk}|${elsKey}`, () => {
       let url;
       if (mode === 'latest') {
         url = `${API}/observations/grouped/?type=json&latest=true&units=${units}`;
@@ -777,9 +722,33 @@
         const w = hourWindow(date, hour);
         url = `${API}/observations/grouped/?type=json&hour=true&start_time=${w.start}&end_time=${w.end}&units=${units}&rm_na=true&tz=${encodeURIComponent(TZ)}`;
       } else {
-        url = `${API}/observations/grouped/?type=json&day=true&start_time=${date}&end_time=${shiftDate(date, 1)}&units=${units}&rm_na=true&tz=${encodeURIComponent(TZ)}`;
+        // Daily had never loaded at all: this call asked for EVERY element over
+        // an explicit range covering today, and either of those alone hangs the
+        // endpoint (~90 s, then net::ERR_FAILED). Probed 2026-08-16 —
+        // measurements in mco-web-style's CONSUMERS.md.
+        //
+        // Two changes, both required:
+        //   1. narrow to the active variable's elements
+        //   2. omit start_time/end_time for today — the endpoint already
+        //      defaults to today, and an explicit range covering it is the
+        //      trigger. A PAST day still needs (and tolerates) a range.
+        //
+        // Deliberately still /observations/grouped/, not /observations/daily/.
+        // "Grouped" is what merges multi-height sensors into the single column
+        // the registry resolves against: grouped gives `Wind Speed [mi/h]`,
+        // while /daily/ gives `Wind Speed @ 10 m` AND `@ 8 ft`. Swapping
+        // endpoints would silently break every multi-height variable.
+        const q = ['type=json', 'day=true', `units=${units}`, 'rm_na=true',
+                   `tz=${encodeURIComponent(TZ)}`];
+        if (els && els.length) {
+          q.push(...els.map(e => `elements=${encodeURIComponent(e)}`));
+        }
+        if (date !== MCO.todayMT()) {
+          q.push(`start_time=${date}`, `end_time=${MCO.shiftDate(date, 1)}`);
+        }
+        url = `${API}/observations/grouped/?${q.join('&')}`;
       }
-      return fetchJSON(url, timeoutForMode(mode));
+      return MCO.fetchJSON(url, { timeoutMs: timeoutForMode(mode) });
     });
   }
 
@@ -793,15 +762,15 @@
         const w = hourWindow(date, hour);
         url = `${API}/derived/hourly/?type=json&elements=${element}&grouped=true&wide=true&start_time=${w.start}&end_time=${w.end}&units=${units}&rm_na=true&tz=${encodeURIComponent(TZ)}`;
       } else {
-        url = `${API}/derived/daily/?type=json&elements=${element}&grouped=true&wide=true&start_time=${date}&end_time=${shiftDate(date, 1)}&units=${units}&rm_na=true&tz=${encodeURIComponent(TZ)}`;
+        url = `${API}/derived/daily/?type=json&elements=${element}&grouped=true&wide=true&start_time=${date}&end_time=${MCO.shiftDate(date, 1)}&units=${units}&rm_na=true&tz=${encodeURIComponent(TZ)}`;
       }
-      return fetchJSON(url, timeoutForMode(mode));
+      return MCO.fetchJSON(url, { timeoutMs: timeoutForMode(mode) });
     });
   }
 
   function fetchPptWindows(units) {
     // /derived/ppt/ has no units param — U.S. units always; converted client-side.
-    return cached(`pptwin|${units}|latest`, () => fetchJSON(`${API}/derived/ppt/?type=json&wide=true`));
+    return cached(`pptwin|${units}|latest`, () => MCO.fetchJSON(`${API}/derived/ppt/?type=json&wide=true`));
   }
 
   function fetchExtra(mode, date, hour, units) {
@@ -815,9 +784,9 @@
         const w = hourWindow(date, hour);
         url = `${API}/observations/hourly/?type=json&${els}&wide=true&start_time=${w.start}&end_time=${w.end}&units=${units}&rm_na=true&tz=${encodeURIComponent(TZ)}`;
       } else {
-        url = `${API}/observations/daily/?type=json&${els}&wide=true&start_time=${date}&end_time=${shiftDate(date, 1)}&units=${units}&rm_na=true&tz=${encodeURIComponent(TZ)}`;
+        url = `${API}/observations/daily/?type=json&${els}&wide=true&start_time=${date}&end_time=${MCO.shiftDate(date, 1)}&units=${units}&rm_na=true&tz=${encodeURIComponent(TZ)}`;
       }
-      return fetchJSON(url, timeoutForMode(mode));
+      return MCO.fetchJSON(url, { timeoutMs: timeoutForMode(mode) });
     });
   }
 
@@ -833,7 +802,7 @@
         setLoadingNote(`Loading soil-moisture change… batch ${i / BATCH + 1} of ${nBatches}`);
         const batch = ids.slice(i, i + BATCH).map(encodeURIComponent).join(',');
         const url = `${API}/derived/change/?type=json&difference=1,7,14,30&stations=${batch}`;
-        const rows = await fetchJSON(url, 45_000);
+        const rows = await MCO.fetchJSON(url, { timeoutMs: 45_000 });
         merged.push(...rows);
       }
       setLoadingNote('');
@@ -853,9 +822,9 @@
         const w = hourWindow(date, hour);
         url = `${API}/observations/hourly/?type=json&${els}&wide=true&start_time=${w.start}&end_time=${w.end}&units=${units}&rm_na=true&agg_func=${agg}&tz=${encodeURIComponent(TZ)}`;
       } else {
-        url = `${API}/observations/daily/?type=json&${els}&wide=true&start_time=${date}&end_time=${shiftDate(date, 1)}&units=${units}&rm_na=true&agg_func=${agg}&tz=${encodeURIComponent(TZ)}`;
+        url = `${API}/observations/daily/?type=json&${els}&wide=true&start_time=${date}&end_time=${MCO.shiftDate(date, 1)}&units=${units}&rm_na=true&agg_func=${agg}&tz=${encodeURIComponent(TZ)}`;
       }
-      return fetchJSON(url, timeoutForMode(mode));
+      return MCO.fetchJSON(url, { timeoutMs: timeoutForMode(mode) });
     });
   }
 
@@ -877,7 +846,7 @@
   function fetchRowsFor(entry, mode, date, hour, units) {
     if (aggActive(entry)) return fetchAggObs(entry, mode, date, hour, units, activeAgg);
     switch (entry.source) {
-      case 'obs':     return fetchObs(mode, date, hour, units);
+      case 'obs':     return fetchObs(mode, date, hour, units, entry.els);
       case 'derived': return fetchDerived(entry.element, mode, date, hour, units);
       case 'pptwin':  return fetchPptWindows(units);
       case 'extra':   return fetchExtra(mode, date, hour, units);
@@ -896,7 +865,7 @@
     let m = _colResolveCache.get(rows);
     if (!m) { m = new Map(); _colResolveCache.set(rows, m); }
     if (m.has(entry.key)) return m.get(entry.key);
-    const re = new RegExp(`^${escapeRe(entry.col)}(?:\\s*\\([^)]*\\))?\\s*\\[(.+)\\]$`);
+    const re = new RegExp(`^${MCO.escapeRe(entry.col)}(?:\\s*\\([^)]*\\))?\\s*\\[(.+)\\]$`);
     let found = null;
     for (const row of rows) {
       for (const k of Object.keys(row)) {
@@ -1038,7 +1007,7 @@
   // ── Map init ─────────────────────────────────────────────────────────────
   const map = new maplibregl.Map({
     container: 'map',
-    style: basemapStyleUrl(),
+    style: MCO.map.cartoStyleUrl(),
     ...(_hasInitPos
       ? { center: [_initLng, _initLat], zoom: _initZoom }
       : { bounds: MT_FIT_BOUNDS, fitBoundsOptions: FIT_OPTS }),
@@ -1058,7 +1027,7 @@
     btn.innerHTML = `<span class="maplibregl-ctrl-icon" aria-hidden="true"></span>`;
     btn.addEventListener('click', () => {
       closeSpider();
-      map.fitBounds(MT_FIT_BOUNDS, { ...fitOpts(), animate: !reduceMotion });
+      map.fitBounds(MT_FIT_BOUNDS, { ...fitOpts(), animate: !MCO.reducedMotion() });
     });
     navGroup.appendChild(btn);
   })();
@@ -1132,6 +1101,19 @@
     if (!_tribalFC) preloadOverlay('tribal', 'data/mt_reservations_simple.geojson', fc => _tribalFC = fc);
     if (!_countyFC) preloadOverlay('county', 'data/mt_counties_simple.geojson',     fc => _countyFC = fc);
     if (!_stateFC)  preloadOverlay('state',  'data/mt_state_simple.geojson',        fc => _stateFC  = fc);
+
+    // Themed live-shaded topography, beneath everything we draw. On a station
+    // map the terrain is real context — which sites sit in valleys, which on
+    // ridges — and the dots are small enough that it never competes with them.
+    MCO.map.addHillshade(map);
+
+    // CARTO draws its own dashed county boundaries (pale orange on Positron,
+    // z9+). This map has a county overlay the user can toggle, so the basemap's
+    // copy is a duplicate that can't be turned off. Re-run on every style load,
+    // because setStyle brings it back.
+    if (map.getLayer('boundary_county')) {
+      map.setLayoutProperty('boundary_county', 'visibility', 'none');
+    }
 
     if (radarOn && !map.getSource('radar')) {
       map.addSource('radar', { type: 'raster', tiles: [RADAR_TILES(_radarTs)], tileSize: 256 });
@@ -1456,7 +1438,7 @@
       setSyncStamp('error');
       hideLoading();
       if (!background) showRenderError(entry);
-      showToast(entry.source === 'change'
+      MCO.showToast(entry.source === 'change'
         ? 'Soil-moisture change is temporarily unavailable'
         : `Data fetch failed: ${err.message}`, 6000);
       return;
@@ -1608,7 +1590,7 @@
         p.cat === 'nodata' || p.value == null
           ? 'no data'
           : `${p.label}${unitFor(p)}${p.cat === 'stale' ? ' (stale)' : ''}`,
-        typeof p.dt === 'number' ? formatStampMT(p.dt) : '—',
+        typeof p.dt === 'number' ? MCO.formatStampMT(p.dt) : '—',
       ];
       cells.forEach((text, i) => {
         const cell = document.createElement(i === 0 ? 'th' : 'td');
@@ -1644,9 +1626,9 @@
     if (!_lastRender) return;
     const { maxDt } = _lastRender;
     if (activeMode === 'latest') {
-      setSyncStamp(maxDt ? `as of ${formatStampMT(maxDt)}` : 'current');
+      setSyncStamp(maxDt ? `as of ${MCO.formatStampMT(maxDt)}` : 'current');
     } else if (activeMode === 'hourly') {
-      setSyncStamp(`${activeDate} ${pad2(activeHour)}:00 MT`);
+      setSyncStamp(`${activeDate} ${MCO.pad2(activeHour)}:00 MT`);
     } else {
       setSyncStamp(activeDate);
     }
@@ -1659,7 +1641,7 @@
       msg = '<strong>No networks selected.</strong> Click HydroMet or AgriMet to show stations.';
     } else if (_lastRender && _lastRender.counts.ok === 0) {
       const label = _lastRender.entry.label;
-      msg = `<strong>No data</strong> for ${escapeHTML(label)} at this time. Try another variable, date, or time mode.`;
+      msg = `<strong>No data</strong> for ${MCO.escapeHTML(label)} at this time. Try another variable, date, or time mode.`;
     }
     if (msg) {
       emptyStateEl.innerHTML = `<div class="empty-state-card">${msg}</div>`;
@@ -1689,7 +1671,7 @@
   }
   function showRenderError(entry) {
     showErrorCard(
-      `<strong>Couldn’t load ${escapeHTML(entry.label)}.</strong> The map still shows the previous selection.`,
+      `<strong>Couldn’t load ${MCO.escapeHTML(entry.label)}.</strong> The map still shows the previous selection.`,
       () => render());
   }
 
@@ -1774,16 +1756,16 @@
     // Meta line
     if (activeMode === 'latest') {
       let meta = maxDt
-        ? `Data current as of ${formatStampMT(maxDt)}`
+        ? `Data current as of ${MCO.formatStampMT(maxDt)}`
         : 'Current accumulations';
       if (!staleShown && counts.stale > 0) {
         meta += ` · ${counts.stale} station${counts.stale === 1 ? '' : 's'} hidden (no report in 3 h)`;
       }
       legendMetaEl.textContent = meta;
     } else if (activeMode === 'hourly') {
-      legendMetaEl.textContent = `Hour beginning ${formatDateStr(activeDate)}, ${pad2(activeHour)}:00 MT`;
+      legendMetaEl.textContent = `Hour beginning ${MCO.formatDateStr(activeDate)}, ${MCO.pad2(activeHour)}:00 MT`;
     } else {
-      legendMetaEl.textContent = `Daily aggregate for ${formatDateStr(activeDate)}${dailyPartialSuffix()}`;
+      legendMetaEl.textContent = `Daily aggregate for ${MCO.formatDateStr(activeDate)}${dailyPartialSuffix()}`;
     }
 
   }
@@ -1791,8 +1773,8 @@
   // "Today" in Daily mode is an aggregate of an incomplete day — label it so
   // a 9 AM view of daily precipitation isn't read as a full-day total.
   function dailyPartialSuffix() {
-    return (activeMode === 'daily' && activeDate === todayMT())
-      ? ` (partial day, through ${hhmmNowMT()} MT)` : '';
+    return (activeMode === 'daily' && activeDate === MCO.todayMT())
+      ? ` (partial day, through ${MCO.hhmmNowMT()} MT)` : '';
   }
 
   function updateLegendTitle() {
@@ -1854,7 +1836,7 @@
       setOverlayVisibility();
       pushState();
       if (on && !_hucFC) {
-        loadHucOnce().catch(() => showToast('Watershed boundaries failed to load'));
+        loadHucOnce().catch(() => MCO.showToast('Watershed boundaries failed to load'));
       }
     });
     mk('Radar (live)', radarOn, activeMode !== 'latest', (on) => {
@@ -2007,14 +1989,14 @@
     activeMode = mode;
     // Clamp the time selection into range for the new mode.
     if (mode === 'hourly') {
-      const last = lastCompleteHourMT();
+      const last = MCO.lastCompleteHourMT();
       if (activeDate > last.date || (activeDate === last.date && activeHour > last.hour)) {
         activeDate = last.date; activeHour = last.hour;
       }
       dateInput.value = activeDate;
       updateHourReadout();
     } else if (mode === 'daily') {
-      if (activeDate > todayMT()) activeDate = todayMT();
+      if (activeDate > MCO.todayMT()) activeDate = MCO.todayMT();
       dateInput.value = activeDate;
     }
     dateInput.max = maxDateForMode();   // hourly excludes the incomplete hour's day
@@ -2022,7 +2004,7 @@
     const entry = REGISTRY_BY_KEY.get(activeVar);
     if (!entry.modes.includes(mode)) {
       activeVar = 'air_temp';
-      showToast(`${entry.label} isn't available in ${mode} mode — showing Air Temperature`);
+      MCO.showToast(`${entry.label} isn't available in ${mode} mode — showing Air Temperature`);
     }
     populateVariableSelect();
     syncAggUI();
@@ -2037,13 +2019,13 @@
   }
 
   function maxDateForMode() {
-    return activeMode === 'hourly' ? lastCompleteHourMT().date : todayMT();
+    return activeMode === 'hourly' ? MCO.lastCompleteHourMT().date : MCO.todayMT();
   }
   function setDate(dateStr) {
     let d = dateStr;
     const maxD = maxDateForMode();
-    if (d < earliestDate) { d = earliestDate; showToast(`Earliest available date: ${formatDateStr(d)}`); }
-    if (d > maxD)         { d = maxD;         showToast('No future dates available'); }
+    if (d < earliestDate) { d = earliestDate; MCO.showToast(`Earliest available date: ${MCO.formatDateStr(d)}`); }
+    if (d > maxD)         { d = maxD;         MCO.showToast('No future dates available'); }
     activeDate = d;
     dateInput.value = d;
     if (activeMode === 'hourly') clampHour();
@@ -2069,14 +2051,14 @@
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); step(); }
     });
   }
-  makeStepper('btn-date-next', () => setDate(shiftDate(activeDate, +1)));
-  makeStepper('btn-date-prev', () => setDate(shiftDate(activeDate, -1)));
+  makeStepper('btn-date-next', () => setDate(MCO.shiftDate(activeDate, +1)));
+  makeStepper('btn-date-prev', () => setDate(MCO.shiftDate(activeDate, -1)));
 
   function updateHourReadout() {
-    hourReadout.textContent = `${pad2(activeHour)}:00`;
+    hourReadout.textContent = `${MCO.pad2(activeHour)}:00`;
   }
   function clampHour() {
-    const last = lastCompleteHourMT();
+    const last = MCO.lastCompleteHourMT();
     if (activeDate === last.date && activeHour > last.hour) activeHour = last.hour;
     if (activeDate > last.date) { activeDate = last.date; dateInput.value = activeDate; }
     updateHourReadout();
@@ -2084,14 +2066,14 @@
   function stepHour(delta) {
     let h = activeHour + delta;
     let d = activeDate;
-    if (h > 23) { h = 0; d = shiftDate(d, 1); }
-    if (h < 0)  { h = 23; d = shiftDate(d, -1); }
-    const last = lastCompleteHourMT();
+    if (h > 23) { h = 0; d = MCO.shiftDate(d, 1); }
+    if (h < 0)  { h = 23; d = MCO.shiftDate(d, -1); }
+    const last = MCO.lastCompleteHourMT();
     if (d > last.date || (d === last.date && h > last.hour)) {
-      showToast('That hour isn\'t complete yet');
+      MCO.showToast('That hour isn\'t complete yet');
       return;
     }
-    if (d < earliestDate) { showToast(`Earliest available date: ${formatDateStr(earliestDate)}`); return; }
+    if (d < earliestDate) { MCO.showToast(`Earliest available date: ${MCO.formatDateStr(earliestDate)}`); return; }
     activeHour = h;
     if (d !== activeDate) { activeDate = d; dateInput.value = d; }
     updateHourReadout();
@@ -2111,12 +2093,12 @@
     btn.addEventListener('click', () => {
       if (btn.dataset.units === activeUnits) return;
       activeUnits = btn.dataset.units;
-      lsSet('mco-explorer-units', activeUnits);
+      MCO.lsSet('mco-explorer-units', activeUnits);
       if (scaleLocked()) {
         scaleOverride = scaleOverride.ramp
           ? { ramp: scaleOverride.ramp, rev: scaleOverride.rev }  // keep the ramp choice
           : null;
-        showToast('Custom scale range cleared — units changed');
+        MCO.showToast('Custom scale range cleared — units changed');
       }
       syncUnitsUI();
       render();
@@ -2152,7 +2134,7 @@
         chip.setAttribute('aria-pressed', on ? 'true' : 'false');
         if (on) activeNetworks.add(net);
         else    activeNetworks.delete(net);
-        lsSet('mco-explorer-networks', JSON.stringify([...activeNetworks]));
+        MCO.lsSet('mco-explorer-networks', JSON.stringify([...activeNetworks]));
         applyDotFilters();
         render({ background: true });   // recompute scale domain for visible nets
         pushState();
@@ -2167,7 +2149,7 @@
   labelsBtn.addEventListener('click', () => {
     labelsOn = !labelsOn;
     labelsBtn.setAttribute('aria-pressed', labelsOn ? 'true' : 'false');
-    lsSet('mco-explorer-labels', labelsOn ? 'on' : 'off');
+    MCO.lsSet('mco-explorer-labels', labelsOn ? 'on' : 'off');
     for (const lid of ['dots-label', 'spider-label']) {
       if (map.getLayer(lid)) map.setLayoutProperty(lid, 'visibility', labelsOn ? 'visible' : 'none');
     }
@@ -2178,7 +2160,7 @@
   const legendEl        = document.getElementById('legend');
   const legendToggleBtn = document.getElementById('legend-toggle-btn');
   const _legendUrlChoice = getLower('legend');
-  const _legendSaved = localStorage.getItem('mco-explorer-legend');
+  const _legendSaved = MCO.lsGet('mco-explorer-legend');
   let legendCollapsed =
     _legendUrlChoice === 'collapsed' ? true :
     _legendUrlChoice === 'open'      ? false :
@@ -2193,7 +2175,7 @@
     legendEl.classList.toggle('collapsed', legendCollapsed);
     legendToggleBtn.setAttribute('aria-expanded', legendCollapsed ? 'false' : 'true');
     legendToggleBtn.setAttribute('aria-label', legendCollapsed ? 'Expand legend' : 'Collapse legend');
-    if (persist) lsSet('mco-explorer-legend', legendCollapsed ? 'collapsed' : 'expanded');
+    if (persist) MCO.lsSet('mco-explorer-legend', legendCollapsed ? 'collapsed' : 'expanded');
     updateLegendTitle();   // the collapsed title carries the hidden-stale count
   }
   setLegendCollapsed(legendCollapsed, { persist: false });
@@ -2339,7 +2321,7 @@
   document.getElementById('scale-reset').addEventListener('click', () => {
     scaleOverride = null;
     scaleModal.close();
-    showToast('Scale reset to automatic');
+    MCO.showToast('Scale reset to automatic');
     render({ background: true });
     pushState();
   });
@@ -2353,11 +2335,11 @@
     if (scaleLocked()) {
       const { ramp, rev } = scaleOverride;
       scaleOverride = ramp ? { ramp, rev } : null;
-      showToast('Scale unlocked — range follows the data again');
+      MCO.showToast('Scale unlocked — range follows the data again');
     } else if (_lastRender) {
       const [lo, hi] = _lastRender.scale.displayDomain;
       scaleOverride = { ...(scaleOverride || {}), min: lo, max: hi };
-      showToast('Scale locked — it will stay put as you change dates');
+      MCO.showToast('Scale locked — it will stay put as you change dates');
     }
     // Reflect the new state immediately — the render below may wait on a fetch.
     legendPinBtn.setAttribute('aria-pressed', scaleLocked() ? 'true' : 'false');
@@ -2469,10 +2451,10 @@
 
   function flyToAndOpen(stationId) {
     const s = stationById.get(stationId);
-    if (!s) { showToast('Station not found'); return; }
+    if (!s) { MCO.showToast('Station not found'); return; }
     if (s.sub_network && !activeNetworks.has(s.sub_network)) {
       activeNetworks.add(s.sub_network);
-      lsSet('mco-explorer-networks', JSON.stringify([...activeNetworks]));
+      MCO.lsSet('mco-explorer-networks', JSON.stringify([...activeNetworks]));
       for (const chip of subnetFiltersEl.querySelectorAll('.chip')) {
         if (chip.dataset.network === s.sub_network) chip.setAttribute('aria-pressed', 'true');
       }
@@ -2487,7 +2469,7 @@
     openPopupFor(stationId, [s.longitude, s.latitude]);
     map.flyTo({
       center: [s.longitude, s.latitude],
-      zoom: SEARCH_FLY_ZOOM, speed: SEARCH_FLY_SPEED, animate: !reduceMotion,
+      zoom: SEARCH_FLY_ZOOM, speed: SEARCH_FLY_SPEED, animate: !MCO.reducedMotion(),
     });
   }
 
@@ -2506,12 +2488,12 @@
     const elev = (typeof s.elevation === 'number')
       ? (activeUnits === 'us' ? `${Math.round(s.elevation * 3.28084)} ft` : `${Math.round(s.elevation)} m`)
       : '—';
-    const installed = (typeof s.date_installed === 'number') ? formatDateMT(s.date_installed) : '—';
+    const installed = (typeof s.date_installed === 'number') ? MCO.formatDateMT(s.date_installed) : '—';
 
     let valueBlock = '';
     if (lr && rec) {
-      const varLabel = escapeHTML(lr.entry.label);
-      const unit = lr.unit ? escapeHTML(lr.unit) : '';
+      const varLabel = MCO.escapeHTML(lr.entry.label);
+      const unit = lr.unit ? MCO.escapeHTML(lr.unit) : '';
       let num, timeLine = '', accent = 'var(--accent)';
       if (rec.cat === 'nodata' || rec.value == null) {
         num = '—';
@@ -2519,17 +2501,17 @@
       } else {
         // Compass variables read as points; degrees ride along for precision.
         const unitPart = lr.entry.fmt === 'compass' ? `${Math.round(rec.value)}°` : unit;
-        num = `${escapeHTML(lr.fmt(rec.value))}<span class="pop-unit">${unitPart}</span>`;
+        num = `${MCO.escapeHTML(lr.fmt(rec.value))}<span class="pop-unit">${unitPart}</span>`;
         if (rec.color && rec.cat === 'ok') accent = rec.color;
         if (rec.dt) {
           timeLine = activeMode === 'daily'
-            ? escapeHTML(formatDateMT(rec.dt))
-            : escapeHTML(formatStampMT(rec.dt));
+            ? MCO.escapeHTML(MCO.formatDateMT(rec.dt))
+            : MCO.escapeHTML(MCO.formatStampMT(rec.dt));
           if (rec.cat === 'stale') timeLine += ' · stale';
         }
       }
       valueBlock = `
-        <div class="pop-value" style="--pop-accent:${escapeHTML(accent)}">
+        <div class="pop-value" style="--pop-accent:${MCO.escapeHTML(accent)}">
           <div class="pop-value-var">${varLabel}</div>
           <div class="pop-value-num">${num}</div>
           ${timeLine ? `<div class="pop-value-time">${timeLine}</div>` : ''}
@@ -2546,9 +2528,9 @@
       <div class="pop-siblings">
         <div class="pop-siblings-label">Also at this site</div>
         ${sibs.map(m =>
-          `<button type="button" class="pop-sibling-link" data-station="${escapeHTML(m.station)}">
-             <span class="pop-sibling-name">${escapeHTML(m.name)}</span>
-             <span class="pop-sibling-net">${escapeHTML(m.sub_network || '—')}</span>
+          `<button type="button" class="pop-sibling-link" data-station="${MCO.escapeHTML(m.station)}">
+             <span class="pop-sibling-name">${MCO.escapeHTML(m.name)}</span>
+             <span class="pop-sibling-net">${MCO.escapeHTML(m.sub_network || '—')}</span>
            </button>`
         ).join('')}
       </div>` : '';
@@ -2556,13 +2538,13 @@
     return `
       <div class="pop-head">
         <div class="pop-heads">
-          <div class="pop-title">${escapeHTML(s.name)}</div>
-          <div class="pop-sub">${escapeHTML(s.station)}${s.county ? ` · ${escapeHTML(s.county)} County` : ''}</div>
+          <div class="pop-title">${MCO.escapeHTML(s.name)}</div>
+          <div class="pop-sub">${MCO.escapeHTML(s.station)}${s.county ? ` · ${MCO.escapeHTML(s.county)} County` : ''}</div>
         </div>
         <button type="button" class="pop-close" aria-label="Close station details">&times;</button>
       </div>
       <div style="margin-top:6px">
-        <span class="pop-badge">${escapeHTML(s.sub_network || '—')}</span>
+        <span class="pop-badge">${MCO.escapeHTML(s.sub_network || '—')}</span>
       </div>
       ${valueBlock}
       <div class="pop-meta">
@@ -2605,7 +2587,7 @@
   let _photoMetaMap = null;          // resolved value, or null while still pending
   function fetchPhotoMeta() {
     if (!_photoMetaPromise) {
-      _photoMetaPromise = fetchJSON(`${API}/photos/?type=json`).then(rows => {
+      _photoMetaPromise = MCO.fetchJSON(`${API}/photos/?type=json`).then(rows => {
         _photoMetaMap = new Map(
           rows.map(r => [r['Station ID'], {
             start: r['Photo Start Date'] || null,
@@ -2738,7 +2720,7 @@
     if (!_mapReady || _fitZoom === undefined) return;
     const atExtent = map.getZoom() <= _fitZoom + 0.1;
     _fitZoom = map.cameraForBounds(MT_FIT_BOUNDS, fitOpts()).zoom;
-    if (atExtent) map.fitBounds(MT_FIT_BOUNDS, { ...fitOpts(), animate: !reduceMotion });
+    if (atExtent) map.fitBounds(MT_FIT_BOUNDS, { ...fitOpts(), animate: !MCO.reducedMotion() });
   }
 
   // Pan the minimum needed to get the selected dot out from under the panel, and
@@ -2762,10 +2744,10 @@
                         y > panel.top - M && y < panel.bottom + M;
       if (!nearPanel) return;
       // Push along whichever edge the panel is docked to.
-      const dx = isCompact ? 0 : x - (panel.left - M);
-      const dy = isCompact ? y - (panel.top - M) : 0;
+      const dx = MCO.viewport.isCompact() ? 0 : x - (panel.left - M);
+      const dy = MCO.viewport.isCompact() ? y - (panel.top - M) : 0;
       if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
-      map.panBy([dx, dy], { animate: !reduceMotion, duration: 260 });
+      map.panBy([dx, dy], { animate: !MCO.reducedMotion(), duration: 260 });
     });
   }
 
@@ -2873,7 +2855,7 @@
     // Unhide before sizing — a hidden element has no layout to measure.
     sheetEl.hidden = false;
     // Touch gets the peek readout first — the analogue of hovering a dot.
-    setSheetState(isTouch ? 'peek' : 'full', { focus: false });
+    setSheetState(MCO.viewport.isTouch() ? 'peek' : 'full', { focus: false });
     sheetEl.classList.add('enter');
     requestAnimationFrame(() => sheetEl.classList.remove('enter'));
     document.body.classList.add('sheet-open');
@@ -2919,7 +2901,7 @@
       sheetEl.classList.remove('leaving');
       sheetBodyEl.innerHTML = '';
     };
-    if (reduceMotion) done(); else setTimeout(done, 220);
+    if (MCO.reducedMotion()) done(); else setTimeout(done, 220);
     document.body.classList.remove('sheet-open');
     document.documentElement.style.setProperty('--sheet-h', '0px');
   }
@@ -2971,7 +2953,7 @@
   onViewportChange(() => {
     syncOverlayMetrics();
     if (!_sheetOpen) return;
-    if (!isCompact) setSheetState('full', { focus: false });
+    if (!MCO.viewport.isCompact()) setSheetState('full', { focus: false });
     else if (sheetEl.dataset.state === 'peek') syncSheetPeekHeight();
   });
 
@@ -3055,7 +3037,7 @@
   const MOUSE_SLOP_PX = 6;
   map.on('click', (e) => {
     const layers = HOVER_LAYERS.filter(lid => map.getLayer(lid));
-    const slop = isTouch ? TOUCH_SLOP_PX : MOUSE_SLOP_PX;
+    const slop = MCO.viewport.isTouch() ? TOUCH_SLOP_PX : MOUSE_SLOP_PX;
     // A box query returns features in layer order, NOT by distance, so sort by
     // distance from the click before the layer-priority pass below.
     const query = [[e.point.x - slop, e.point.y - slop],
@@ -3102,12 +3084,12 @@
         ? ` · ${Math.round(props.value)}°`
         : (lr.unit ? ` ${lr.unit}` : '');
       valLine = props.value != null && props.label
-        ? `<span class="tooltip-val">${escapeHTML(props.label)}${escapeHTML(unit)}${props.cat === 'stale' ? ' · stale' : ''}</span>`
+        ? `<span class="tooltip-val">${MCO.escapeHTML(props.label)}${MCO.escapeHTML(unit)}${props.cat === 'stale' ? ' · stale' : ''}</span>`
         : `<span class="tooltip-val">no data</span>`;
     }
     tooltipEl.innerHTML =
-      `<span class="tooltip-name">${escapeHTML(props.name)}</span>` +
-      `<span class="tooltip-sub">${escapeHTML(props.station)}</span>` +
+      `<span class="tooltip-name">${MCO.escapeHTML(props.name)}</span>` +
+      `<span class="tooltip-sub">${MCO.escapeHTML(props.station)}</span>` +
       valLine;
     tooltipEl.classList.add('visible');
     // Flip to the other side of the cursor near the right/bottom viewport
@@ -3127,7 +3109,7 @@
     // tooltip and spiderfy the bucket right under the finger — where the user
     // can't see either. On touch the tap opens the sheet instead, whose peek
     // state is the readout hover gives a mouse.
-    if (isTouch) return;
+    if (MCO.viewport.isTouch()) return;
     const layers = HOVER_LAYERS.filter(lid => map.getLayer(lid));
     const feats = layers.length ? map.queryRenderedFeatures(e.point, { layers }) : [];
     const f = feats[0] || null;
@@ -3178,7 +3160,7 @@
   let sidebarOpen = (() => {
     const u = getLower('sidebar');
     if (u === 'open' || u === 'closed') return u === 'open';
-    return localStorage.getItem('mco-explorer-sidebar') !== 'closed';
+    return MCO.lsGet('mco-explorer-sidebar') !== 'closed';
   })();
 
   // Which container each control belongs to at the current breakpoint.
@@ -3191,7 +3173,7 @@
     place(subnetFiltersEl, sb('sb-networks'));
     place(legendEl, sb('sb-legend'));
     place(aggGroup, sb('sb-agg'));
-    if (isCompact) {
+    if (MCO.viewport.isCompact()) {
       // Header row 1 = menu + time mode + variable, the two controls people
       // change constantly. Row 2 (the control bar) is left free for the date and
       // hour steppers, which only exist in Hourly/Daily. Everything else —
@@ -3246,14 +3228,14 @@
     sidebarToggle.setAttribute('aria-label', label);
     sidebarToggle.title = label;
     btnDrawer.setAttribute('aria-expanded', sidebarOpen ? 'true' : 'false');
-    if (isCompact) sidebarScrim.hidden = !sidebarOpen;
-    if (persist && !isCompact) lsSet('mco-explorer-sidebar', sidebarOpen ? 'open' : 'closed');
+    if (MCO.viewport.isCompact()) sidebarScrim.hidden = !sidebarOpen;
+    if (persist && !MCO.viewport.isCompact()) MCO.lsSet('mco-explorer-sidebar', sidebarOpen ? 'open' : 'closed');
     syncOverlayMetrics();
-    if (refit && !isCompact) {
+    if (refit && !MCO.viewport.isCompact()) {
       // The map container just changed width. MapLibre needs telling, and the
       // resize handler then re-fits if the user was at full extent.
       const settle = () => { _resizeFromSidebar = true; map.resize(); };
-      if (reduceMotion) settle(); else setTimeout(settle, 240);   // after the slide
+      if (MCO.reducedMotion()) settle(); else setTimeout(settle, 240);   // after the slide
     }
     pushState();
   }
@@ -3264,14 +3246,14 @@
 
   _sidebarReady = true;
   layoutControls();
-  setSidebarOpen(isCompact ? false : sidebarOpen, { persist: false, refit: false });
+  setSidebarOpen(MCO.viewport.isCompact() ? false : sidebarOpen, { persist: false, refit: false });
 
   onViewportChange(() => {
     layoutControls();
     // Crossing into compact turns the sidebar into a drawer: close it so it
     // isn't covering the map. Crossing back out restores the saved preference.
-    if (isCompact) setSidebarOpen(false, { persist: false, refit: false });
-    else setSidebarOpen(localStorage.getItem('mco-explorer-sidebar') !== 'closed',
+    if (MCO.viewport.isCompact()) setSidebarOpen(false, { persist: false, refit: false });
+    else setSidebarOpen(MCO.lsGet('mco-explorer-sidebar') !== 'closed',
                         { persist: false });
   });
 
@@ -3292,7 +3274,7 @@
       // On desktop the box lives in the sidebar; on a phone it's in the top bar
       // but the drawer may be what the user expects to open. Reveal it either way
       // before focusing, so the shortcut can't focus something invisible.
-      if (!isCompact && !sidebarOpen) setSidebarOpen(true);
+      if (!MCO.viewport.isCompact() && !sidebarOpen) setSidebarOpen(true);
       searchInput.focus();
       searchInput.select();
     }
@@ -3354,10 +3336,10 @@
   document.getElementById('btn-export').addEventListener('click', exportPNG);
 
   async function exportPNG() {
-    if (!_lastRender) { showToast('Map not loaded yet.'); return; }
+    if (!_lastRender) { MCO.showToast('Map not loaded yet.'); return; }
     if (_exporting) return;
     _exporting = true;
-    showToast('Exporting…');
+    MCO.showToast('Exporting…');
     const W = EXPORT_W, H = EXPORT_H;
 
     const holder = document.createElement('div');
@@ -3366,7 +3348,7 @@
 
     const xm = new maplibregl.Map({
       container: holder,
-      style: basemapStyleUrl(),
+      style: MCO.map.cartoStyleUrl(),
       bounds: MT_FIT_BOUNDS,
       fitBoundsOptions: { padding: 24, animate: false },
       interactive: false,
@@ -3423,17 +3405,17 @@
       ctx.restore();
 
       const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-      if (!blob) { showToast('Export failed.'); return; }
+      if (!blob) { MCO.showToast('Export failed.'); return; }
       const url = URL.createObjectURL(blob);
       const a = Object.assign(document.createElement('a'), { href: url, download: exportFilename() });
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      showToast('Exported!');
+      MCO.showToast('Exported!');
     } catch (err) {
       console.error(err);
-      showToast('Export failed.');
+      MCO.showToast('Export failed.');
     } finally {
       xm.remove();
       holder.remove();
@@ -3464,15 +3446,15 @@
     }
     if (activeMode === 'hourly') {
       return dt ? `${isoStampMT(dt)} ${tzAbbrevMT(dt)}`
-                : `${activeDate}T${pad2(activeHour)}:00:00 MT`;
+                : `${activeDate}T${MCO.pad2(activeHour)}:00:00 MT`;
     }
-    return `Daily · ${formatDateStr(activeDate)}${dailyPartialSuffix()}`;
+    return `Daily · ${MCO.formatDateStr(activeDate)}${dailyPartialSuffix()}`;
   }
   function exportFilename() {
     const isoCompact = (ms) => isoStampMT(ms).replace(/:/g, '');   // filesystem-safe
     const dt = _lastRender?.maxDt;
-    const t = activeMode === 'latest' ? (dt ? isoCompact(dt) : `latest-${todayMT()}`)
-            : activeMode === 'hourly' ? (dt ? isoCompact(dt) : `${activeDate}T${pad2(activeHour)}0000`)
+    const t = activeMode === 'latest' ? (dt ? isoCompact(dt) : `latest-${MCO.todayMT()}`)
+            : activeMode === 'hourly' ? (dt ? isoCompact(dt) : `${activeDate}T${MCO.pad2(activeHour)}0000`)
             : activeDate;
     return `mesonet-explorer-${activeVar}-${t}.png`;
   }
@@ -3499,7 +3481,9 @@
     ctx.strokeStyle = borderClr; ctx.lineWidth = 1; ctx.stroke();
     ctx.restore();
 
-    const logoImg = await loadImg('https://climate.umt.edu/assets/images/MCO_logo_icon_only.png');
+    // Vendored, not hot-linked: img-src no longer lists climate.umt.edu, and a
+    // same-origin image also can't taint the export canvas.
+    const logoImg = await loadImg('assets/mco-logo.png');
     if (logoImg) {
       ctx.save();
       ctx.beginPath(); roundRectPath(ctx, LX, LY, LOGO, LOGO, 8); ctx.clip();
@@ -3608,7 +3592,7 @@
       params.date = activeDate;
     }
     if (full ? activeMode === 'hourly'
-             : (activeMode === 'hourly' && activeHour !== lastCompleteHourMT().hour)) {
+             : (activeMode === 'hourly' && activeHour !== MCO.lastCompleteHourMT().hour)) {
       params.hour = String(activeHour);
     }
     put('units', activeUnits, activeUnits === 'us');
@@ -3632,7 +3616,7 @@
     put('legend', legendCollapsed ? 'collapsed' : 'open', !legendCollapsed);
     // Only meaningful on desktop, where the sidebar is a fixture rather than a
     // transient drawer — so a share from a phone shouldn't force it on a desktop.
-    if (!isCompact) put('sidebar', sidebarOpen ? 'open' : 'closed', sidebarOpen);
+    if (!MCO.viewport.isCompact()) put('sidebar', sidebarOpen ? 'open' : 'closed', sidebarOpen);
     // The theme's default is the viewer's OS preference, so the address bar only
     // shows a deliberate override. A shared link always pins it.
     const theme = document.documentElement.dataset.theme;
@@ -3710,7 +3694,7 @@
       // Never yank the camera out from under an open detail on an incidental
       // resize — but a sidebar toggle is the user asking for exactly that.
       if (_selectedStation && !fromSidebar) return;
-      if (wasAtExtent) map.fitBounds(MT_FIT_BOUNDS, { ...fitOpts(), animate: !reduceMotion });
+      if (wasAtExtent) map.fitBounds(MT_FIT_BOUNDS, { ...fitOpts(), animate: !MCO.reducedMotion() });
     }, 200);
   });
 
@@ -3729,7 +3713,7 @@
     if (map.getZoom() >= _fitZoom - SPRING_EPS) return;
     _springingBack = true;
     map.once('moveend', () => { _springingBack = false; });
-    map.fitBounds(MT_FIT_BOUNDS, { ...fitOpts(), animate: !reduceMotion });
+    map.fitBounds(MT_FIT_BOUNDS, { ...fitOpts(), animate: !MCO.reducedMotion() });
   });
 
   map.on('moveend', pushState);
@@ -3745,8 +3729,8 @@
 
     try {
       const [st, els] = await Promise.all([
-        fetchJSON(`${API}/stations/?type=json`),
-        fetchJSON(`${API}/elements/?type=json`),
+        MCO.fetchJSON(`${API}/stations/?type=json`),
+        MCO.fetchJSON(`${API}/elements/?type=json`),
       ]);
       stations = st;
       elementDesc = new Map(els.map(e => [e.element, e.description_short]));
@@ -3760,7 +3744,7 @@
       window.addEventListener('online',
         () => { if (!stations.length) { emptyStateEl.hidden = true; boot(); } },
         { once: true });
-      showToast(`Failed to load station list: ${err.message}`, 6000);
+      MCO.showToast(`Failed to load station list: ${err.message}`, 6000);
       return;
     }
     stations = stations.filter(s =>

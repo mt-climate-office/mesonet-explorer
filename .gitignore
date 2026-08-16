@@ -2,3 +2,11 @@
 .Rhistory
 .Rproj.user
 node_modules/
+
+# Ephemeral a11y tooling (MIGRATING.md § verification recipe). Installed with
+# `npm i --no-save`, run before a deploy, never committed — the app itself stays
+# dependency-free, which is also why test/ has its own package.
+package.json
+package-lock.json
+axe-verify.mjs
+verify-out/

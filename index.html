@@ -7,17 +7,17 @@
        script below — recompute it if that script ever changes (see README). -->
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'none';
-    script-src 'self' 'sha256-RYR1PFU8s/ct95mAPAhIYyUFb5ZyJaLFhpyAm1uFEhU=' https://unpkg.com https://cdn.jsdelivr.net;
+    script-src 'self' 'sha256-CoyZLTny4Ms0ntaZBXFoDdIGaegMzPM1QXUml5kCP4Q=' https://unpkg.com https://cdn.jsdelivr.net;
     worker-src blob:;
-    style-src 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com;
+    style-src 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://cdn.jsdelivr.net;
     font-src https://fonts.gstatic.com;
-    img-src 'self' data: blob: https://climate.umt.edu https://mesonet2.climate.umt.edu;
-    connect-src 'self' https://mesonet2.climate.umt.edu https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com https://mesonet.agron.iastate.edu;
+    img-src 'self' data: blob: https://mesonet2.climate.umt.edu;
+    connect-src 'self' https://mesonet2.climate.umt.edu https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com https://mesonet.agron.iastate.edu https://s3.amazonaws.com;
     base-uri 'none';
     form-action 'none'">
   <!-- viewport-fit=cover so env(safe-area-inset-*) resolves on notched phones. -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Mesonet Explorer · Montana Climate Office</title>
+  <title>Explorer · MT Mesonet</title>
   <meta name="description" content="Interactive map explorer for Montana Mesonet station data — current conditions, hourly and daily history, by the Montana Climate Office.">
   <meta name="author" content="Montana Climate Office">
   <meta name="referrer" content="strict-origin-when-cross-origin">
@@ -34,8 +34,8 @@
 
   <!-- Open Graph -->
   <meta property="og:type"             content="website">
-  <meta property="og:site_name"        content="Mesonet Explorer">
-  <meta property="og:title"            content="Mesonet Explorer · Montana Climate Office">
+  <meta property="og:site_name"        content="Montana Mesonet">
+  <meta property="og:title"            content="Explorer · Montana Mesonet">
   <meta property="og:description"      content="Explore Montana Mesonet weather and soil data on an interactive map — latest conditions plus hourly and daily history for every station.">
   <meta property="og:url"              content="https://mt-climate-office.github.io/mesonet-explorer/">
   <meta property="og:locale"           content="en_US">
@@ -48,20 +48,31 @@
 
   <!-- Twitter / X -->
   <meta name="twitter:card"        content="summary_large_image">
-  <meta name="twitter:title"       content="Mesonet Explorer · Montana Climate Office">
+  <meta name="twitter:title"       content="Explorer · Montana Mesonet">
   <meta name="twitter:description" content="Explore Montana Mesonet weather and soil data on an interactive map — latest conditions plus hourly and daily history for every station.">
   <meta name="twitter:image"       content="https://mt-climate-office.github.io/mesonet-explorer/assets/og-card.png">
   <meta name="twitter:image:alt"   content="Map of Montana showing Mesonet station observations as colored dots across the state.">
 
-  <!-- Prevent theme flash — URL ?theme= wins, then localStorage, then OS preference -->
+  <!-- mco-web-style · anti-flash theme boot. Kept INLINE and ahead of every
+       stylesheet on purpose: from a CDN it would land after first paint and
+       reintroduce the flash it exists to prevent.
+       Precedence: ?theme= → localStorage['mco-theme'] → OS preference. The key
+       is shared by every MCO app on the origin, so the value is validated
+       against a whitelist rather than trusted — and the whitelist is what
+       admits high-contrast, which this page previously had no way to reach.
+       The sha256 in the CSP above covers these exact bytes; recompute it after
+       any edit here, whitespace included (README § CSP). -->
   <script>
     (function () {
       const raw = new URLSearchParams(location.search).get('theme');
       const url = raw == null ? null : raw.toLowerCase();
-      const saved = localStorage.getItem('mco-theme');
+      let saved = null;
+      try { saved = localStorage.getItem('mco-theme'); } catch (e) {}
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const t = (url === 'dark' || url === 'light') ? url
-              : (saved || (prefersDark ? 'dark' : 'light'));
+      const valid = ['dark', 'light', 'high-contrast'];
+      const t = valid.includes(url) ? url
+              : valid.includes(saved) ? saved
+              : (prefersDark ? 'dark' : 'light');
       document.documentElement.setAttribute('data-theme', t);
     })();
   </script>
@@ -73,259 +84,75 @@
         integrity="sha384-q7EDwLXBfakVimqzBJqFCTxpgy7B18buhebV158qkVMCEVAaUnU3fQTEfWgYz+7g"
         crossorigin="anonymous">
 
-  <style>
-    /* ── Theme tokens (shared MCO design system — keep in sync with mesonet-status) ── */
-    :root {
-      --bg-deep:        #161b22;
-      --bg-surface:     #1e2530;
-      --bg-raised:      #2c3545;
-      --border:         #3a4558;
-      --border-glass:   rgba(255,255,255,0.08);
-      --text-primary:   #e8ecf0;
-      --text-secondary: #c0cad6;
-      --text-muted:     #8a99b0;
-      --text-dim:       #8494ab;
-      --ctrl-border:    #6a7996;
-      --accent:         #1a6faf;
-      --accent-light:   #5aaee8;
-      --accent-dk:      #114f80;
-      --accent-hover:   rgba(26,111,175,0.10);
-      --brand-gradient: linear-gradient(90deg, var(--accent-dk), var(--accent), var(--accent-light), var(--accent));
-      --glass:          rgba(30,37,48,0.82);
-      --shadow:         0 4px 24px rgba(0,0,0,0.4);
-      --transition:     0.2s cubic-bezier(0.4,0,0.2,1);
-      --radius-sm:      4px;
-      --radius-md:      8px;
-      --radius-lg:      12px;
-      --dot-stroke:     #ffffff;
-      --input-bg:       #232a35;
-    }
-    [data-theme="light"] {
-      --bg-deep:        #f0f2f5;
-      --bg-surface:     #ffffff;
-      --bg-raised:      #e8ecf0;
-      --border:         #c8cdd5;
-      --border-glass:   rgba(0,0,0,0.08);
-      --text-primary:   #1a1a2e;
-      --text-secondary: #3a3f4b;
-      --text-muted:     #5a6070;
-      --text-dim:       #5f6675;
-      --ctrl-border:    #7e8694;
-      --accent:         #1a6faf;
-      --accent-light:   #1563a0;
-      --accent-dk:      #0d4f7a;
-      --accent-hover:   rgba(26,111,175,0.08);
-      --brand-gradient: linear-gradient(90deg, #0a4a7a, #1266a8, #0d7fd4, #1266a8, #0a4a7a);
-      --glass:          rgba(255,255,255,0.88);
-      --shadow:         0 4px 24px rgba(0,0,0,0.1);
-      --dot-stroke:     #2a2a3a;
-      --input-bg:       #f4f5f7;
-    }
+  <!-- mco-web-style @0.6.0 — tokens, reset, a11y utilities, navbar/panel/toast/
+       tooltip/modal shells, MapLibre control polish, and the high-contrast
+       theme. What remains in <style> below is app-specific. -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.6.0/theme/mco-theme.css"
+        integrity="sha384-bCKsV+qD6GxtndFeAmhumsOdsaznA4xXBh6mfwHgvRbxTMPoOwClDB3HjZuy42fp"
+        crossorigin="anonymous">
 
+  <style>
+    /* ── App-owned tokens ────────────────────────────────────────────────
+       The palette moved to the kit wholesale: all 55 tokens this file defined
+       that the kit also defines were BYTE-IDENTICAL, so there was nothing to
+       reconcile. --sidebar-w is the only one that is genuinely this app's, and
+       it is layout, not color. Adopting the kit also brings the high-contrast
+       theme, which this page had no values for at all. */
     :root { --sidebar-w: 272px; }
 
-    /* ── Stacking tiers ──────────────────────────────────────────────────────
-       One ladder for every floating surface. Add to a tier, don't invent a
-       number. MapLibre's own .maplibregl-ctrl-* containers are z-index 2 from
-       the vendor stylesheet, so anything meant to sit over the map controls —
-       notably the station popup, which ships with no z-index at all — has to be
-       above that. The detail tier stays BELOW the chrome so an open popup can
-       never cover the navbar or control bar; <dialog> lives in the browser's
-       top layer and outranks all of these regardless. */
-    :root {
-      --z-map-ctrl:      2;   /* vendor .maplibregl-ctrl-* containers    */
-      --z-map-panel:    40;   /* #sidebar + handle; drawer scrim        */
-      --z-drawer:       70;   /* #sidebar as a drawer, over the detail  */
-      --z-map-notice:   20;   /* #empty-state                           */
-      --z-map-progress: 30;   /* #loading-bar, #loading-note            */
-      --z-detail:       60;   /* #station-sheet (docked station detail)  */
-      --z-chrome:       90;   /* #control-bar                           */
-      --z-chrome-top:  100;   /* #navbar                                */
-      --z-flyout:      150;   /* #search-dropdown                       */
-      --z-cursor:      200;   /* #tooltip — follows the pointer anywhere */
-      --z-toast:       400;   /* #toast                                 */
-    }
+    /* Attribution links are distinguished from the surrounding credit text by
+       colour alone (1.74:1 dark, 1.25:1 high-contrast — WCAG 1.4.1 wants 3:1 or
+       a non-colour cue). It only became a "text block" in axe's eyes once
+       hillshade added its "Terrain: Mapzen/AWS Open Data" credit beside the
+       links. Underline is the same remedy the kit applied to prose links in
+       v0.1.1; queued to move INTO the kit for 0.7.0, since every map consumer
+       adopting hillshade inherits this. Delete when that ships. */
+    .maplibregl-ctrl-attrib a { text-decoration: underline; }
 
-    /* ── MapLibre control polish ─────────────────────────────────────────── */
-    .maplibregl-ctrl-group {
-      background: var(--glass) !important;
-      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-      border: 1px solid var(--ctrl-border) !important;
-      border-radius: var(--radius-md) !important;
-      box-shadow: var(--shadow) !important;
-      transition: background var(--transition), border-color var(--transition);
-    }
-    .maplibregl-ctrl-group button {
-      background: transparent !important;
-      border-color: var(--ctrl-border) !important;
-      transition: background var(--transition);
-    }
-    .maplibregl-ctrl-group button:hover { background: var(--accent-hover) !important; }
-    .maplibregl-ctrl-group button .maplibregl-ctrl-icon { filter: var(--ctrl-icon-filter, none); }
-    .maplibregl-ctrl-fit .maplibregl-ctrl-icon {
-      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23202020' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='4 8 4 4 8 4'/><polyline points='20 8 20 4 16 4'/><polyline points='4 16 4 20 8 20'/><polyline points='20 16 20 20 16 20'/></svg>");
-      background-size: 60% 60%;
-      background-position: center;
-      background-repeat: no-repeat;
-    }
-    :root                { --ctrl-icon-filter: invert(1); }
-    [data-theme="light"] { --ctrl-icon-filter: none; }
-    .maplibregl-ctrl-attrib { background: var(--glass) !important; color: var(--text-muted) !important; }
-    .maplibregl-ctrl-attrib a { color: var(--text-secondary) !important; }
-    .maplibregl-ctrl-attrib button.maplibregl-ctrl-attrib-button { filter: var(--ctrl-icon-filter, none); }
-    /* Vendor default is 2; restated so the whole stacking ladder is greppable.
-       With viewport-fit=cover the corner containers need the insets themselves,
-       or the attribution lands under the home indicator. */
-    .maplibregl-ctrl-top-left, .maplibregl-ctrl-top-right,
-    .maplibregl-ctrl-bottom-left, .maplibregl-ctrl-bottom-right {
-      z-index: var(--z-map-ctrl);
-    }
-    .maplibregl-ctrl-bottom-left, .maplibregl-ctrl-bottom-right {
-      padding-bottom: env(safe-area-inset-bottom);
-    }
-    /* Zoom + fit live at the map's TOP-LEFT. The detail panel docks to the right
-       edge, so anything in a right-hand corner ends up underneath it — that's
-       what made the zoom controls unclickable whenever a station was open. The
-       left corner is free now that the sidebar has its own column, and the
-       controls can just stay put. Attribution has to stay bottom-right (MapLibre
-       puts it there), so it still lifts clear of the bottom-docked sheet. */
+    /* ── MapLibre control polish (app-specific remainder) ────────────────
+       The glass treatment, --ctrl-icon-filter, the .maplibregl-ctrl-fit glyph,
+       attribution colors and the safe-area padding are all the kit's, and were
+       byte-identical here. Only this lift survives: with a station sheet docked
+       at the bottom on compact, the corner controls have to clear it.
+       Attribution must stay bottom-right (MapLibre puts it there), so it lifts
+       too. */
     .is-compact body.sheet-open .maplibregl-ctrl-bottom-right,
     .is-compact body.sheet-open .maplibregl-ctrl-bottom-left {
       transform: translateY(calc(-1 * var(--sheet-h, 0px)));
       transition: transform 0.22s cubic-bezier(0.4,0,0.2,1);
     }
-    .maplibregl-ctrl-top-left, .maplibregl-ctrl-bottom-left { padding-left: env(safe-area-inset-left); }
-    .maplibregl-ctrl-top-right, .maplibregl-ctrl-bottom-right { padding-right: env(safe-area-inset-right); }
 
-    /* ── Reset & base ────────────────────────────────────────────────────── */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    /* ── App shell ───────────────────────────────────────────────────────
+       The reset, reduced-motion clamp, [hidden] priority fix, .sr-only and the
+       universal :focus-visible ring are all the kit's now. What is left is this
+       app's own frame: navbar and control bar are fixed rows, the map takes the
+       rest. */
+    body { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
 
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after {
-        transition-duration: 0.001ms !important;
-        animation-duration:  0.001ms !important;
-        animation-iteration-count: 1 !important;
-      }
-    }
+    /* ── Navbar (app-specific remainder) ─────────────────────────────────
+       The kit owns .mco-navbar (including the safe-area padding and the
+       brand-gradient underline this page never had), the logo/divider/brand
+       lockup and its ≤750px collapse, .nav-btn + .icon-only + [aria-pressed] +
+       [disabled], .mco-btn-info, .controls, .nav-meta, the .seg-btn group, and
+       .refresh-status down to its liveness pulse, reduced-motion gate and
+       .static variant — that whole block was this app's, and the kit's copy is
+       the same thing with the colors tokenized.
 
-    /* The UA's [hidden] { display: none } loses to any rule that sets display
-       explicitly, so elements like #control-bar (display: flex) stayed visible as
-       empty strips when hidden from JS. */
-    [hidden] { display: none !important; }
+       NOTE for the record: this file previously set .seg-btn to 34px with the
+       comment "as a 30px group beside 34px buttons the units picker read as a
+       mistake". The kit's 30px was adopted deliberately anyway (2026-08-16) —
+       if the units picker looks wrong beside the nav buttons, that comment
+       predicted it and the fix belongs in the kit, not here.
 
-    .sr-only {
-      position: absolute !important;
-      width: 1px !important; height: 1px !important;
-      padding: 0 !important; margin: -1px !important;
-      overflow: hidden !important; clip: rect(0, 0, 0, 0) !important;
-      white-space: nowrap !important; border: 0 !important;
-    }
-
-    body {
-      font-family: 'Outfit', system-ui, -apple-system, sans-serif;
-      background: var(--bg-deep);
-      color: var(--text-primary);
-      height: 100dvh;
-      display: flex; flex-direction: column;
-      overflow: hidden;
-      transition: background var(--transition), color var(--transition);
-    }
-    :focus-visible { outline: 2px solid var(--accent-light); outline-offset: 2px; }
-
-    /* ── Navbar (row 1) ──────────────────────────────────────────────────── */
-    #navbar {
-      flex-shrink: 0;
-      position: relative;
-      display: flex; align-items: center; gap: 0.75rem;
-      padding: 0.4rem max(1rem, env(safe-area-inset-right)) 0.4rem max(1rem, env(safe-area-inset-left));
-      min-height: 52px;
-      background: var(--glass);
-      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-      flex-wrap: wrap; row-gap: 0.4rem;
-      border-bottom: 1px solid var(--border);
-      z-index: var(--z-chrome-top);
-      /* layoutControls() relocates these nodes between the navbar and the
-         sidebar with appendChild, so DOM order is not stable. Pin it here. */
-    }
+       What survives: layoutControls() moves these nodes between the navbar and
+       the sidebar with appendChild, so DOM order is not stable and the visual
+       order has to be pinned explicitly. */
     #navbar > .logo-link    { order: 0; }
     #navbar > .nav-divider  { order: 1; }
     #navbar > .brand        { order: 2; }
     #navbar > #btn-drawer   { order: 0; }
     #navbar > .controls     { order: 3; }
     #navbar > .nav-meta     { order: 4; }
-    /* Hidden at desktop widths by layoutControls() — every data control lives in
-       the sidebar there. Not :empty, which stays false because moving the
-       children out leaves whitespace text nodes behind. */
-    #navbar {
-    }
-    .logo-link { display: flex; flex-shrink: 0; }
-    .logo-img  { width: 40px; height: 40px; border-radius: 6px; display: block; }
-    .nav-divider { width: 1px; height: 28px; background: var(--border); flex-shrink: 0; }
-    .brand { display: flex; flex-direction: column; justify-content: center; flex-shrink: 0; line-height: 1.2; }
-    .brand-title    { font-size: 0.65rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; margin: 0; }
-    .brand-subtitle { font-size: 0.55rem; font-weight: 400; letter-spacing: 0.04em; font-style: italic; color: var(--text-dim); white-space: nowrap; }
-
-    .controls { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; row-gap: 0.3rem; }
-    .nav-meta { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; margin-left: auto; }
-
-    .nav-btn {
-      display: flex; align-items: center; gap: 5px;
-      padding: 6px 12px; min-height: 34px;
-      border: 1px solid var(--ctrl-border); border-radius: var(--radius-md);
-      background: none; color: var(--text-secondary);
-      cursor: pointer; font-size: 0.78rem; font-weight: 500;
-      font-family: inherit; white-space: nowrap; flex-shrink: 0;
-      transition: var(--transition);
-    }
-    .nav-btn:hover { background: var(--accent-hover); border-color: var(--accent); color: var(--text-primary); }
-    .nav-btn svg { flex-shrink: 0; stroke: currentColor; }
-    .nav-btn.icon-only { padding: 0.4rem; min-width: 34px; justify-content: center; }
-    .nav-btn[aria-pressed="true"] { background: var(--accent-hover); border-color: var(--accent); color: var(--text-primary); }
-    .nav-btn[disabled] { opacity: 0.4; cursor: not-allowed; }
-    .nav-btn[disabled]:hover { background: none; border-color: var(--border); color: var(--text-secondary); }
-
-    #btn-info {
-      border-radius: 50%; border-color: var(--accent);
-      color: var(--accent-light); font-size: 1rem; font-weight: 600;
-      padding: 0; width: 34px; height: 34px; min-height: 0;
-      display: flex; align-items: center; justify-content: center;
-    }
-    #btn-info:hover { background: var(--accent); color: #fff; }
-
-    .seg-btns { display: flex; gap: 0; }
-    /* Height and font-size track .nav-btn: as a 30px group beside 34px buttons
-       the units picker read as a mistake. */
-    .seg-btn {
-      padding: 4px 12px; min-height: 34px; height: 34px;
-      border-radius: 0; border-right-width: 0;
-      font-size: 0.78rem; font-weight: 600;
-    }
-    .seg-btn:first-child { border-radius: var(--radius-md) 0 0 var(--radius-md); }
-    .seg-btn:last-child  { border-radius: 0 var(--radius-md) var(--radius-md) 0; border-right-width: 1px; }
-    .seg-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent-light); color: #fff; }
-
-    .refresh-status {
-      display: inline-flex; align-items: center; gap: 5px;
-      font-family: 'Space Mono', monospace;
-      font-size: 0.65rem; color: var(--text-muted);
-      white-space: nowrap;
-      padding: 0 4px;
-    }
-    .refresh-status .dot {
-      width: 6px; height: 6px; border-radius: 50%;
-      background: var(--accent-light);
-      box-shadow: 0 0 0 2px rgba(90,174,232,0.18);
-      animation: refresh-pulse 2.4s ease-in-out infinite;
-    }
-    @keyframes refresh-pulse {
-      0%, 100% { opacity: 1; }
-      50%      { opacity: 0.35; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .refresh-status .dot { animation: none; }
-    }
-    /* Historical modes aren't live — stop the liveness pulse. */
-    .refresh-status.static .dot { animation: none; box-shadow: none; opacity: 0.55; }
 
     /* ── Control bar (row 2) ─────────────────────────────────────────────── */
     #control-bar {
@@ -501,13 +328,18 @@
       transition: var(--transition);
     }
     .chip:hover { border-color: var(--accent); color: var(--text-primary); background: var(--accent-hover); }
-    .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent-light); color: #fff; }
+    /* --text-on-accent, not #fff: the kit flips it to BLACK in high-contrast,
+       where --accent is a bright #5bb4ff and white text on it is 2.22:1. That
+       failure only appeared once this page gained the high-contrast theme. */
+    .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent-line); color: var(--text-on-accent); }
     .chip .chip-count {
       font-family: 'Space Mono', monospace; font-size: 0.65rem;
       padding: 1px 5px; border-radius: 999px;
       background: var(--border-glass); color: inherit;
     }
-    .chip[aria-pressed="true"] .chip-count { background: rgba(0,0,0,0.28); color: #fff; }
+    /* The count badge sits on a darkened patch of the accent fill, so it needs
+       a foreground that survives all three themes for the same reason. */
+    .chip[aria-pressed="true"] .chip-count { background: rgba(0,0,0,0.28); color: var(--text-on-accent); }
 
     /* ── Map ─────────────────────────────────────────────────────────────── */
     #map-container { flex: 1; min-height: 0; position: relative; }
@@ -687,10 +519,13 @@
     /* A drawer slides away entirely rather than giving its column to the map. */
     .is-compact body.sidebar-closed #sidebar { transform: translateX(-100%); margin-left: 0; }
     .is-compact #sidebar-toggle { display: none; }
+    /* Deliberately NOT .mco-scrim: the kit's is viewport-fixed, and this one
+       is absolute inside #map-container so the drawer dims the map without
+       dimming the navbar above it. Colour comes from the kit token. */
     .is-compact #sidebar-scrim {
       display: block; position: absolute; inset: 0;
       z-index: var(--z-map-panel);
-      background: rgba(0,0,0,0.45);
+      background: var(--scrim);
       -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
     }
     .is-compact #sidebar-scrim[hidden] { display: none; }
@@ -787,8 +622,13 @@
     .legend-row:hover, .legend-row:focus-visible {
       background: var(--accent-hover);
     }
-    .legend-row.off { opacity: 0.4; }
-    .legend-row.off .legend-lbl { text-decoration: line-through; }
+    /* WCAG 1.4.3: dimming the whole ROW to 0.4 dragged the label to 2.69:1.
+       Opacity on a parent can't be undone by a child — it composites the whole
+       subtree — so the dim moves to the swatch alone and the label takes an
+       explicit muted colour (5.3:1). The line-through is the real state cue and
+       is unchanged; it just no longer has to be read through a 40% veil. */
+    .legend-row.off .legend-swatch { opacity: 0.35; }
+    .legend-row.off .legend-lbl { text-decoration: line-through; color: var(--text-muted); }
     .legend-swatch {
       width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
       border: 1.6px solid var(--text-muted); background: transparent;
@@ -1051,68 +891,26 @@
     /* The toast is the one floating element left that the bottom-docked panel can
        cover. The legend needs no special case any more: it lives in the sidebar,
        so it and the panel never occupy the same space. */
-    .is-compact body.sheet-open #toast { bottom: calc(var(--sheet-h, 0px) + 1rem); }
+    .is-compact body.sheet-open .mco-toast { bottom: calc(var(--sheet-h, 0px) + 1rem); }
 
-    /* ── Tooltip ─────────────────────────────────────────────────────────── */
-    #tooltip {
-      position: fixed;
-      background: var(--glass);
-      border: 1px solid var(--accent-light);
-      border-radius: 5px;
-      padding: 0.3rem 0.6rem;
-      font-size: 0.75rem; font-weight: 500;
-      color: var(--text-primary);
-      pointer-events: none;
-      z-index: var(--z-cursor);
-      white-space: nowrap;
-      opacity: 0;
-      transition: opacity 0.1s;
-      backdrop-filter: blur(8px);
-    }
-    #tooltip.visible { opacity: 1; }
-    #tooltip .tooltip-name { font-size: 0.78rem; font-weight: 600; color: var(--text-primary); line-height: 1.2; }
-    #tooltip .tooltip-sub {
-      display: block;
-      font-family: 'Space Mono', monospace;
-      font-size: 0.65rem;
-      color: var(--text-muted);
-      margin-top: 1px;
-    }
-    #tooltip .tooltip-val {
-      display: block;
-      font-family: 'Space Mono', monospace;
-      font-size: 0.74rem;
-      color: var(--accent-light);
-      font-weight: 600;
-      margin-top: 3px;
-    }
-
-    /* ── Toast ───────────────────────────────────────────────────────────── */
-    #toast {
-      position: fixed; bottom: 1.5rem; left: 50%;
-      transform: translateX(-50%) translateY(0.75rem);
-      background: var(--bg-surface);
-      border: 1px solid var(--accent-light);
-      border-radius: 6px; padding: 0.5rem 1rem;
-      font-size: 0.82rem; color: var(--text-primary);
-      opacity: 0; transition: opacity 0.2s, transform 0.2s;
-      pointer-events: none; z-index: var(--z-toast);
-      box-shadow: var(--shadow);
-    }
-    #toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
 
     /* ── Info modal ──────────────────────────────────────────────────────── */
-    #info-modal { background: transparent; border: none; padding: 1rem; position: fixed; inset: 0; margin: auto; width: fit-content; height: fit-content; max-width: calc(100vw - 2rem); max-height: calc(100dvh - 2rem); }
-    #info-modal::backdrop { background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); }
+    /* The dialog shell, .info-modal-title/-subtitle, .modal-close and the whole
+       .info-section family (including its UNDERLINED prose links — this file's
+       copy set `text-decoration: none`, which is a WCAG 1.4.1 failure the kit
+       fixed in v0.1.1) all come from .mco-modal now.
+
+       Kept as a marked kit-override until 0.7.0 absorbs it: long-modal
+       ergonomics. This app's info modal is the tallest in the family, and the
+       kit's box just ends mid-sentence when it overflows. Approved for
+       back-port 2026-08-16 (CHANGELOG § Planned) — delete both rules when the
+       kit ships them. Only the DELTA over the kit's base is declared here. */
     .info-modal-box {
-      background: var(--bg-surface); border: 1px solid var(--border);
-      border-radius: 10px; width: min(560px, calc(100vw - 4rem));
-      max-height: calc(100dvh - 4rem); overflow-y: auto;
+      width: min(560px, calc(100vw - 4rem));   /* kit: 540px */
       overscroll-behavior: contain;
-      padding: 1.5rem; box-shadow: var(--shadow);
       /* Scroll affordance: a soft shade pinned to the bottom of the scrollport
-         so a long modal doesn't just end mid-sentence with no cue. It fades out
-         once you reach the end (background-attachment: local on the last layer). */
+         so a long modal doesn't just end with no cue. It fades out once you
+         reach the end (background-attachment: local on the last layer). */
       background-image:
         linear-gradient(var(--bg-surface), var(--bg-surface)),
         linear-gradient(to top, color-mix(in srgb, var(--bg-surface) 0%, transparent), var(--bg-surface));
@@ -1121,43 +919,13 @@
       background-position: 0 0, 0 100%;
       background-attachment: local, scroll;
     }
-    /* Sticky header keeps the title and the close button reachable while the
-       body scrolls — both modals are taller than a phone screen. */
+    /* Sticky header keeps the title and close button reachable while the body
+       scrolls — both modals are taller than a phone screen. */
     .info-modal-header {
       position: sticky; top: -1.5rem; z-index: 1;
-      display: flex; justify-content: space-between; align-items: flex-start;
-      gap: 1rem;
       margin: -1.5rem -1.5rem 1.25rem; padding: 1.5rem 1.5rem 0.75rem;
       background: var(--bg-surface);
       border-radius: 10px 10px 0 0;
-    }
-    .info-modal-title    { font-size: 1.05rem; font-weight: 700; color: var(--accent-light); margin: 0; }
-    .info-modal-subtitle { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem; }
-    .modal-close { display: flex; align-items: center; justify-content: center; background: none; border: 1px solid var(--ctrl-border); border-radius: 6px; color: var(--text-muted); font-size: 1.2rem; cursor: pointer; line-height: 1; flex-shrink: 0; min-width: 34px; min-height: 34px; transition: var(--transition); }
-    .modal-close:hover { color: var(--text-primary); border-color: var(--accent-light); }
-    .info-section { margin-bottom: 1.25rem; }
-    .info-section:last-child { margin-bottom: 0; }
-    .info-section h3 { font-size: 0.8rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 0.5rem; padding-bottom: 0.3rem; border-bottom: 1px solid var(--border); }
-    .info-section p, .info-section ul { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; }
-    .info-section ul { padding-left: 1.1rem; }
-    .info-section li { margin-bottom: 0.2rem; }
-    .info-section a { color: var(--accent-light); text-decoration: none; }
-    .info-section a:hover { text-decoration: underline; }
-    .info-section kbd {
-      font-family: 'Space Mono', monospace;
-      font-size: 0.75em;
-      background: var(--bg-raised);
-      border: 1px solid var(--border);
-      border-radius: 3px;
-      padding: 1px 5px;
-      color: var(--text-primary);
-    }
-    .info-section code {
-      font-family: 'Space Mono', monospace;
-      font-size: 0.85em;
-      background: var(--bg-raised);
-      border-radius: 3px;
-      padding: 1px 4px;
     }
     .info-lede { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 1.25rem; }
     /* Long-form reference sits behind disclosures so the modal opens short. */
@@ -1178,8 +946,8 @@
     .info-more > *:not(summary) { margin-top: 0.5rem; }
 
     /* ── Scale editor modal ──────────────────────────────────────────────── */
-    #scale-modal { background: transparent; border: none; padding: 1rem; position: fixed; inset: 0; margin: auto; width: fit-content; height: fit-content; max-width: calc(100vw - 2rem); max-height: calc(100dvh - 2rem); }
-    #scale-modal::backdrop { background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); }
+    /* Dialog shell and backdrop come from .mco-modal; this box reuses
+       .info-modal-box and only narrows it. */
     .scale-modal-box { width: min(420px, calc(100vw - 4rem)); }
     .scale-label {
       display: block; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em;
@@ -1250,12 +1018,18 @@
 
     /* ── Responsive ──────────────────────────────────────────────────────── */
     @media (max-width: 1060px) {
+      /* Tighten through --nav-gap, never `gap` directly: the kit derives the
+         lockup divider's negative margin from it, so setting gap alone
+         desynchronises the brand rhythm (kit §6 says so explicitly).
+         .nav-meta's tightening is the kit's now. */
       #navbar, #control-bar {
         padding-left: max(0.6rem, env(safe-area-inset-left));
         padding-right: max(0.6rem, env(safe-area-inset-right));
-        gap: 0.5rem;
+        --nav-gap: 0.5rem;
+        gap: var(--nav-gap);
       }
-      .nav-meta { gap: 0.3rem; }
+      /* Earlier than the kit's 750px lockup collapse: this navbar carries two
+         dense rows and the subtitle is the first thing that can go. */
       .brand-subtitle { display: none; }
     }
     .seg-short { display: none; }
@@ -1273,7 +1047,6 @@
       .controls { order: 0; flex: 1; flex-basis: auto; flex-wrap: nowrap; min-width: 0; }
       .search-wrap { flex: 1; min-width: 0; }
       input[type="search"], input[type="search"]:focus { width: 100%; }
-      .refresh-status { display: none; }
 
       /* Row 1 carries exactly three things: the menu, the time segments and the
          variable picker. Everything else is behind the one menu button. The logo
@@ -1375,7 +1148,11 @@
 </head>
 <body>
 
-<header id="navbar">
+<!-- WCAG 2.4.1 — first focusable element on the page, jumps past the two
+     chrome rows straight to the map. -->
+<a class="mco-skip-link" href="#map-container">Skip to map</a>
+
+<header id="navbar" class="mco-navbar">
   <!-- Compact viewports only: opens #sidebar as an off-canvas drawer. -->
   <button class="nav-btn icon-only" id="btn-drawer" aria-controls="sidebar" aria-expanded="false"
           title="Controls" aria-label="Controls">
@@ -1388,7 +1165,7 @@
 
   <a href="https://climate.umt.edu" target="_blank" rel="noopener noreferrer"
      class="logo-link" aria-label="Montana Climate Office">
-    <img src="https://climate.umt.edu/assets/images/MCO_logo_icon_only.png" alt="" class="logo-img">
+    <img src="assets/mco-logo.png" alt="" class="logo-img" width="40" height="40">
   </a>
 
   <div class="nav-divider" aria-hidden="true"></div>
@@ -1462,7 +1239,7 @@
         <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
       </svg>
     </button>
-    <button class="nav-btn" id="btn-info" aria-label="About this map">?</button>
+    <button type="button" class="nav-btn mco-btn-info" id="btn-info" aria-label="About this map">?</button>
   </div>
 </header>
 
@@ -1585,7 +1362,7 @@
     </svg>
   </button>
 
-<main id="map-container">
+<main id="map-container" tabindex="-1">
   <div id="map" role="application" aria-label="Mesonet data explorer map"></div>
   <!-- Ships active: boot() waits on the map 'load' event, and the very first
        paint should already show a loading cue. First render clears it. -->
@@ -1640,7 +1417,7 @@
 </main>
 </div><!-- /#app-row -->
 
-<div id="tooltip" aria-hidden="true"></div>
+<div id="tooltip" class="mco-tooltip" aria-hidden="true"></div>
 
 <!-- Station detail on phones and short viewports. Deliberately NOT a <dialog>:
      showModal() would take Escape before the keyboard section in app.js can
@@ -1658,10 +1435,9 @@
   <div class="sheet-body" id="sheet-body"></div>
 </section>
 
-<div id="toast" role="status" aria-live="polite"></div>
 <div id="sr-announce" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
-<dialog id="info-modal" aria-labelledby="info-modal-title">
+<dialog id="info-modal" class="mco-modal" aria-labelledby="info-modal-title">
   <div class="info-modal-box">
     <div class="info-modal-header">
       <div>
@@ -1746,7 +1522,7 @@
   </div>
 </dialog>
 
-<dialog id="scale-modal" aria-labelledby="scale-modal-title">
+<dialog id="scale-modal" class="mco-modal" aria-labelledby="scale-modal-title">
   <div class="info-modal-box scale-modal-box">
     <div class="info-modal-header">
       <div>
@@ -1794,6 +1570,17 @@
 <!-- FlatGeobuf (watershed boundaries) -->
 <script src="https://cdn.jsdelivr.net/npm/flatgeobuf@3.38.0/dist/flatgeobuf-geojson.min.js"
         integrity="sha384-qaUb9sZ45HYxNQezOWPyOMTRR7yph9xtoAW8TyJGHen5BcUmaBIcDil9Yj48HGav"
+        crossorigin="anonymous"></script>
+
+<!-- mco-web-style @0.6.0 — classic scripts, so they run before the deferred
+     module below and MCO / MCO.map are already globals by the time it does.
+     SRI hashes are the kit README's table for this exact tag; bumping @version
+     without recomputing them hard-fails in the browser, which is the point. -->
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.6.0/core/mco-core.js"
+        integrity="sha384-DPbXD2xVhws/XeQ5zgnH5fpba972pw9yafpaHL8phz43iEwktW1RLoID4eqRFYue"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.6.0/map/mco-map.js"
+        integrity="sha384-0aF67+MSXmcocGs8r3qiehgDNzgXo9F48olS5OX575wO2llw2cuGcqLpd6+L7D76"
         crossorigin="anonymous"></script>
 
 <script type="module" src="app.js"></script>
