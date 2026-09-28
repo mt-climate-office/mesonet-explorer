@@ -44,7 +44,6 @@ short note on what was done.
 
 ### Surfaced by the July 2026 mobile/overlay overhaul
 
-- [ ] **The carousel re-requests photos on every 5-minute refresh.** `refreshOpenPopup()` rebuilds the body and re-runs `initPhotoCarousel`, so an open popup re-fetches its images every cycle. Cache the frame list per station+time instead.
 - [ ] **320 px-wide screens still need 4 control rows in Hourly** (35 % chrome). Below any current device width, so left alone — revisit only if analytics show real traffic.
 - [ ] **A landscape phone is inherently cramped.** Chrome is ~38 % of a 390 px-tall viewport even after tightening. A side sheet (right edge) instead of a bottom sheet would leave the map usable; deferred as a bigger change than the overhaul warranted.
 
@@ -52,6 +51,26 @@ short note on what was done.
 
 ## Done
 
+- [x] **Photos moved to `data2.climate.umt.edu/mesonet/photos/webp/`.** The API's
+      `/photos/{station}/{dir}/?dt=` endpoint returns 404; the images now live in
+      the archive bucket as immutable WebP named by capture slot in UTC. The
+      carousel picks the frame nearest the time on screen: newest within 24 h
+      in Latest, nearest the hour's end in Hourly, nearest 9 AM / 3 PM in Daily.
+      Latest lists the bucket (S3 `ListObjectsV2`, one UTC day per direction —
+      the edge honours only `prefix`); Hourly and Daily read the station's
+      monthly manifest CSV once, so scrubbing through a month is free. Captions
+      now carry the capture time, and the frame is 16:9 to match the native
+      1920×1080 frames. Everything is cached for the session (anything still
+      being written, for five minutes) and the image URLs are stable, which also
+      closes *"the carousel re-requests photos on every 5-minute refresh"*: a
+      rebuilt popup resolves to the same URLs and the browser serves them from
+      cache. CSP gains the new origin in `img-src` and `connect-src`; a `photos`
+      headless suite covers all three modes, the manifest's derived paths, and
+      day-scrubbing. The camera registry is the archive's `schedule.json` too:
+      the API's `/photos/` metadata lagged it by nine live cameras (Mizpah among
+      them), so those popups never asked for a photo; the API is now only a
+      fallback.
+      *(September 2026)*
 - [x] **Header height, units picker, label default, share links, export suite.**
       Five items *(July 2026)*:
       *Navbar height* — two separate causes. The first: it jumped to 100-109px below

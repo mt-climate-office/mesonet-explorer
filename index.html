@@ -11,8 +11,8 @@
     worker-src blob:;
     style-src 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://cdn.jsdelivr.net;
     font-src https://fonts.gstatic.com;
-    img-src 'self' data: blob: https://mesonet2.climate.umt.edu;
-    connect-src 'self' https://mesonet2.climate.umt.edu https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com https://mesonet.agron.iastate.edu https://s3.amazonaws.com;
+    img-src 'self' data: blob: https://mesonet2.climate.umt.edu https://data2.climate.umt.edu;
+    connect-src 'self' https://mesonet2.climate.umt.edu https://data2.climate.umt.edu https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com https://mesonet.agron.iastate.edu https://s3.amazonaws.com;
     base-uri 'none';
     form-action 'none'">
   <!-- viewport-fit=cover so env(safe-area-inset-*) resolves on notched phones. -->
@@ -736,8 +736,10 @@
     }
     .pop-links a:hover { text-decoration: underline; }
     .pop-carousel { margin-top: 8px; }
+    /* 16:9 — the archive serves the cameras' native 1920×1080 frames, and a
+       4:3 box would crop a quarter of the width (and the burnt-in timestamp). */
     .pop-carousel-frame {
-      position: relative; width: 100%; aspect-ratio: 4 / 3;
+      position: relative; width: 100%; aspect-ratio: 16 / 9;
       border-radius: 6px; overflow: hidden; background: var(--bg-raised);
     }
     .pop-carousel-img {
@@ -745,7 +747,7 @@
       transition: opacity 0.15s;
     }
     .pop-carousel-img.loading { opacity: 0.35; }
-    /* The frame keeps its 4:3 box in every state. A photo arriving late — or
+    /* The frame keeps its 16:9 box in every state. A photo arriving late — or
        turning out not to exist — must never change the container's height, or
        MapLibre re-anchors the popup while the user is reading it. */
     .pop-carousel-frame.unavailable::after,

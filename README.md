@@ -89,9 +89,20 @@ All station data come live from the **[Montana Mesonet API v2](https://mesonet2.
 | `/derived/ppt/` | Precipitation accumulation windows (Latest only) |
 | `/derived/change/` | Soil-moisture change (Latest only; fetched in station batches — the unfiltered call times out) |
 | `/latest/`, `/observations/hourly/`, `/observations/daily/` | VPD and well variables (`elements=` list); also all aggregation (`agg_func=`) queries |
-| `/photos/`, `/photos/{station}/{dir}/` | Camera metadata + time-matched station photos (`dt=` param) |
+| `/photos/` | Camera registry — fallback only, when the archive's `schedule.json` (below) can't be fetched |
 
 Responses are cached per `(source, units, timestamp)` as promises (deduping in-flight requests); Latest-keyed entries are invalidated by the auto-refresh timer. All timestamps and date logic use `America/Denver`.
+
+### Station photos
+
+Photos come entirely from the Mesonet archive bucket behind **`data2.climate.umt.edu/mesonet`** (CORS-open). The camera registry is `photos/schedule/schedule.json` (~5 KB on the wire, fetched once at boot): which stations have a camera, the directions it shoots now and has ever shot, and its first month. The API's `/photos/` metadata is only a fallback — it lags the archive (nine cameras live in September 2026 were missing from it, so their popups never asked for a photo). The images are immutable WebP under `photos/webp/large/{station}/{station}_{DIR}_{YYYYMMDD}T{HHMMSS}Z.webp` (a 320px `thumb/` tree sits alongside). The timestamp is the capture *slot* in UTC — a Mountain wall-clock time such as 09:00 or 15:00, so it shifts an hour at each DST change; newer cameras shoot hourly. Nothing serves a time-matched photo, so the app works out which frames exist and picks the one nearest the time on screen: the newest from the past 24 h in Latest, the frame nearest the end of the selected hour in Hourly, and the frames nearest 9 AM and 3 PM in Daily. The caption shows the capture time.
+
+Two sources, by mode:
+
+- **Latest** lists the bucket (S3 `ListObjectsV2` on `data2.climate.umt.edu/mesonet/?list-type=2&prefix=…`), one UTC day per direction — about 2 KB each and always the live state. The edge forwards only `prefix` (`max-keys` and `start-after` are dropped), which is why a listing is narrowed to a day. Today's listing is re-read on the 5-minute refresh cadence; past days are held for the session.
+- **Hourly and Daily** read the station's monthly manifest, `photos/manifest/{station}/{station}_{YYYY-MM}.csv` — one fetch of 70–250 KB that covers every day of that local month for every direction, so scrubbing through days costs nothing more. Rows are keyed to the local date, so a Mountain day never straddles two files. The manifest's `webp_large` column is blank for many frames whose WebP does exist (the hourly-trial frames and the newer midday slot), so when it is empty the path is derived from the capture time snapped to the nearest hour; a capture more than 30 min from any hour has no WebP at all. The tree is rewritten on every publish, so only the month containing today is re-read (on the refresh cadence, and only while today is on screen).
+
+Also in the archive but not used here: `photos/manifest/latest.csv` — every frame from the last few days across all stations (~60 KB compressed, refreshed each minute), the right feed for a fleet dashboard but heavier per refresh than a popup's ten 2 KB listings.
 
 ### Known API quirks handled client-side
 

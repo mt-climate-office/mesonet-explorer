@@ -8,7 +8,7 @@ these exist, and nothing here is served to users.
 cd test
 npm install          # once — pulls playwright-core
 npm test             # everything (~15 min; it drives a real browser against the live API)
-npm test -- layout   # one suite: layout | url | map | export
+npm test -- layout   # one suite: layout | url | map | export | photos
 VERBOSE=1 npm test   # print the measured value for passing checks too
 ```
 
@@ -46,6 +46,19 @@ map and dismisses cleanly.
 2800×1400, filename carries variable and timestamp, the map, branding card and
 colour ramp all rendered, light and dark genuinely differ, five variable and mode
 combinations work, and the navbar button as well as the `?export=` hook.
+
+**`photos`** — the station-photo carousel against the archive bucket: Latest
+shows one frame per live direction with the image actually drawn and a caption
+carrying direction and capture time; Daily on a fixed legacy-patrol day
+(2026-09-01) yields exactly the 9 AM and 3 PM frames per direction with the
+expected UTC slots in the filenames; Hourly picks the frame nearest the hour's
+end (8 PM resolves to 3 PM, 8 AM to 9 AM); on a day from the hourly-patrol trial
+(2026-09-15) 8 PM resolves to 9 PM and every frame draws from a path the app
+derived itself (the manifest's webp column is blank there); stepping three days
+ahead fetches no further manifest; a camera the archive's schedule knows but the
+API's `/photos/` registry doesn't still gets a carousel; a date before the camera
+existed shows no photo block; the frame fits inside the sheet on a phone; and nothing is CSP
+blocked or 404s on the photo host.
 
 ## Two things worth knowing before trusting a result
 

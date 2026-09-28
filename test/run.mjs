@@ -1,13 +1,13 @@
 // Runs the suites in ./suites and prints a report.
 //
 //   npm test              all suites
-//   npm test -- layout    one suite (also: export, url, map)
+//   npm test -- layout    one suite (also: export, url, map, photos)
 //
 // Starts its own static server on a free port, so nothing needs to be running
 // first. Exits non-zero if anything failed, which makes it usable as a CI gate.
 import { serve, launch } from './lib/harness.mjs';
 
-const SUITES = ['layout', 'url', 'map', 'export'];
+const SUITES = ['layout', 'url', 'map', 'export', 'photos'];
 const wanted = process.argv.slice(2).filter(a => !a.startsWith('-'));
 const names = wanted.length ? wanted : SUITES;
 

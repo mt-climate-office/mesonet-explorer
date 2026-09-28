@@ -2580,26 +2580,66 @@
   }
 
   // ── Photo carousel ───────────────────────────────────────────────────────
-  // /photos/ metadata lists each station's camera directions; images are
-  // served time-matched via the dt param. One metadata fetch serves all
-  // popups; a failure clears the cache so a later popup retries.
+  // Everything photo-related comes from the Mesonet archive bucket, served
+  // through data2.climate.umt.edu: the camera registry (schedule.json), the
+  // monthly manifests, and the images themselves as immutable WebP:
+  //   photos/webp/large/{station}/{station}_{DIR}_{YYYYMMDD}T{HHMMSS}Z.webp
+  // The timestamp is the capture SLOT in UTC — a local wall-clock time such as
+  // 09:00 or 15:00, so it shifts an hour at each DST change. Nothing serves a
+  // time-matched photo any more, so the app works out which frames exist and
+  // picks the one nearest the time on screen. Two sources, by mode:
+  //   Latest        S3 ListObjectsV2 on the bucket (CORS-open), one UTC day per
+  //                 direction: ~2 KB each, always the live state. The edge
+  //                 forwards only `prefix` — `max-keys`/`start-after` are
+  //                 dropped — which is why a listing is narrowed to a day.
+  //   Hourly/Daily  the archive's per-station MONTHLY manifest CSV, one fetch
+  //                 (70-250 KB) that then covers every day in the month, so
+  //                 scrubbing through days costs nothing more.
+  const PHOTO_BASE = 'https://data2.climate.umt.edu/mesonet';
+  const PHOTO_PREFIX = 'photos/webp/large';
+  const PHOTO_TTL = 5 * 60_000;      // re-check anything still changing on the refresh cadence
+
+  // Camera registry: which stations have a camera, which directions it shoots
+  // now (and ever has), and since when. Comes from the archive's own schedule
+  // file (~5 KB on the wire) — the API's /photos/ metadata lags it: nine
+  // cameras live in September 2026 were missing there, so their popups never
+  // asked for a photo at all. The API stays as a fallback if the archive is
+  // unreachable. One fetch serves all popups; a failure clears the cache so a
+  // later popup retries.
+  const PHOTO_LABELS = { E: 'East', N: 'North', S: 'South', W: 'West', SNOW: 'Snow', NS: 'North Sky', SS: 'South Sky' };
   let _photoMetaPromise = null;
   let _photoMetaMap = null;          // resolved value, or null while still pending
   function fetchPhotoMeta() {
     if (!_photoMetaPromise) {
-      _photoMetaPromise = MCO.fetchJSON(`${API}/photos/?type=json`).then(rows => {
-        _photoMetaMap = new Map(
-          rows.map(r => [r['Station ID'], {
-            start: r['Photo Start Date'] || null,
-            dirs: (r['Photo Directions'] || []).map(d => {
-              const m = d.match(/^(\S+)\s*\(([^)]*)\)/);   // "NS (North Sky)" → ns / North Sky
-              return { code: (m ? m[1] : d).toLowerCase(), label: m ? m[2] : d };
-            }),
-          }]));
-        return _photoMetaMap;
-      }).catch(err => { _photoMetaPromise = null; throw err; });
+      _photoMetaPromise = MCO.fetchJSON(`${PHOTO_BASE}/photos/schedule/schedule.json`, { timeoutMs: 20_000 })
+        .then(metaFromSchedule)
+        .catch(() => MCO.fetchJSON(`${API}/photos/?type=json`).then(metaFromApi))
+        .then(map => (_photoMetaMap = map))
+        .catch(err => { _photoMetaPromise = null; throw err; });
     }
     return _photoMetaPromise;
+  }
+  // { start: 'YYYY-MM-DD', dirs: [{code, label}] (what the camera shoots NOW —
+  //   what Latest lists), labels: {code → label} (every direction it ever had —
+  //   what Hourly/Daily captions need) }
+  function metaFromSchedule(doc) {
+    const label = (code, view) => (view && view !== code) ? view : (PHOTO_LABELS[code] || code);
+    return new Map(Object.entries(doc.stations || {}).map(([id, st]) => {
+      const labels = {};
+      for (const p of st.periods || []) for (const [code, v] of Object.entries(p.views || {})) labels[code] = label(code, v.view);
+      const current = (st.periods || []).find(p => p.until === null) || (st.periods || []).at(-1);
+      const dirs = Object.keys(current?.views || {}).map(code => ({ code, label: labels[code] }));
+      return [id, { start: st.first_month ? `${st.first_month}-01` : null, dirs, labels }];
+    }));
+  }
+  function metaFromApi(rows) {
+    return new Map(rows.map(r => {
+      const dirs = (r['Photo Directions'] || []).map(d => {
+        const m = d.match(/^(\S+)\s*\(([^)]*)\)/);   // "NS (North Sky)" → NS / North Sky
+        return { code: (m ? m[1] : d).toUpperCase(), label: m ? m[2] : d };
+      });
+      return [r['Station ID'], { start: r['Photo Start Date'] || null, dirs, labels: Object.fromEntries(dirs.map(d => [d.code, d.label])) }];
+    }));
   }
 
   // Will this station show a photo frame? Answered synchronously so popupHTML
@@ -2616,21 +2656,183 @@
     return true;
   }
 
-  function photoFrames(stationId, dirs) {
-    const url = (code, dt) =>
-      `${API}/photos/${encodeURIComponent(stationId)}/${encodeURIComponent(code)}/?web=true` +
-      (dt ? `&dt=${dt}&tz=${encodeURIComponent(TZ)}` : '');
+  // Wall-clock time in TZ → UTC instant. Intl gives the zone's offset at a
+  // guessed instant; a second pass corrects the guess when it straddles a DST
+  // change. Offsets are whole minutes, so the sub-second noise in `ms` is
+  // rounded away.
+  function mtToUtcMs(dateStr, hour) {
+    const [y, mo, d] = dateStr.split('-').map(Number);
+    const wall = Date.UTC(y, mo - 1, d, hour);
+    const offAt = ms => {
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: TZ, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric',
+        hour: 'numeric', minute: 'numeric', second: 'numeric',
+      }).formatToParts(new Date(ms));
+      const g = t => +parts.find(p => p.type === t).value;
+      const asUtc = Date.UTC(g('year'), g('month') - 1, g('day'), g('hour'), g('minute'), g('second'));
+      return Math.round((asUtc - ms) / 60_000) * 60_000;
+    };
+    let ms = wall - offAt(wall);
+    const off2 = offAt(ms);
+    if (wall - off2 !== ms) ms = wall - off2;
+    return ms;
+  }
+  const utcYmd = ms => new Date(ms).toISOString().slice(0, 10).replace(/-/g, '');
+  const utcMidnight = ms => ms - (ms % 86_400_000);
+  const slotPath = (stationId, dir, ms) =>
+    `${PHOTO_PREFIX}/${stationId}/${stationId}_${dir}_${new Date(ms).toISOString().replace(/[-:]|\.\d{3}/g, '')}.webp`;
+
+  // Promise cache with an optional expiry, keyed by caller. Failures evict
+  // themselves so the next popup retries.
+  const _photoCache = new Map();
+  function photoCached(key, ttl, make) {
+    const hit = _photoCache.get(key);
+    if (hit && (ttl === Infinity || Date.now() - hit.at < ttl)) return hit.promise;
+    const promise = make().catch(err => { _photoCache.delete(key); throw err; });
+    _photoCache.set(key, { promise, at: Date.now() });
+    return promise;
+  }
+  const fetchArchive = (url, timeoutMs = 20_000) =>
+    fetch(url, { signal: AbortSignal.timeout(timeoutMs) }).then(res => {
+      if (res.status === 404) return null;                      // nothing there — not an error
+      if (!res.ok) throw new Error(`photo archive ${res.status}`);
+      return res.text();
+    });
+
+  // ─ Latest: bucket listings ─
+  // One UTC day for one direction. A past day never changes, so it lives for
+  // the session; the current UTC day gains a frame every slot.
+  function listPhotoDay(stationId, dir, ymd) {
+    const ttl = ymd === utcYmd(Date.now()) ? PHOTO_TTL : Infinity;
+    return photoCached(`list|${stationId}|${dir}|${ymd}`, ttl, async () => {
+      const prefix = `${PHOTO_PREFIX}/${stationId}/${stationId}_${dir}_${ymd}`;
+      const xml = await fetchArchive(`${PHOTO_BASE}/?list-type=2&prefix=${encodeURIComponent(prefix)}`);
+      const frames = [];
+      for (const m of (xml || '').matchAll(/<Key>([^<]+)<\/Key>/g)) {
+        const t = m[1].match(/_(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z\.webp$/);
+        if (!t) continue;
+        frames.push({ dir, ms: Date.UTC(+t[1], t[2] - 1, +t[3], +t[4], +t[5], +t[6]), url: `${PHOTO_BASE}/${m[1]}` });
+      }
+      return frames;
+    });
+  }
+  // Every frame for one direction between two instants, merged from the UTC
+  // days those instants span. A day whose listing fails contributes nothing
+  // rather than sinking the carousel.
+  async function listedFramesBetween(stationId, dir, fromMs, toMs) {
+    const days = [];
+    for (let d = utcMidnight(fromMs); d < toMs; d += 86_400_000) days.push(utcYmd(d));
+    const lists = await Promise.all(days.map(ymd => listPhotoDay(stationId, dir, ymd).catch(() => [])));
+    return lists.flat().filter(f => f.ms >= fromMs && f.ms < toMs);
+  }
+
+  // ─ Hourly/Daily: monthly manifests ─
+  // photos/manifest/{station}/{station}_{YYYY-MM}.csv lists every capture of a
+  // LOCAL month for every direction: token, view label, capture time, slot,
+  // and the paths. Rows are keyed to the local date, so a Mountain day never
+  // straddles two files. Two quirks handled here: the `webp_large` column is
+  // blank for many frames whose WebP does exist (the plan-period hourly frames,
+  // and the newer midday slot — the manifest's slot matching lags the
+  // schedule), so the path is derived from the capture time snapped to the
+  // nearest hour whenever the column is empty; and a capture more than 30 min
+  // from any hour has no WebP at all (the archive's `snap_max_seconds`).
+  // The whole tree is rewritten on every publish, so a past month is not
+  // immutable — but it is stable enough to hold for the session; only a month
+  // that is still being written is re-read, when the day on screen is today.
+  function monthManifest(stationId, ym, fresh) {
+    return photoCached(`manifest|${stationId}|${ym}`, fresh ? PHOTO_TTL : Infinity, async () => {
+      const csv = await fetchArchive(`${PHOTO_BASE}/photos/manifest/${stationId}/${stationId}_${ym}.csv`, 30_000);
+      if (!csv) return [];
+      const lines = csv.trim().split('\n');
+      const col = Object.fromEntries(lines[0].trim().split(',').map((h, i) => [h, i]));
+      const frames = new Map();                                // url → frame (dedupes a re-shot slot)
+      for (const line of lines.slice(1)) {
+        const f = line.trim().split(',');
+        const dir = f[col.token];
+        const captured = Date.parse(f[col.captured_utc]);
+        if (!dir || Number.isNaN(captured)) continue;
+        let ms = f[col.slot_utc] ? Date.parse(f[col.slot_utc]) : Math.round(captured / 3_600_000) * 3_600_000;
+        if (Math.abs(ms - captured) > 30 * 60_000) continue;
+        const path = f[col.webp_large] || slotPath(stationId, dir, ms);
+        if (!frames.has(path)) frames.set(path, { dir, ms, url: `${PHOTO_BASE}/${path}`, view: f[col.view] || '' });
+      }
+      return [...frames.values()];
+    });
+  }
+
+  // Which frames the time on screen calls for. Latest: the newest frame from
+  // the past day (the old API's rule — a camera dark for longer shows nothing).
+  // Hourly: the frame nearest the end of the selected hour, from anywhere in
+  // that day — legacy cameras shoot only 9 AM and 3 PM, and the caption
+  // carries the real capture time. Daily: the frames nearest 9 AM and 3 PM,
+  // each within three hours of its mark so the same photo can't be both.
+  function photoTargets() {
+    const H = 3_600_000;
     if (activeMode === 'latest') {
-      return dirs.map(d => ({ url: url(d.code), caption: d.label, state: 'pending' }));
+      const now = Date.now();
+      return { from: now - 24 * H, to: now + H, newest: true, picks: [] };
     }
+    const dayStart = mtToUtcMs(activeDate, 0);
+    const dayEnd = mtToUtcMs(MCO.shiftDate(activeDate, 1), 0);
     if (activeMode === 'hourly') {
-      const dt = hourWindow(activeDate, activeHour).end;
-      return dirs.map(d => ({ url: url(d.code, dt), caption: d.label, state: 'pending' }));
+      const target = activeHour < 23 ? mtToUtcMs(activeDate, activeHour + 1) : dayEnd;
+      return { from: dayStart, to: dayEnd, picks: [{ ms: target, within: Infinity }] };
     }
-    return dirs.flatMap(d => [
-      { url: url(d.code, `${activeDate}T09:00:00`), caption: `${d.label} · Morning`,   state: 'pending' },
-      { url: url(d.code, `${activeDate}T15:00:00`), caption: `${d.label} · Afternoon`, state: 'pending' },
-    ]);
+    return { from: dayStart, to: dayEnd, picks: [
+      { ms: mtToUtcMs(activeDate, 9),  within: 3 * H },
+      { ms: mtToUtcMs(activeDate, 15), within: 3 * H },
+    ] };
+  }
+
+  // Frames for every direction the station has, in the API's direction order
+  // (any direction the manifest knows but the API doesn't goes last), each
+  // already sorted by time.
+  async function photoFramesByDir(stationId, meta, spec) {
+    let all;
+    if (activeMode === 'latest') {
+      all = (await Promise.all(meta.dirs.map(d => listedFramesBetween(stationId, d.code, spec.from, spec.to)))).flat();
+    } else {
+      const month = await monthManifest(stationId, activeDate.slice(0, 7), activeDate === MCO.todayMT()).catch(() => []);
+      all = month.filter(f => f.ms >= spec.from && f.ms < spec.to);
+    }
+    const order = new Map(meta.dirs.map((d, i) => [d.code, i]));
+    const byDir = new Map();
+    for (const f of all) {
+      if (!byDir.has(f.dir)) byDir.set(f.dir, []);
+      byDir.get(f.dir).push(f);
+    }
+    return [...byDir.entries()]
+      .sort((a, b) => (order.get(a[0]) ?? 99) - (order.get(b[0]) ?? 99))
+      .map(([dir, frames]) => ({
+        label: meta.labels[dir] || frames.find(f => f.view)?.view || PHOTO_LABELS[dir] || dir,
+        frames: frames.sort((a, b) => a.ms - b.ms),
+      }));
+  }
+
+  function pickPhotoFrames(frames, spec, label) {
+    if (!frames.length) return [];
+    const caption = f => `${label} · ${photoStamp(f.ms)}`;
+    if (spec.newest) { const f = frames[frames.length - 1]; return [{ ...f, caption: caption(f) }]; }
+    const out = [];
+    for (const p of spec.picks) {
+      let best = null;
+      for (const f of frames) if (!best || Math.abs(f.ms - p.ms) < Math.abs(best.ms - p.ms)) best = f;
+      if (!best || Math.abs(best.ms - p.ms) > p.within) continue;
+      if (out.some(o => o.url === best.url)) continue;
+      out.push({ ...best, caption: caption(best) });
+    }
+    return out;
+  }
+
+  // Capture time in Mountain Time; the date is added only when it isn't the
+  // day already on screen (Latest showing yesterday's last frame).
+  function photoStamp(ms) {
+    const d = new Date(ms);
+    const time = d.toLocaleTimeString('en-US', { timeZone: TZ, hour: 'numeric', minute: '2-digit' });
+    const day = d.toLocaleDateString('en-CA', { timeZone: TZ });
+    const onScreen = activeMode === 'latest' ? MCO.todayMT() : activeDate;
+    if (day === onScreen) return time;
+    return `${d.toLocaleDateString('en-US', { timeZone: TZ, month: 'short', day: 'numeric' })}, ${time}`;
   }
 
   // Settle the reserved frame into a terminal state without changing the
@@ -2644,20 +2846,31 @@
   }
 
   // `host` is a thunk returning the element that contains .pop-carousel, so the
-  // anchored popup and the bottom sheet can share this verbatim.
+  // anchored popup and the bottom sheet can share this verbatim. Each call
+  // supersedes the previous one: refreshOpenPopup() rebuilds the body every
+  // five minutes, and an older init still awaiting its listings must not wire
+  // a second set of handlers onto the new frame.
+  let _carouselGen = 0;
   async function initPhotoCarousel(host, stationId) {
+    const gen = ++_carouselGen;
+    const stale = () => gen !== _carouselGen || _selectedStation !== stationId;
     const rootNow = () => host()?.querySelector('.pop-carousel');
     let meta;
     try { meta = (await fetchPhotoMeta()).get(stationId); }
-    catch { markCarousel(rootNow(), 'none'); return; }
-    if (_selectedStation !== stationId) return;         // replaced while awaiting
+    catch { if (!stale()) markCarousel(rootNow(), 'none'); return; }
+    if (stale()) return;
     const noPhoto = !meta || !meta.dirs.length ||
       (activeMode !== 'latest' && meta.start && activeDate < meta.start);
     if (noPhoto) { markCarousel(rootNow(), 'absent'); return; }
+
+    const spec = photoTargets();
+    const byDir = await photoFramesByDir(stationId, meta, spec);
+    if (stale()) return;
     const root = rootNow();
     if (!root) return;
+    const frames = byDir.flatMap(d => pickPhotoFrames(d.frames, spec, d.label)).map(f => ({ ...f, state: 'pending' }));
+    if (!frames.length) { markCarousel(root, 'none'); return; }
 
-    const frames = photoFrames(stationId, meta.dirs);
     const img   = root.querySelector('.pop-carousel-img');
     const frame = root.querySelector('.pop-carousel-frame');
     const dirEl = root.querySelector('.pop-carousel-dir');
