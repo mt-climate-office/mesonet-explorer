@@ -2,7 +2,7 @@
 
 Interactive map explorer for [Montana Mesonet](https://climate.umt.edu/mesonet/) station data — the successor to the Leaflet "latest data" map at `mesonet.climate.umt.edu/api/v2/map/latest/`. A service of the [Montana Climate Office](https://climate.umt.edu).
 
-**Live:** https://mt-climate-office.github.io/mesonet-explorer/
+**Live:** [mesonet.climate.umt.edu/explorer](https://mesonet.climate.umt.edu/explorer/) — also published at https://mt-climate-office.github.io/mesonet-explorer/
 
 ## Features
 
@@ -177,7 +177,11 @@ The URL parameters double as a manual harness. Useful deterministic states:
 
 ## Deployment
 
-GitHub Pages from the `main` branch root (Settings → Pages → Deploy from branch → `main` / `/`).
+**Pushing `main` is a production deploy, on two URLs.** GitHub Pages publishes the repo root from `main` (Settings → Pages → Deploy from branch → `main` / `/`), and the same page is reverse-proxied at `mesonet.climate.umt.edu/explorer/` by the `handle /explorer*` block in the [`mesonet_app`](https://github.com/mt-climate-office/mesonet_app) Caddyfile, which rewrites the path to `/mesonet-explorer` and proxies to `mt-climate-office.github.io`.
+
+Nothing on the server needs to change when this app changes — the proxy always serves whatever Pages has. Only the Caddyfile itself is deployed by hand: on the server, `git pull` in the `mesonet_app` checkout, then `docker compose restart caddy`.
+
+The app is path-agnostic (all asset URLs are relative and share links are built from `location.origin` + `location.pathname`), so it works at either URL without a `<base>` tag. Canonical and Open Graph URLs point at the `mesonet.climate.umt.edu/explorer/` address.
 
 ## License
 
