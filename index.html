@@ -7,10 +7,10 @@
        script below — recompute it if that script ever changes (see README). -->
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'none';
-    script-src 'self' 'sha256-CoyZLTny4Ms0ntaZBXFoDdIGaegMzPM1QXUml5kCP4Q=' https://unpkg.com https://cdn.jsdelivr.net;
+    script-src 'self' 'sha256-o+rXj9Jy2CUuPoewBVeBz2GYT71qiUGzjc3SklYSaSw=' https://unpkg.com https://cdn.jsdelivr.net;
     worker-src blob:;
     style-src 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net;
-    font-src 'self';
+    font-src https://cdn.jsdelivr.net;
     img-src 'self' data: blob: https://mesonet2.climate.umt.edu https://data2.climate.umt.edu;
     connect-src 'self' https://mesonet2.climate.umt.edu https://data2.climate.umt.edu https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com https://mesonet.agron.iastate.edu https://s3.amazonaws.com;
     base-uri 'none';
@@ -73,19 +73,18 @@
       const t = valid.includes(url) ? url
               : valid.includes(saved) ? saved
               : (prefersDark ? 'dark' : 'light');
-      document.documentElement.setAttribute('data-theme', t);
+      const root = document.documentElement;
+      root.setAttribute('data-theme', t);
+      root.classList.toggle('is-compact', window.matchMedia('(max-width: 640px), (max-height: 560px)').matches);
+      root.classList.toggle('is-touch', window.matchMedia('(hover: none)').matches);
     })();
   </script>
 
-  <!-- Fonts are self-hosted (latin subsets from Google Fonts, SIL OFL — see
-       assets/fonts/) and preloaded, so they are usually in hand before first
-       paint. From Google Fonts they needed a stylesheet round trip to one origin
-       and then the woff2 from another, and display=swap drew the title in the
-       system font first and re-set it in Outfit a moment later. The @font-face
-       rules are at the top of the <style> block below. crossorigin is required
-       on font preloads even same-origin, or the preload is fetched twice. -->
-  <link rel="preload" href="assets/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="assets/fonts/space-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <!-- House fonts: kit-hosted (mco-web-style 0.7.0), declared in mco-theme.css.
+       Preloaded so the first frame is already in Outfit — no system-font flash.
+       Same @version as the theme CSS; crossorigin is required on font preloads. -->
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.0/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.0/fonts/space-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.18.0/dist/maplibre-gl.css"
         integrity="sha384-q7EDwLXBfakVimqzBJqFCTxpgy7B18buhebV158qkVMCEVAaUnU3fQTEfWgYz+7g"
         crossorigin="anonymous">
@@ -93,26 +92,11 @@
   <!-- mco-web-style @0.6.0 — tokens, reset, a11y utilities, navbar/panel/toast/
        tooltip/modal shells, MapLibre control polish, and the high-contrast
        theme. What remains in <style> below is app-specific. -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.6.0/theme/mco-theme.css"
-        integrity="sha384-bCKsV+qD6GxtndFeAmhumsOdsaznA4xXBh6mfwHgvRbxTMPoOwClDB3HjZuy42fp"
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.0/theme/mco-theme.css"
+        integrity="sha384-ZhJv93Wa+kWlQTfY8SIMNf5nXoVvIF9s/SMQHCimI5xHu7SvscGgts5EpuWSkkdz"
         crossorigin="anonymous">
 
   <style>
-    /* font-display: block rather than swap: with the files preloaded from this
-       origin the block period is normally a few ms of blank text, which reads as
-       nothing, where swap re-sets every line of text in a different face. The
-       browser still falls back after ~3s if a file never arrives. Outfit is a
-       variable font, so one file covers every weight in use (400–700). */
-    @font-face {
-      font-family: 'Outfit'; font-style: normal; font-weight: 400 700; font-display: block;
-      src: url(assets/fonts/outfit-latin.woff2) format('woff2');
-      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-    }
-    @font-face {
-      font-family: 'Space Mono'; font-style: normal; font-weight: 400; font-display: block;
-      src: url(assets/fonts/space-mono-latin.woff2) format('woff2');
-      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-    }
     /* ── App-owned tokens ────────────────────────────────────────────────
        The palette moved to the kit wholesale: all 55 tokens this file defined
        that the kit also defines were BYTE-IDENTICAL, so there was nothing to
@@ -126,7 +110,7 @@
        a non-colour cue). It only became a "text block" in axe's eyes once
        hillshade added its "Terrain: Mapzen/AWS Open Data" credit beside the
        links. Underline is the same remedy the kit applied to prose links in
-       v0.1.1; queued to move INTO the kit for 0.7.0, since every map consumer
+       v0.1.1; queued to move INTO the kit for 0.8.0, since every map consumer
        adopting hillshade inherits this. Delete when that ships. */
     .maplibregl-ctrl-attrib a { text-decoration: underline; }
 
@@ -185,22 +169,20 @@
        module does. Until then (html:not(.layout-ready)) the header keeps its
        height (the menu button holds its slot, invisibly, since it can't do
        anything yet), the drawer and control bar stay out of the way, and the
-       header contents fade in together once they are in place. The query is the
-       kit's COMPACT_MQ, repeated here because .is-compact itself is stamped by
-       a script that can also arrive after first paint. */
-    @media (max-width: 640px), (max-height: 560px) {
-      html:not(.layout-ready) #btn-drawer { display: flex; flex-shrink: 0; visibility: hidden; }
-      html:not(.layout-ready) #navbar > :not(#btn-drawer) { display: none; }
-      html:not(.layout-ready) #sidebar,
-      html:not(.layout-ready) #sidebar-toggle,
-      html:not(.layout-ready) #control-bar { display: none; }
-      html.layout-ready #navbar > *, html.layout-ready #control-bar {
-        animation: chrome-in 0.18s ease-out;
-      }
+       header contents fade in together once they are in place. Keyed on
+       .is-compact, which the inline anti-flash script stamps before first paint
+       (kit 0.7.0). */
+    .is-compact:not(.layout-ready) #btn-drawer { visibility: hidden; }
+    .is-compact:not(.layout-ready) #navbar > :not(#btn-drawer) { display: none; }
+    .is-compact:not(.layout-ready) #sidebar,
+    .is-compact:not(.layout-ready) #sidebar-toggle,
+    .is-compact:not(.layout-ready) #control-bar { display: none; }
+    .is-compact.layout-ready #navbar > *, .is-compact.layout-ready #control-bar {
+      animation: chrome-in 0.18s ease-out;
     }
     @keyframes chrome-in { from { opacity: 0; } }
     @media (prefers-reduced-motion: reduce) {
-      html.layout-ready #navbar > *, html.layout-ready #control-bar { animation: none; }
+      .is-compact.layout-ready #navbar > *, .is-compact.layout-ready #control-bar { animation: none; }
     }
 
     /* ── Control bar (row 2) ─────────────────────────────────────────────── */
@@ -546,13 +528,7 @@
       border-bottom: 1px solid var(--border-glass);
     }
     #sb-brand .logo-img { width: 32px; height: 32px; }
-    /* The kit's ≤750px lockup collapse visually hides every .brand (clip + 1px
-       absolute box); that is meant for the header, so undo it in here. */
-    #sb-brand .brand {
-      position: static; width: auto; height: auto; margin: 0;
-      overflow: visible; clip: auto; white-space: normal;
-      flex-shrink: 1; min-width: 0;
-    }
+    #sb-brand .brand { flex-shrink: 1; min-width: 0; }
     #sb-brand .brand-title { font-size: 0.72rem; color: var(--text-secondary); }
     /* The header hides this at narrow widths; the drawer has room for it. */
     #sb-brand .brand-subtitle { display: block; font-size: 0.58rem; white-space: normal; }
@@ -963,7 +939,7 @@
        copy set `text-decoration: none`, which is a WCAG 1.4.1 failure the kit
        fixed in v0.1.1) all come from .mco-modal now.
 
-       Kept as a marked kit-override until 0.7.0 absorbs it: long-modal
+       Kept as a marked kit-override until 0.8.0 absorbs it: long-modal
        ergonomics. This app's info modal is the tallest in the family, and the
        kit's box just ends mid-sentence when it overflows. Approved for
        back-port 2026-08-16 (CHANGELOG § Planned) — delete both rules when the
@@ -1640,10 +1616,10 @@
      module below and MCO / MCO.map are already globals by the time it does.
      SRI hashes are the kit README's table for this exact tag; bumping @version
      without recomputing them hard-fails in the browser, which is the point. -->
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.6.0/core/mco-core.js"
-        integrity="sha384-DPbXD2xVhws/XeQ5zgnH5fpba972pw9yafpaHL8phz43iEwktW1RLoID4eqRFYue"
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.0/core/mco-core.js"
+        integrity="sha384-ZOGCREEJsO8sY1wJ7eS/Q7K7NdZAHF+LxSMoO3ZGqBtEVISX3616cGomCW418hXH"
         crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.6.0/map/mco-map.js"
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.0/map/mco-map.js"
         integrity="sha384-0aF67+MSXmcocGs8r3qiehgDNzgXo9F48olS5OX575wO2llw2cuGcqLpd6+L7D76"
         crossorigin="anonymous"></script>
 
