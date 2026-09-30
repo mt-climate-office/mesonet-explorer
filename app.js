@@ -3457,6 +3457,9 @@
   _sidebarReady = true;
   layoutControls();
   setSidebarOpen(MCO.viewport.isCompact() ? false : sidebarOpen, { persist: false, refit: false });
+  // Releases the compact first-paint hold in index.html ("First paint"): every
+  // control is now where it belongs, so the header and drawer can show.
+  document.documentElement.classList.add('layout-ready');
 
   onViewportChange(() => {
     layoutControls();
