@@ -3250,28 +3250,36 @@
   const MOUSE_SLOP_PX = 6;
   map.on('click', (e) => {
     const layers = HOVER_LAYERS.filter(lid => map.getLayer(lid));
-    const slop = MCO.viewport.isTouch() ? TOUCH_SLOP_PX : MOUSE_SLOP_PX;
-    // A box query returns features in layer order, NOT by distance, so sort by
-    // distance from the click before the layer-priority pass below.
-    const query = [[e.point.x - slop, e.point.y - slop],
-                   [e.point.x + slop, e.point.y + slop]];
-    let feats = layers.length ? map.queryRenderedFeatures(query, { layers }) : [];
-    if (feats.length === 0) {
-      closeSpider();
-      closePopup();
-      return;
+    if (!layers.length) { closeSpider(); closePopup(); return; }
+    // A direct hit wins, picked exactly as the mousemove tooltip picks it, so a
+    // click always opens the station the tooltip just named. The slop box used
+    // to be queried first and preferred any dot in it, so clicking a station's
+    // value label opened a neighbouring dot within 6px instead.
+    let f = map.queryRenderedFeatures(e.point, { layers })[0];
+    if (!f) {
+      // Near-miss: widen to the slop box. A box query returns features in layer
+      // order, NOT by distance, so sort by distance from the click before the
+      // layer-priority pass below.
+      const slop = MCO.viewport.isTouch() ? TOUCH_SLOP_PX : MOUSE_SLOP_PX;
+      const query = [[e.point.x - slop, e.point.y - slop],
+                     [e.point.x + slop, e.point.y + slop]];
+      let feats = map.queryRenderedFeatures(query, { layers });
+      if (feats.length === 0) {
+        closeSpider();
+        closePopup();
+        return;
+      }
+      if (feats.length > 1) {
+        const d2 = (ft) => {
+          const p = map.project(ft.geometry.coordinates);
+          return (p.x - e.point.x) ** 2 + (p.y - e.point.y) ** 2;
+        };
+        feats = [...feats].sort((a, b) => d2(a) - d2(b));
+      }
+      f = feats.find(x => x.layer.id === 'spider-layer' || x.layer.id === 'spider-label') ||
+          feats.find(x => x.layer.id === 'dots-value') ||
+          feats[0];
     }
-    if (feats.length > 1) {
-      const d2 = (ft) => {
-        const p = map.project(ft.geometry.coordinates);
-        return (p.x - e.point.x) ** 2 + (p.y - e.point.y) ** 2;
-      };
-      feats = [...feats].sort((a, b) => d2(a) - d2(b));
-    }
-    const f =
-      feats.find(x => x.layer.id === 'spider-layer' || x.layer.id === 'spider-label') ||
-      feats.find(x => x.layer.id === 'dots-value') ||
-      feats[0];
     const props  = f.properties;
     const lngLat = f.geometry.coordinates.slice();
     if (f.layer.id === 'spider-layer' || f.layer.id === 'spider-label') {
