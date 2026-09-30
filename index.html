@@ -9,8 +9,8 @@
     default-src 'none';
     script-src 'self' 'sha256-CoyZLTny4Ms0ntaZBXFoDdIGaegMzPM1QXUml5kCP4Q=' https://unpkg.com https://cdn.jsdelivr.net;
     worker-src blob:;
-    style-src 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://cdn.jsdelivr.net;
-    font-src https://fonts.gstatic.com;
+    style-src 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net;
+    font-src 'self';
     img-src 'self' data: blob: https://mesonet2.climate.umt.edu https://data2.climate.umt.edu;
     connect-src 'self' https://mesonet2.climate.umt.edu https://data2.climate.umt.edu https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com https://mesonet.agron.iastate.edu https://s3.amazonaws.com;
     base-uri 'none';
@@ -77,9 +77,15 @@
     })();
   </script>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Space+Mono&display=swap" rel="stylesheet">
+  <!-- Fonts are self-hosted (latin subsets from Google Fonts, SIL OFL — see
+       assets/fonts/) and preloaded, so they are usually in hand before first
+       paint. From Google Fonts they needed a stylesheet round trip to one origin
+       and then the woff2 from another, and display=swap drew the title in the
+       system font first and re-set it in Outfit a moment later. The @font-face
+       rules are at the top of the <style> block below. crossorigin is required
+       on font preloads even same-origin, or the preload is fetched twice. -->
+  <link rel="preload" href="assets/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/space-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.18.0/dist/maplibre-gl.css"
         integrity="sha384-q7EDwLXBfakVimqzBJqFCTxpgy7B18buhebV158qkVMCEVAaUnU3fQTEfWgYz+7g"
         crossorigin="anonymous">
@@ -92,6 +98,21 @@
         crossorigin="anonymous">
 
   <style>
+    /* font-display: block rather than swap: with the files preloaded from this
+       origin the block period is normally a few ms of blank text, which reads as
+       nothing, where swap re-sets every line of text in a different face. The
+       browser still falls back after ~3s if a file never arrives. Outfit is a
+       variable font, so one file covers every weight in use (400–700). */
+    @font-face {
+      font-family: 'Outfit'; font-style: normal; font-weight: 400 700; font-display: block;
+      src: url(assets/fonts/outfit-latin.woff2) format('woff2');
+      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+    }
+    @font-face {
+      font-family: 'Space Mono'; font-style: normal; font-weight: 400; font-display: block;
+      src: url(assets/fonts/space-mono-latin.woff2) format('woff2');
+      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+    }
     /* ── App-owned tokens ────────────────────────────────────────────────
        The palette moved to the kit wholesale: all 55 tokens this file defined
        that the kit also defines were BYTE-IDENTICAL, so there was nothing to
