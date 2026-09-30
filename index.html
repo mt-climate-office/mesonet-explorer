@@ -83,8 +83,8 @@
   <!-- House fonts: kit-hosted (mco-web-style 0.7.0), declared in mco-theme.css.
        Preloaded so the first frame is already in Outfit — no system-font flash.
        Same @version as the theme CSS; crossorigin is required on font preloads. -->
-  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.0/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.0/fonts/space-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.1/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.1/fonts/space-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.18.0/dist/maplibre-gl.css"
         integrity="sha384-q7EDwLXBfakVimqzBJqFCTxpgy7B18buhebV158qkVMCEVAaUnU3fQTEfWgYz+7g"
         crossorigin="anonymous">
@@ -92,8 +92,8 @@
   <!-- mco-web-style @0.6.0 — tokens, reset, a11y utilities, navbar/panel/toast/
        tooltip/modal shells, MapLibre control polish, and the high-contrast
        theme. What remains in <style> below is app-specific. -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.0/theme/mco-theme.css"
-        integrity="sha384-ZhJv93Wa+kWlQTfY8SIMNf5nXoVvIF9s/SMQHCimI5xHu7SvscGgts5EpuWSkkdz"
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.1/theme/mco-theme.css"
+        integrity="sha384-dktZyfU+lLz1JEFe+npkBVrH8FsSdtYYOPC7bJQtZwEJnvD3IiENV+UUgyXeFpnl"
         crossorigin="anonymous">
 
   <style>
@@ -242,7 +242,7 @@
       display: inline-flex; align-items: center; justify-content: center;
       height: 34px; min-width: 62px;
       border: 1px solid var(--ctrl-border); border-radius: var(--radius-md);
-      font-family: 'Space Mono', monospace; font-size: 0.8rem;
+      font-family: var(--font-mono); font-size: 0.8rem;
       color: var(--text-primary);
       padding: 0 0.55rem;
     }
@@ -327,7 +327,7 @@
     #search-dropdown .search-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
     #search-dropdown .search-meta {
       flex-shrink: 0;
-      font-family: 'Space Mono', monospace;
+      font-family: var(--font-mono);
       font-size: 0.68rem;
       color: var(--text-secondary);
     }
@@ -336,7 +336,7 @@
       position: absolute;
       right: 6px; top: 50%;
       transform: translateY(-50%);
-      font: 600 0.62rem 'Space Mono', monospace;
+      font: 600 0.62rem var(--font-mono);
       background: var(--border-glass);
       border: 1px solid var(--border);
       border-radius: 3px;
@@ -364,7 +364,7 @@
        failure only appeared once this page gained the high-contrast theme. */
     .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent-line); color: var(--text-on-accent); }
     .chip .chip-count {
-      font-family: 'Space Mono', monospace; font-size: 0.65rem;
+      font-family: var(--font-mono); font-size: 0.65rem;
       padding: 1px 5px; border-radius: 999px;
       background: var(--border-glass); color: inherit;
     }
@@ -404,7 +404,7 @@
       border-radius: 999px;
       box-shadow: var(--shadow);
       padding: 5px 12px;
-      font-family: 'Space Mono', monospace;
+      font-family: var(--font-mono);
       font-size: 0.68rem; color: var(--text-secondary);
       white-space: nowrap; max-width: calc(100% - 32px);
       overflow: hidden; text-overflow: ellipsis;
@@ -644,7 +644,7 @@
     }
     #legend-scale-labels {
       display: flex; justify-content: space-between;
-      font-family: 'Space Mono', monospace;
+      font-family: var(--font-mono);
       font-size: 0.64rem; color: var(--text-secondary);
       padding: 0 2px; margin-bottom: 4px;
     }
@@ -694,7 +694,7 @@
     }
     .legend-check.disabled { opacity: 0.4; cursor: not-allowed; }
     .legend-meta {
-      font-family: 'Space Mono', monospace;
+      font-family: var(--font-mono);
       font-size: 0.62rem; color: var(--text-muted);
       padding: 2px 4px 0; line-height: 1.5;
     }
@@ -723,7 +723,7 @@
       background: var(--accent-hover);
     }
     .pop-title { font-size: 0.95rem; font-weight: 600; color: var(--text-primary); line-height: 1.2; }
-    .pop-sub   { font-size: 0.7rem; color: var(--text-muted); font-family: 'Space Mono', monospace; margin-top: 2px; }
+    .pop-sub   { font-size: 0.7rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 2px; }
     .pop-badge {
       display: inline-block; font-size: 0.62rem; font-weight: 600;
       padding: 2px 6px; border-radius: 999px;
@@ -739,10 +739,10 @@
     .pop-value-var { font-size: 0.68rem; color: var(--text-secondary); }
     .pop-value-num {
       font-size: 1.15rem; font-weight: 700; color: var(--text-primary);
-      font-family: 'Space Mono', monospace; line-height: 1.3;
+      font-family: var(--font-mono); line-height: 1.3;
     }
     .pop-value-num .pop-unit { font-size: 0.72rem; font-weight: 400; color: var(--text-secondary); margin-left: 3px; }
-    .pop-value-time { font-family: 'Space Mono', monospace; font-size: 0.64rem; color: var(--text-secondary); margin-top: 2px; }
+    .pop-value-time { font-family: var(--font-mono); font-size: 0.64rem; color: var(--text-secondary); margin-top: 2px; }
     .pop-meta { font-size: 0.75rem; color: var(--text-secondary); margin-top: 8px; line-height: 1.5; }
     .pop-meta strong { color: var(--text-primary); font-weight: 500; }
     .pop-siblings { margin-top: 8px; font-size: 0.75rem; color: var(--text-secondary); line-height: 1.5; }
@@ -815,7 +815,7 @@
     .pop-carousel-btn.next { right: 6px; }
     .pop-carousel-caption {
       display: flex; justify-content: space-between; gap: 8px; margin-top: 4px;
-      font-family: 'Space Mono', monospace; font-size: 0.66rem; color: var(--text-muted);
+      font-family: var(--font-mono); font-size: 0.66rem; color: var(--text-muted);
     }
 
     /* ── Station detail panel ────────────────────────────────────────────────
@@ -1045,7 +1045,7 @@
       background-color: var(--input-bg); color: var(--text-primary);
       border: 1px solid var(--ctrl-border); border-radius: var(--radius-md);
       height: 34px; padding: 0 8px;
-      font-size: 0.85rem; font-family: 'Space Mono', monospace;
+      font-size: 0.85rem; font-family: var(--font-mono);
     }
     .scale-domain-grid input:disabled { opacity: 0.45; cursor: not-allowed; }
     .scale-note { font-size: 0.72rem; color: var(--text-muted); line-height: 1.5; margin-top: 0.6rem; }
@@ -1616,10 +1616,10 @@
      module below and MCO / MCO.map are already globals by the time it does.
      SRI hashes are the kit README's table for this exact tag; bumping @version
      without recomputing them hard-fails in the browser, which is the point. -->
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.0/core/mco-core.js"
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.1/core/mco-core.js"
         integrity="sha384-ZOGCREEJsO8sY1wJ7eS/Q7K7NdZAHF+LxSMoO3ZGqBtEVISX3616cGomCW418hXH"
         crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.0/map/mco-map.js"
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.1/map/mco-map.js"
         integrity="sha384-0aF67+MSXmcocGs8r3qiehgDNzgXo9F48olS5OX575wO2llw2cuGcqLpd6+L7D76"
         crossorigin="anonymous"></script>
 
