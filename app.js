@@ -3360,7 +3360,6 @@
   const sidebarScrim  = document.getElementById('sidebar-scrim');
   const btnDrawer     = document.getElementById('btn-drawer');
   const navMetaEl     = document.getElementById('nav-tools');
-  const logoLinkEl    = document.querySelector('.logo-link');
   const brandEl       = document.querySelector('.brand');
   const searchWrapEl  = document.querySelector('.search-wrap');
   const navControlsEl = document.querySelector('#navbar .controls');
@@ -3390,18 +3389,16 @@
       // Header row 1 = menu + time mode + variable, the two controls people
       // change constantly. Row 2 (the control bar) is left free for the date and
       // hour steppers, which only exist in Hourly/Daily. Everything else —
-      // search, networks, aggregation, legend, brand and the global actions —
+      // search, networks, aggregation, legend, the title and the global actions —
       // is behind the one menu button.
       place(modeGroupEl, navControlsEl);
       place(variableGroupEl, navControlsEl);
       place(dateGroup, controlBarEl);
       place(hourGroup, controlBarEl);
       place(searchWrapEl, sb('sb-search'));
-      place(logoLinkEl, sb('sb-brand'));
       place(brandEl, sb('sb-brand'));
       place(navMetaEl, sb('sb-actions'));
     } else {
-      place(logoLinkEl, navbarEl);
       place(brandEl, navbarEl);
       place(navMetaEl, navbarEl);
       place(searchWrapEl, sb('sb-search'));

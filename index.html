@@ -488,15 +488,22 @@
 
     #sidebar-scrim { display: none; }
 
-    /* Brand block at the top of the drawer (compact only — see .logo-link above). */
-    #sb-brand:empty { display: none; }
+    /* Brand block at the top of the drawer (compact only). It always holds its
+       own decorative logo; the title/subtitle only arrive on compact viewports. */
+    #sb-brand:not(:has(.brand)) { display: none; }
     #sb-brand {
       display: flex; align-items: center; gap: 0.6rem;
       padding: 2px 0 10px; margin-bottom: 4px;
       border-bottom: 1px solid var(--border-glass);
     }
     #sb-brand .logo-img { width: 32px; height: 32px; }
-    #sb-brand .brand { flex-shrink: 1; min-width: 0; }
+    /* The kit's ≤750px lockup collapse visually hides every .brand (clip + 1px
+       absolute box); that is meant for the header, so undo it in here. */
+    #sb-brand .brand {
+      position: static; width: auto; height: auto; margin: 0;
+      overflow: visible; clip: auto; white-space: normal;
+      flex-shrink: 1; min-width: 0;
+    }
     #sb-brand .brand-title { font-size: 0.72rem; color: var(--text-secondary); }
     /* The header hides this at narrow widths; the drawer has room for it. */
     #sb-brand .brand-subtitle { display: block; font-size: 0.58rem; white-space: normal; }
@@ -532,6 +539,11 @@
     /* #btn-drawer only exists for the drawer. */
     #btn-drawer { display: none; }
     .is-compact #btn-drawer { display: flex; flex-shrink: 0; }
+    /* On compact viewports the title has moved into the drawer, so there is
+       nothing for the divider to divide off. (The header logo itself only goes
+       at ≤640px — a short-but-wide landscape phone has room for it.) */
+    .is-compact #navbar > .nav-divider { display: none; }
+    .is-compact #navbar > .logo-link { flex-shrink: 0; }
 
     /* ── Legend ──────────────────────────────────────────────────────────────
        Lives in the sidebar (a drawer on compact viewports), never over the map.
@@ -1052,8 +1064,9 @@
 
       /* Row 1 carries exactly three things: the menu, the time segments and the
          variable picker. Everything else is behind the one menu button. The logo
-         moves into the drawer because its 40px is the difference between
-         "Air Temperature" fitting in the picker (177px) and truncating (129px). */
+         is hidden (the drawer has its own copy, beside the title and subtitle)
+         because its 40px is the difference between "Air Temperature" fitting in
+         the picker (177px) and truncating (129px). */
       #navbar > .logo-link, #navbar > .nav-divider, #navbar > .brand { display: none; }
       #navbar { flex-wrap: nowrap; }
       .controls { flex: 1; min-width: 0; gap: 8px; }
@@ -1331,9 +1344,13 @@
        compact viewports, where they stay inline instead of behind the drawer. -->
   <aside id="sidebar" aria-label="Map controls">
     <div class="sidebar-scroll">
-      <!-- Compact only: the logo and title move in here, because row 1 of the
-           header needs their 40px for the variable picker. -->
-      <div id="sb-brand"></div>
+      <!-- Compact only: the title and subtitle move in here (layoutControls), because
+           row 1 of the header needs their width for the variable picker. The logo
+           is a copy rather than the moved header link, since the header keeps its
+           logo on short-but-wide compact viewports. -->
+      <div id="sb-brand"><a href="https://climate.umt.edu" target="_blank" rel="noopener noreferrer"
+         class="logo-link" aria-label="Montana Climate Office"><img src="assets/mco-logo.png" alt=""
+         class="logo-img" width="32" height="32"></a></div>
       <div class="sb-section" id="sb-search">
         <h2 class="sb-title" id="sb-search-title">Search</h2>
       </div>
