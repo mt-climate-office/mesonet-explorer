@@ -1036,8 +1036,10 @@
     }
     .scale-domain-grid input:disabled { opacity: 0.45; cursor: not-allowed; }
     .scale-note { font-size: 0.72rem; color: var(--text-muted); line-height: 1.5; margin-top: 0.6rem; }
-    .scale-hint { font-size: 0.75rem; color: #e5a35c; min-height: 1.2em; margin-top: 0.4rem; }
-    [data-theme="light"] .scale-hint { color: #96500a; }
+    /* The kit's --warning (0.8.0): measured ≥ 4.5:1 on every surface in all
+       three themes, which the two local hexes it replaces never were for
+       high-contrast (it had no value of its own). */
+    .scale-hint { font-size: 0.75rem; color: var(--warning); min-height: 1.2em; margin-top: 0.4rem; }
     .scale-actions { display: flex; justify-content: space-between; gap: 10px; margin-top: 0.8rem; }
 
     /* ── Responsive ──────────────────────────────────────────────────────── */
