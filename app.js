@@ -329,7 +329,9 @@
   let _sheetOpen = false;
 
 
-  const srAnnounceEl = document.getElementById('sr-announce');
+  // Announcements go through MCO.announce (kit 0.8.0): the page's one polite
+  // region, present from load, cleared then set so a repeat is re-read, and
+  // de-duplicated within 500 ms.
 
   // ── Loading indicator (bar under the control bar; the navbar stamp is
   //    display:none on phones, so this is the only loading cue there) ───────
@@ -1570,7 +1572,7 @@
       const disp = scale.displayDomain;
       const scalePart = !scale.endLabels && Number.isFinite(disp[0]) && Number.isFinite(disp[1])
         ? `, scale ${fmt(disp[0])} to ${fmt(disp[1])}${unit ? ' ' + unit : ''}` : '';
-      srAnnounceEl.textContent = `${entry.label}: ${counts.ok} stations reporting${scalePart}.`;
+      MCO.announce(`${entry.label}: ${counts.ok} stations reporting${scalePart}.`);
     }
   }
 
@@ -2406,7 +2408,7 @@
       searchDropdown.hidden = false;
       searchInput.setAttribute('aria-expanded', 'true');
       _activeSearchIndex = -1;
-      srAnnounceEl.textContent = 'No matching stations.';
+      MCO.announce('No matching stations.');
       return;
     }
     for (const s of matches) {
@@ -2432,8 +2434,7 @@
     searchInput.setAttribute('aria-expanded', 'true');
     _activeSearchIndex = -1;
     searchInput.removeAttribute('aria-activedescendant');
-    srAnnounceEl.textContent =
-      `${matches.length} station${matches.length === 1 ? '' : 's'} found.`;
+    MCO.announce(`${matches.length} station${matches.length === 1 ? '' : 's'} found.`);
   }
 
   function hideSearchDropdown() {
@@ -3045,7 +3046,7 @@
 
   function announcePopup(stationId) {
     const s = stationById.get(stationId);
-    if (!s || !srAnnounceEl) return;
+    if (!s) return;
     const rec = stationRecord(stationId);
     const lr = _lastRender;
     let valPart = 'no data';
@@ -3054,7 +3055,7 @@
         ? `${lr.entry.label} ${lr.fmt(rec.value)}, ${Math.round(rec.value)} degrees`
         : `${lr.entry.label} ${lr.fmt(rec.value)} ${lr.unit || ''}`;
     }
-    srAnnounceEl.textContent = `${s.name} (${s.station}), ${s.sub_network || 'station'}, ${valPart}.`;
+    MCO.announce(`${s.name} (${s.station}), ${s.sub_network || 'station'}, ${valPart}.`);
   }
 
   // Tears down whichever presentation is open. `silent` is for the swap path
