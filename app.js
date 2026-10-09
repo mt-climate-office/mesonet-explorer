@@ -3362,8 +3362,11 @@
       // is behind the one menu button.
       place(modeGroupEl, navControlsEl);
       place(variableGroupEl, navControlsEl);
-      place(dateGroup, controlBarEl);
-      place(hourGroup, controlBarEl);
+      // On the landscape rail the date and hour join them in the rail drawer,
+      // so no control row is left above the map; otherwise they are row 2.
+      const timeHome = MCO.viewport.isRail() ? navControlsEl : controlBarEl;
+      place(dateGroup, timeHome);
+      place(hourGroup, timeHome);
       place(searchWrapEl, sb('sb-search'));
       place(brandEl, sb('sb-brand'));
       place(navMetaEl, sb('sb-actions'));
@@ -3427,6 +3430,16 @@
   }
 
   sidebarToggle.addEventListener('click', () => setSidebarOpen(!sidebarOpen));
+  // The landscape-phone rail (kit 0.10.0): the bar is a left column there and
+  // this opens its drawer (time + variable) beside it, with the same
+  // focus-in / inert / Esc-back-to-the-toggle contract as the sidebar drawer.
+  // Idle at every other size, where the drawer is display:contents.
+  const navRail = MCO.initNavRail({
+    toggle: document.getElementById('btn-rail'),
+    drawer: document.getElementById('nav-drawer'),
+    scrim: document.getElementById('rail-scrim'),
+  });
+
   // initDrawer only hides the drawer when the mode CHANGES (docked ↔ not); a
   // page that loads already compact keeps it unhidden, and so tabbable, until
   // the first open/close. Start it hidden there (kit defect, reported).

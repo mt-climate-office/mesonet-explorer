@@ -163,7 +163,8 @@
     #navbar > .nav-divider  { order: 1; }
     #navbar > .brand        { order: 2; }
     #navbar > #btn-drawer   { order: 0; }
-    #navbar > .controls     { order: 3; }
+    #navbar .mco-rail       { order: 1; }
+    #navbar .controls       { order: 3; }
     #navbar > .nav-meta     { order: 4; }
 
     /* ── First paint ─────────────────────────────────────────────────────
@@ -1067,6 +1068,29 @@
       .pop-sibling-link { min-height: 44px; }
       .search-kbd { display: none; }
     }
+
+    /* ── Landscape-phone rail (kit 0.10.0) ──────────────────────────────────
+       The kit's .mco-navbar[data-rail] turns the bar into a 56px left column
+       at MCO.viewport.RAIL_MQ (KEEP IN SYNC). This file's own bar-row rules
+       are #navbar-scoped and outrank the kit's attribute selector, so undo
+       the ones that would fight the column here. The date/hour row moves into
+       the rail drawer too (layoutControls), so the map gets the full height. */
+    @media (max-height: 560px) and (orientation: landscape) {
+      /* kit-override: restate the kit rail's box over this file's #navbar rules. */
+      #navbar[data-rail] {
+        min-height: 0; flex-wrap: nowrap; --nav-gap: 0.35rem; gap: 0.35rem;
+        padding: max(0.4rem, env(safe-area-inset-top)) 0.4rem
+                 max(0.4rem, env(safe-area-inset-bottom)) max(0.4rem, env(safe-area-inset-left));
+      }
+      #navbar[data-rail]::after { top: 0; bottom: 0; left: auto; right: 0; width: 2px; height: auto; }
+      #navbar[data-rail] > .logo-link { display: flex; }
+      #navbar[data-rail] .controls { gap: 0.75rem; }
+      #navbar[data-rail] .controls .control-label { display: block; }
+      #navbar[data-rail] #variable-select { width: 100%; max-width: none; }
+      /* The bottom sheet is body-level and fixed: start it clear of the rail,
+         or the rail covers the station's name. */
+      .is-compact #station-sheet { left: calc(var(--rail-w, 56px) + env(safe-area-inset-left)); }
+    }
   </style>
 </head>
 <body>
@@ -1075,7 +1099,7 @@
      chrome rows straight to the map. -->
 <a class="mco-skip-link" href="#main">Skip to map</a>
 
-<header id="navbar" class="mco-navbar">
+<header id="navbar" class="mco-navbar" data-rail>
   <!-- Compact viewports only: opens #sidebar as an off-canvas drawer. -->
   <button class="nav-btn icon-only" id="btn-drawer" aria-controls="sidebar" aria-expanded="false"
           title="Controls" aria-label="Controls">
@@ -1098,8 +1122,27 @@
     <span class="brand-subtitle">A service of the Montana Climate Office</span>
   </div>
 
-  <!-- Compact only: time mode and variable move up here from the sidebar. -->
-  <div class="controls" hidden></div>
+  <!-- Landscape phones only (kit 0.10.0 rail, MCO.initNavRail): the bar becomes
+       a 56px left rail, and this button opens the time and variable controls
+       beside it. display:none everywhere else. -->
+  <div class="mco-rail">
+    <button type="button" class="nav-btn icon-only" id="btn-rail" aria-controls="nav-drawer"
+            aria-expanded="false" title="Time and variable" aria-label="Time and variable">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+        <line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2.2" fill="currentColor"/>
+        <line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2.2" fill="currentColor"/>
+        <line x1="4" y1="18" x2="20" y2="18"/><circle cx="7" cy="18" r="2.2" fill="currentColor"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Compact only: time mode and variable move up here from the sidebar (and,
+       on the rail, the date and hour too). display:contents outside the rail,
+       so the bar lays out as if it weren't there. -->
+  <div class="mco-nav-drawer" id="nav-drawer">
+    <div class="controls" hidden></div>
+  </div>
 
   <div class="nav-meta" id="nav-tools">
     <span class="refresh-status" title="Data currency">
@@ -1162,6 +1205,8 @@
 <!-- Compact only: the date and hour steppers (Hourly/Daily) move up here from
      the sidebar. Empty, and so hidden, on desktop. -->
 <div id="control-bar" role="region" aria-label="Data controls" hidden></div>
+<!-- The rail drawer's scrim (kit .mco-scrim, viewport-wide below the rail). -->
+<div id="rail-scrim" class="mco-scrim" aria-hidden="true" hidden></div>
 
 <!-- Flex row: the sidebar takes a real column and the map fills the rest, so
      opening or closing it genuinely resizes the map. The station detail panel is
