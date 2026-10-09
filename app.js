@@ -1005,6 +1005,26 @@
   function emptyFC() { return { type: 'FeatureCollection', features: [] }; }
 
   // ── Map init ─────────────────────────────────────────────────────────────
+  // MapLibre 6 is ES-modules only (kit 0.8.0): there is no <script src> that
+  // defines the global any more. mco-map.js imports the family pin (SRI via the
+  // page's import map, started early by its modulepreloads) and publishes
+  // window.maplibregl. This file is a module, so it simply waits here; the
+  // controls above are already wired. If the library never arrives, say so on
+  // the map and stop here: everything below needs it. The never-settling
+  // promise halts this module without an uncaught error.
+  await MCO.map.loadMapLibre().catch((err) => {
+    console.error(err);
+    hideLoading();
+    MCO.notice({
+      tone: 'danger',
+      text: 'The map library failed to load. Check your connection and try again.',
+      action: { label: 'Retry', onClick: () => location.reload() },
+      container: document.getElementById('main'), place: 'over', dismissible: false,
+    });
+    MCO.ready();
+    return new Promise(() => {});
+  });
+
   const map = new maplibregl.Map({
     container: 'map',
     style: MCO.map.cartoStyleUrl(),
@@ -3574,7 +3594,10 @@
       fitBoundsOptions: { padding: 24, animate: false },
       interactive: false,
       attributionControl: false,
-      preserveDrawingBuffer: true,   // required for getCanvas() readback
+      // Required for getCanvas() readback. MapLibre 6 only honours it inside
+      // canvasContextAttributes; the old top-level option is silently ignored,
+      // which would export a blank map.
+      canvasContextAttributes: { preserveDrawingBuffer: true },
       pixelRatio: EXPORT_SCALE,      // render at 2× for a high-resolution PNG
       fadeDuration: 0,
     });
@@ -3939,6 +3962,26 @@
 
   map.on('moveend', pushState);
 
+  // First-paint hold (kit 0.9.0). The first meaningful state is the station
+  // dots ON THE CANVAS, not merely fetched: MapLibre tiles GeoJSON in its web
+  // worker, so a worker that never starts (CSP worker-src) leaves the data in
+  // hand and the map empty. queryRenderedFeatures only answers once the worker
+  // has delivered, so ready() waits for it. A render with nothing to draw (all
+  // networks off, an outage, a failed fetch) is itself the state to show.
+  // mco-booting is also released by the anti-flash snippet's own 3 s timeout,
+  // so this only ever decides WHEN, never WHETHER.
+  function releaseHoldWhenDrawn() {
+    const c = _lastRender && _lastRender.counts;
+    const expected = c ? c.ok + (staleShown ? c.stale : 0) + (nodataShown ? c.nodata : 0) : 0;
+    if (!expected) { MCO.ready(); return; }
+    const check = () => {
+      const layers = ['dots-value', 'dots-stale', 'dots-nodata'].filter(id => map.getLayer(id));
+      if (map.queryRenderedFeatures({ layers }).length) MCO.ready();
+      else map.once('idle', check);
+    };
+    check();
+  }
+
   // ── Boot ─────────────────────────────────────────────────────────────────
   async function boot() {
     syncModeUI();
@@ -3966,6 +4009,7 @@
         () => { if (!stations.length) { emptyStateEl.hidden = true; boot(); } },
         { once: true });
       MCO.showToast(`Failed to load station list: ${err.message}`, 6000);
+      MCO.ready();   // the error card IS the first meaningful state
       return;
     }
     stations = stations.filter(s =>
@@ -3996,6 +4040,7 @@
     fetchPhotoMeta().catch(() => {});   // popups retry on failure
 
     await render();
+    releaseHoldWhenDrawn();
     scheduleRefresh();
 
     // Headless export (?export=…): trigger once the first render has landed.

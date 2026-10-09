@@ -111,7 +111,7 @@ export async function run({ browser, origin }) {
   {
     const { ctx, page } = await open(browser, origin);
     const cam = () => page.evaluate(() => location.search.match(/lng=[-0-9.]+&lat=[-0-9.]+&zoom=[0-9.]+/)?.[0] || 'EXTENT');
-    const width = () => page.evaluate(() => Math.round(document.getElementById('map-container').getBoundingClientRect().width));
+    const width = () => page.evaluate(() => Math.round(document.getElementById('main').getBoundingClientRect().width));
     const dots = await findDots(page, 3);
     // Pick a westerly dot so the targeted pan has no reason to fire.
     const west = dots.sort((a, b) => a.x - b.x)[0];

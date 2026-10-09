@@ -170,7 +170,7 @@ The URL parameters double as a manual harness. Useful deterministic states:
 | `?station=acemocca&legend=open` | Station detail — docked bottom below 640 px wide or 560 px tall, docked right above. Assert its rect is inside the viewport, that `elementFromPoint()` over every link returns the panel, and that **no station dot** is covered by it |
 | `?sidebar=closed` | Sidebar collapsed; Montana re-fits to the wider strip |
 | `?mode=daily` at 390×844 | `#control-bar.scrollWidth === clientWidth` (nothing hidden) and `#variable-select` fully on-screen |
-| `?legend=open` at 844×390 | `#legend` fits inside `#map-container` |
+| `?legend=open` at 844×390 | `#legend` fits inside `#main` |
 | `?export=light` / `?export=dark` | Auto-downloads the PNG 1.5 s after first render — the output should stay pixel-identical across UI changes |
 | `?theme=light` | `documentElement.dataset.theme` is set, which also proves the pinned CSP hash still matches the inline theme script |
 | `?kbd=off` | `/` does not focus the search box; <kbd>Esc</kbd> still closes panels |
