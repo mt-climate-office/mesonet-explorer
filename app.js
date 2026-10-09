@@ -3241,48 +3241,41 @@
     openPopupFor(props.station, lngLat);
   });
 
+  // The hover readout is the kit's MCO.map.initCursorTooltip (0.8.0): the
+  // queryRenderedFeatures dispatcher, textContent lines, cursor+14 placement
+  // flipped at the viewport edge, cursor: pointer, mouseout cleanup. Touch gets
+  // nothing here: browsers synthesize a mousemove on tap, which would show it
+  // under the finger, and the tap opens the sheet, whose peek IS the readout.
   const tooltipEl = document.getElementById('tooltip');
-  function showTooltip(props, e) {
-    const lr = _lastRender;
-    let valLine = '';
-    if (lr) {
-      const unit = lr.entry.fmt === 'compass'
-        ? ` · ${Math.round(props.value)}°`
-        : (lr.unit ? ` ${lr.unit}` : '');
-      valLine = props.value != null && props.label
-        ? `<span class="tooltip-val">${MCO.escapeHTML(props.label)}${MCO.escapeHTML(unit)}${props.cat === 'stale' ? ' · stale' : ''}</span>`
-        : `<span class="tooltip-val">no data</span>`;
-    }
-    tooltipEl.innerHTML =
-      `<span class="tooltip-name">${MCO.escapeHTML(props.name)}</span>` +
-      `<span class="tooltip-sub">${MCO.escapeHTML(props.station)}</span>` +
-      valLine;
-    tooltipEl.classList.add('visible');
-    // Flip to the other side of the cursor near the right/bottom viewport
-    // edges so the value isn't clipped.
-    const cx = e.originalEvent.clientX, cy = e.originalEvent.clientY, pad = 14;
-    let x = cx + pad, y = cy + pad;
-    if (x + tooltipEl.offsetWidth  > window.innerWidth  - 8) x = cx - tooltipEl.offsetWidth  - pad;
-    if (y + tooltipEl.offsetHeight > window.innerHeight - 8) y = cy - tooltipEl.offsetHeight - pad;
-    tooltipEl.style.left = `${Math.max(4, x)}px`;
-    tooltipEl.style.top  = `${Math.max(4, y)}px`;
-  }
-  function hideTooltip() { tooltipEl.classList.remove('visible'); }
+  MCO.map.initCursorTooltip(map, {
+    element: tooltipEl,
+    layers: HOVER_LAYERS,
+    render: (f) => {
+      if (MCO.viewport.isTouch()) return null;
+      const props = f.properties;
+      const lr = _lastRender;
+      let line = null;
+      if (lr) {
+        const unit = lr.entry.fmt === 'compass'
+          ? ` · ${Math.round(props.value)}°`
+          : (lr.unit ? ` ${lr.unit}` : '');
+        line = props.value != null && props.label
+          ? `${props.label}${unit}${props.cat === 'stale' ? ' · stale' : ''}`
+          : 'no data';
+      }
+      return { name: props.name, sub: props.station, line };
+    },
+  });
 
+  // Hovering an anchor of co-located stations fans them out (the tooltip above
+  // is separate). Same touch exclusion, for the same reason.
   let _hovered = false;
   map.on('mousemove', (e) => {
-    // Touch browsers synthesize a mousemove on tap, which would fire the
-    // tooltip and spiderfy the bucket right under the finger — where the user
-    // can't see either. On touch the tap opens the sheet instead, whose peek
-    // state is the readout hover gives a mouse.
     if (MCO.viewport.isTouch()) return;
     const layers = HOVER_LAYERS.filter(lid => map.getLayer(lid));
-    const feats = layers.length ? map.queryRenderedFeatures(e.point, { layers }) : [];
-    const f = feats[0] || null;
+    const f = (layers.length ? map.queryRenderedFeatures(e.point, { layers }) : [])[0] || null;
     if (f) {
-      map.getCanvas().style.cursor = 'pointer';
       cancelSpiderClose();
-      showTooltip(f.properties, e);
       _hovered = true;
       if (ANCHOR_LAYER_IDS.has(f.layer.id)
           && f.properties.colocationCount > 1
@@ -3290,15 +3283,11 @@
         openSpider(f.properties.bucket, f.geometry.coordinates.slice());
       }
     } else if (_hovered) {
-      map.getCanvas().style.cursor = '';
-      hideTooltip();
       scheduleSpiderClose();
       _hovered = false;
     }
   });
   map.getCanvas().addEventListener('mouseleave', () => {
-    map.getCanvas().style.cursor = '';
-    hideTooltip();
     scheduleSpiderClose();
     _hovered = false;
   });
