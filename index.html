@@ -444,6 +444,9 @@
     }
     #sb-brand .logo-img { width: 32px; height: 32px; }
     #sb-brand .brand { flex-shrink: 1; min-width: 0; }
+    /* The drawer's × (MCO.initDrawer closes on [data-close-drawer]; the kit
+       hides it while docked). Last in the row, whatever layoutControls moves in. */
+    #sb-brand .sb-close { order: 9; margin-left: auto; }
     #sb-brand .brand-title { font-size: 0.72rem; color: var(--text-secondary); }
     /* The header hides this at narrow widths; the drawer has room for it. */
     #sb-brand .brand-subtitle { display: block; font-size: 0.58rem; white-space: normal; }
@@ -453,6 +456,7 @@
 
     /* Compact: an off-canvas drawer over the map, with a scrim, instead of a
        fixture. The desktop edge handle would be a second, redundant control. */
+    /* MCO.initDrawer drives it: [hidden] when closed, .is-open while open. */
     .is-compact #sidebar {
       position: absolute; z-index: var(--z-drawer);
       top: 0; bottom: 0; left: 0;
@@ -460,11 +464,12 @@
       width: min(300px, 86vw);
       margin-left: 0;
       box-shadow: 4px 0 28px rgba(0,0,0,0.45);
-      transform: translateX(0);
+      transform: translateX(-100%);
       transition: transform 0.22s cubic-bezier(0.4,0,0.2,1);
     }
-    /* A drawer slides away entirely rather than giving its column to the map. */
-    .is-compact body.sidebar-closed #sidebar { transform: translateX(-100%); margin-left: 0; }
+    .is-compact #sidebar.is-open { transform: none; }
+    /* A collapsed desktop column must not leave the drawer offset. */
+    .is-compact body.sidebar-closed #sidebar { margin-left: 0; }
     .is-compact #sidebar-toggle { display: none; }
     /* The scrim is the kit's .mco-scrim[data-scope="container"] (0.8.0, made
        for exactly this): absolute inside #app-row, so the drawer dims the map
@@ -1172,7 +1177,8 @@
            logo on short-but-wide compact viewports. -->
       <div id="sb-brand"><a href="https://climate.umt.edu" target="_blank" rel="noopener noreferrer"
          class="logo-link" aria-label="Montana Climate Office"><img src="assets/mco-logo.png" alt=""
-         class="logo-img" width="32" height="32"></a></div>
+         class="logo-img" width="32" height="32"></a><button type="button" class="modal-close sb-close"
+         data-close-drawer aria-label="Close controls">×</button></div>
       <div class="sb-section" id="sb-search">
         <h2 class="sb-title" id="sb-search-title">Search</h2>
         <div class="search-wrap mco-search">

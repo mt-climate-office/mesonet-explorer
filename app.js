@@ -3402,18 +3402,25 @@
     if (navControlsEl) navControlsEl.hidden = !navControlsEl.querySelector(':scope > *:not([hidden])');
   }
 
+  // Two jobs, two owners. Above compact the sidebar is a column you can
+  // collapse (this function: remembered, ?sidebar=, resizes the map). On
+  // compact it is an off-canvas drawer, and that is the kit's MCO.initDrawer
+  // (0.9.0, below): focus moves in and back, the rest of the page goes inert so
+  // Tab stays inside, Esc / the scrim / its × close it, and it is [hidden] when
+  // closed, so its controls leave the tab order and the accessibility tree
+  // (before, a closed drawer was only translated off-screen, every control in
+  // it still tabbable).
   function setSidebarOpen(open, { persist = true, refit = true } = {}) {
+    if (MCO.viewport.isCompact()) return;
     sidebarOpen = !!open;
     document.body.classList.toggle('sidebar-closed', !sidebarOpen);
     const label = sidebarOpen ? 'Hide controls' : 'Show controls';
     sidebarToggle.setAttribute('aria-expanded', sidebarOpen ? 'true' : 'false');
     sidebarToggle.setAttribute('aria-label', label);
     sidebarToggle.title = label;
-    btnDrawer.setAttribute('aria-expanded', sidebarOpen ? 'true' : 'false');
-    if (MCO.viewport.isCompact()) sidebarScrim.hidden = !sidebarOpen;
-    if (persist && !MCO.viewport.isCompact()) MCO.lsSet('mco-explorer-sidebar', sidebarOpen ? 'open' : 'closed');
+    if (persist) MCO.lsSet('mco-explorer-sidebar', sidebarOpen ? 'open' : 'closed');
     syncOverlayMetrics();
-    if (refit && !MCO.viewport.isCompact()) {
+    if (refit) {
       // The map container just changed width. MapLibre needs telling, and the
       // resize handler then re-fits if the user was at full extent.
       const settle = () => { _resizeFromSidebar = true; map.resize(); };
@@ -3423,22 +3430,27 @@
   }
 
   sidebarToggle.addEventListener('click', () => setSidebarOpen(!sidebarOpen));
-  btnDrawer.addEventListener('click', () => setSidebarOpen(!sidebarOpen));
-  sidebarScrim.addEventListener('click', () => setSidebarOpen(false));
+  // initDrawer only hides the drawer when the mode CHANGES (docked ↔ not); a
+  // page that loads already compact keeps it unhidden, and so tabbable, until
+  // the first open/close. Start it hidden there (kit defect, reported).
+  if (MCO.viewport.isCompact()) sidebarEl.hidden = true;
+  const sidebarDrawer = MCO.initDrawer({
+    drawer: sidebarEl, toggle: btnDrawer, scrim: sidebarScrim, modal: 'compact',
+    onChange: () => syncOverlayMetrics(),
+  });
 
   _sidebarReady = true;
   layoutControls();
-  setSidebarOpen(MCO.viewport.isCompact() ? false : sidebarOpen, { persist: false, refit: false });
+  setSidebarOpen(sidebarOpen, { persist: false, refit: false });   // no-op on compact
   // Releases the compact first-paint hold in index.html ("First paint"): every
   // control is now where it belongs, so the header and drawer can show.
   document.documentElement.classList.add('layout-ready');
 
   onViewportChange(() => {
     layoutControls();
-    // Crossing into compact turns the sidebar into a drawer: close it so it
-    // isn't covering the map. Crossing back out restores the saved preference.
-    if (MCO.viewport.isCompact()) setSidebarOpen(false, { persist: false, refit: false });
-    else setSidebarOpen(MCO.lsGet('mco-explorer-sidebar') !== 'closed',
+    // Crossing into compact the drawer takes over (closed); crossing back out
+    // restores the saved column preference.
+    if (!MCO.viewport.isCompact()) setSidebarOpen(MCO.lsGet('mco-explorer-sidebar') !== 'closed',
                         { persist: false });
   });
 
@@ -3460,6 +3472,7 @@
       // but the drawer may be what the user expects to open. Reveal it either way
       // before focusing, so the shortcut can't focus something invisible.
       if (!MCO.viewport.isCompact() && !sidebarOpen) setSidebarOpen(true);
+      if (MCO.viewport.isCompact() && !sidebarDrawer.isOpen()) sidebarDrawer.open();
       searchInput.focus();
       searchInput.select();
     }
