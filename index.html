@@ -1039,8 +1039,6 @@
     .scale-hint { font-size: 0.75rem; color: #e5a35c; min-height: 1.2em; margin-top: 0.4rem; }
     [data-theme="light"] .scale-hint { color: #96500a; }
     .scale-actions { display: flex; justify-content: space-between; gap: 10px; margin-top: 0.8rem; }
-    #scale-apply { background: var(--accent); border-color: var(--accent-light); color: #fff; }
-    #scale-apply:hover { background: var(--accent-dk); }
 
     /* ── Responsive ──────────────────────────────────────────────────────── */
     @media (max-width: 1060px) {
@@ -1595,7 +1593,7 @@
 
     <div class="scale-actions">
       <button type="button" class="nav-btn" id="scale-reset">Reset to automatic</button>
-      <button type="button" class="nav-btn" id="scale-apply">Apply</button>
+      <button type="button" class="nav-btn is-primary" id="scale-apply">Apply</button>
     </div>
   </div>
 </dialog>
