@@ -31,40 +31,28 @@
     `&BBOX={bbox-epsg-3857}&_ts=${ts}`;
 
   // ── Color ramps (hex stops, low → high) ──────────────────────────────────
-  // ColorBrewer (colorbrewer2.org) plus a curated subset of Fabio Crameri's
-  // Scientific colour maps (perceptually uniform, colour-vision-deficiency
-  // safe; the *O maps are cyclic — first stop === last stop).
+  // The approved ramps come from the kit's MCO.palette (0.9.0, HOUSE-STYLE §6);
+  // the eight shared names were byte-identical here. The Crameri maps the kit
+  // doesn't carry stay local (data-encoding, CVD-safe):
   // Crameri, F. (2018). Scientific colour maps. Zenodo.
   // doi:10.5281/zenodo.1243862 — MIT license. https://www.fabiocrameri.ch/colourmaps/
+  // Spectral is gone: banned by §6 (red→green, not colorblind-safe). A shared
+  // ?ramp=spectral link opens on RdBu, with a toast saying so.
+  const KIT_RAMPS = ['RdBu', 'BrBG', 'YlGnBu', 'YlOrRd', 'Blues', 'PuRd', 'batlow', 'romaO'];
   const RAMPS = {
-    // ColorBrewer
-    RdBu:     ['#67001f','#b2182b','#d6604d','#f4a582','#fddbc7','#f7f7f7','#d1e5f0','#92c5de','#4393c3','#2166ac','#053061'],
-    BrBG:     ['#543005','#8c510a','#bf812d','#dfc27d','#f6e8c3','#f5f5f5','#c7eae5','#80cdc1','#35978f','#01665e','#003c30'],
-    Spectral: ['#9e0142','#d53e4f','#f46d43','#fdae61','#fee08b','#ffffbf','#e6f598','#abdda4','#66c2a5','#3288bd','#5e4fa2'],
-    YlGnBu:   ['#ffffd9','#edf8b1','#c7e9b4','#7fcdbb','#41b6c4','#1d91c0','#225ea8','#253494','#081d58'],
-    YlOrRd:   ['#ffffcc','#ffeda0','#fed976','#feb24c','#fd8d3c','#fc4e2a','#e31a1c','#bd0026','#800026'],
-    Blues:    ['#f7fbff','#deebf7','#c6dbef','#9ecae1','#6baed6','#4292c6','#2171b5','#08519c','#08306b'],
-    PuRd:     ['#f7f4f9','#e7e1ef','#d4b9da','#c994c7','#df65b0','#e7298a','#ce1256','#980043','#67001f'],
-    // Crameri — sequential
-    batlow:   ['#011959','#103d5f','#185562','#30685c','#577647','#828231','#b38e2f','#e09651','#fba689','#fdb9c2','#faccfa'],
+    ...Object.fromEntries(KIT_RAMPS.map(n => [n, [...MCO.palette.RAMPS[n]]])),
+    // Crameri: sequential, diverging (odd stop count, neutral centre), cyclic.
     lajolla:  ['#191900','#31220e','#512d1e','#7d3b35','#b34947','#d9604e','#e38050','#e99d53','#f0bd57','#f9e384','#fffecb'],
     davos:    ['#00054a','#102a6f','#234a8c','#3a679b','#547d9c','#6c8e93','#849e89','#a4b68a','#d4dba8','#f5f5d7','#fefefe'],
     bamako:   ['#003b47','#0d4340','#1b4c37','#2e582b','#47681c','#637a0a','#818800','#a2930d','#c6ae39','#e5cb75','#ffe5ad'],
-    // Crameri — diverging (odd stop count: neutral center is a stop)
     vik:      ['#001261','#023a7b','#116496','#5496b7','#a7c9da','#ece5e0','#e1b8a0','#cd8961','#b75a26','#852206','#590008'],
     roma:     ['#7e1700','#984e14','#ac7726','#c1a343','#d2d484','#c0eac3','#89dad7','#4db3cf','#2d88be','#1e5fac','#033198'],
     broc:     ['#2c1a4c','#284174','#3f6b99','#7697b7','#b3c5d7','#ebeeec','#dcdbb8','#b6b67c','#81814c','#505023','#262600'],
     cork:     ['#2c194c','#284275','#3d6b98','#6f92b3','#adc1d4','#e6edec','#b7cfb7','#7ba77a','#438142','#195615','#0f2903'],
-    // Crameri — cyclic (0° and 360° share a color)
-    romaO:    ['#733957','#823c3d','#94502e','#aa752f','#c3a34b','#d5ce81','#cbe1b3','#a4d8cb','#74bbcd','#5495c0','#516da6','#62497d','#733957'],
     vikO:     ['#4f1a3d','#3f2c5b','#334b7f','#4575a1','#759ebc','#aebdc8','#d5beb3','#d7a387','#c57c56','#a34d2d','#7c271e','#611627','#4f1a3d'],
   };
   // Editor picker grouping + display names.
   const RAMP_GROUPS = [
-    // 'Spectral' is deliberately ABSENT: it traverses red→green and is not
-    // colorblind-safe, so HOUSE-STYLE §6 bans it. The ramp DATA is kept above
-    // so an already-shared ?ramp=Spectral link still renders what its sender
-    // saw — it just can't be newly chosen here.
     { label: 'ColorBrewer', ramps: ['RdBu','BrBG','YlGnBu','YlOrRd','Blues','PuRd'] },
     { label: 'Scientific colour maps (Crameri)',
       ramps: ['batlow','lajolla','davos','bamako','vik','roma','broc','cork','romaO','vikO'] },
@@ -420,7 +408,11 @@
     const rampRaw = urlParams.get('ramp');
     if (rampRaw) {
       const rev = rampRaw.endsWith('-r');
-      const name = rev ? rampRaw.slice(0, -2) : rampRaw;
+      let name = rev ? rampRaw.slice(0, -2) : rampRaw;
+      if (MCO.palette.isBanned(name)) {
+        name = 'RdBu';
+        MCO.showToast('Spectral isn’t colorblind-safe, so this link opens on RdBu');
+      }
       if (RAMPS[name]) {
         o = o || {};
         o.ramp = name;
