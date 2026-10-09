@@ -2949,7 +2949,11 @@
     const chrome = (navbarEl?.offsetHeight || 0) + (controlBarEl?.offsetHeight || 0);
     const root = document.documentElement;
     root.style.setProperty('--chrome-h', `${chrome}px`);
-    if (_sheetOpen) root.style.setProperty('--sheet-h', `${sheetEl.offsetHeight}px`);
+    // --sheet-h drives the kit's html.mco-autolift (toast + bottom corner
+    // controls). Only a BOTTOM-docked sheet covers them; the desktop panel docks
+    // right, so it publishes 0.
+    root.style.setProperty('--sheet-h',
+      `${_sheetOpen && MCO.viewport.isCompact() ? sheetEl.offsetHeight : 0}px`);
   }
 
   // Flat padding, independent of what is open. The sidebar has its own column, so

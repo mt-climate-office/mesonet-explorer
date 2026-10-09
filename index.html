@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="mco-autolift">
 <head>
   <meta charset="UTF-8">
   <!-- CSP (meta form — GitHub Pages can't set headers; frame-ancestors/report-uri
@@ -128,18 +128,11 @@
        theme, which this page had no values for at all. */
     :root { --sidebar-w: 272px; }
 
-    /* ── MapLibre control polish (app-specific remainder) ────────────────
-       The glass treatment, --ctrl-icon-filter, the .maplibregl-ctrl-fit glyph,
-       attribution colors and the safe-area padding are all the kit's, and were
-       byte-identical here. Only this lift survives: with a station sheet docked
-       at the bottom on compact, the corner controls have to clear it.
-       Attribution must stay bottom-right (MapLibre puts it there), so it lifts
-       too. */
-    .is-compact body.sheet-open .maplibregl-ctrl-bottom-right,
-    .is-compact body.sheet-open .maplibregl-ctrl-bottom-left {
-      transform: translateY(calc(-1 * var(--sheet-h, 0px)));
-      transition: transform 0.22s cubic-bezier(0.4,0,0.2,1);
-    }
+    /* ── MapLibre control polish ─────────────────────────────────────────
+       All the kit's. The lift that kept the bottom corner controls (and the
+       attribution) clear of the compact station sheet is html.mco-autolift
+       now (kit 0.9.0), driven by --sheet-h, which app.js publishes only while
+       the sheet is bottom-docked. */
 
     /* ── App shell ───────────────────────────────────────────────────────
        The reset, reduced-motion clamp, [hidden] priority fix, .sr-only and the
@@ -938,10 +931,6 @@
     .sheet-body .pop-meta,
     .sheet-body .pop-siblings,
     .sheet-body .pop-links { max-width: 560px; }
-    /* The toast is the one floating element left that the bottom-docked panel can
-       cover. The legend needs no special case any more: it lives in the sidebar,
-       so it and the panel never occupy the same space. */
-    .is-compact body.sheet-open .mco-toast { bottom: calc(var(--sheet-h, 0px) + 1rem); }
 
 
     /* ── Info modal ──────────────────────────────────────────────────────── */
