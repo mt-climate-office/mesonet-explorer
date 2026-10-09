@@ -2465,7 +2465,7 @@
 
     if (lr && rec) {
       const block = h_('div', 'pop-value');
-      const num = h_('div', 'pop-value-num');
+      const num = h_('div', 'pop-value-num mco-num-display');
       let timeLine = '', accent = 'var(--accent)';
       if (rec.cat === 'nodata' || rec.value == null) {
         num.textContent = '—';
