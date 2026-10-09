@@ -3,15 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <!-- CSP (meta form — GitHub Pages can't set headers; frame-ancestors/report-uri
-       are ignored in meta CSP). The sha256 hash covers the inline theme-flash
-       script below — recompute it if that script ever changes (see README). -->
+       are ignored in meta CSP). The first sha256 covers the inline theme-flash
+       script below — recompute it if that script ever changes (see README); the
+       second is the kit's one-line MapLibre import map, the same on every page
+       that copies it byte for byte. worker-src needs blob: AND unpkg: MapLibre 6
+       starts its worker from a blob: URL that then imports its chunk from unpkg,
+       and without the host the basemap draws but no GeoJSON layer ever does. -->
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'none';
-    script-src 'self' 'sha256-o+rXj9Jy2CUuPoewBVeBz2GYT71qiUGzjc3SklYSaSw=' https://unpkg.com https://cdn.jsdelivr.net;
-    worker-src blob:;
+    script-src 'self' 'sha256-v3il6Uh82ESNrvf3ERc536SXE1pi2Le5vlV0TpFWJyU=' 'sha256-NgHBdw+Nl6S2kTHNyvv5uFwHfytmfDJR39Y9qVPt/UI=' https://unpkg.com https://cdn.jsdelivr.net;
+    worker-src blob: https://unpkg.com;
     style-src 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net;
     font-src https://cdn.jsdelivr.net;
-    img-src 'self' data: blob: https://mesonet2.climate.umt.edu https://data2.climate.umt.edu;
+    img-src 'self' data: blob: https://cdn.jsdelivr.net https://mesonet2.climate.umt.edu https://data2.climate.umt.edu;
     connect-src 'self' https://mesonet2.climate.umt.edu https://data2.climate.umt.edu https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com https://mesonet.agron.iastate.edu https://s3.amazonaws.com;
     base-uri 'none';
     form-action 'none'">
@@ -25,12 +29,13 @@
   <meta name="theme-color" content="#161b22" media="(prefers-color-scheme: dark)">
   <link rel="canonical" href="https://mesonet.climate.umt.edu/explorer/">
 
-  <!-- Favicons / app icons -->
-  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
-  <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
-  <link rel="icon" type="image/png" sizes="512x512" href="assets/icon-512.png">
+  <!-- Favicons / app icons: hot-linked from the pinned kit tag (kit 0.9.0,
+       decided 2026-10-08) so they version with the kit and can't drift. The
+       navbar logo stays vendored (assets/mco-logo.png). img-src carries
+       cdn.jsdelivr.net for them. -->
+  <link rel="icon" type="image/png" sizes="32x32" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/assets/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/assets/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/assets/apple-touch-icon.png">
 
   <!-- Open Graph -->
   <meta property="og:type"             content="website">
@@ -39,8 +44,8 @@
   <meta property="og:description"      content="Explore Montana Mesonet weather and soil data on an interactive map — latest conditions plus hourly and daily history for every station.">
   <meta property="og:url"              content="https://mesonet.climate.umt.edu/explorer/">
   <meta property="og:locale"           content="en_US">
-  <meta property="og:image"            content="https://mesonet.climate.umt.edu/explorer/assets/og-card.png">
-  <meta property="og:image:secure_url" content="https://mesonet.climate.umt.edu/explorer/assets/og-card.png">
+  <meta property="og:image"            content="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/assets/og-card.png">
+  <meta property="og:image:secure_url" content="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/assets/og-card.png">
   <meta property="og:image:type"       content="image/png">
   <meta property="og:image:width"      content="1200">
   <meta property="og:image:height"     content="630">
@@ -50,7 +55,7 @@
   <meta name="twitter:card"        content="summary_large_image">
   <meta name="twitter:title"       content="Explorer · Montana Mesonet">
   <meta name="twitter:description" content="Explore Montana Mesonet weather and soil data on an interactive map — latest conditions plus hourly and daily history for every station.">
-  <meta name="twitter:image"       content="https://mesonet.climate.umt.edu/explorer/assets/og-card.png">
+  <meta name="twitter:image"       content="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/assets/og-card.png">
   <meta name="twitter:image:alt"   content="Map of Montana showing Mesonet station observations as colored dots across the state.">
 
   <!-- mco-web-style · anti-flash theme boot. Kept INLINE and ahead of every
@@ -77,23 +82,41 @@
       root.setAttribute('data-theme', t);
       root.classList.toggle('is-compact', window.matchMedia('(max-width: 640px), (max-height: 560px)').matches);
       root.classList.toggle('is-touch', window.matchMedia('(hover: none)').matches);
+      // First-paint hold (0.9.0): [data-hold] stays invisible until MCO.ready();
+      // this timeout releases it anyway, so a failed script never strands a page.
+      root.classList.add('mco-booting');
+      setTimeout(function () { root.classList.remove('mco-booting'); }, 3000);
     })();
   </script>
 
   <!-- House fonts: kit-hosted (mco-web-style 0.7.0), declared in mco-theme.css.
        Preloaded so the first frame is already in Outfit — no system-font flash.
        Same @version as the theme CSS; crossorigin is required on font preloads. -->
-  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.1/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.1/fonts/space-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.18.0/dist/maplibre-gl.css"
-        integrity="sha384-q7EDwLXBfakVimqzBJqFCTxpgy7B18buhebV158qkVMCEVAaUnU3fQTEfWgYz+7g"
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/fonts/space-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
+
+  <!-- MapLibre GL 6.x (kit 0.8.0). ES-modules only, so it is not a <script src>:
+       mco-map.js imports it (MCO.map.loadMapLibre) and this ONE-LINE import map
+       carries the SRI hashes for the entry and its shared chunk. Copied byte for
+       byte from the kit's snippets/head.html: its CSP sha256 depends on it. It
+       must precede every module load on the page. The modulepreloads start the
+       ~1.1 MB download now rather than when app.js asks for it. -->
+  <script type="importmap">{"integrity":{"https://unpkg.com/maplibre-gl@6.11.2/dist/maplibre-gl.mjs":"sha384-KQzExYlfg1SnYNpLaXHTnaCTjr5wmiZ6X3sasvPb94caZfH+3+T1Sl4eJziXUtmN","https://unpkg.com/maplibre-gl@6.11.2/dist/maplibre-gl-shared.mjs":"sha384-V59ofCEPEqpSk5Mswc19DtDYbZWJtne210dFzS328Il6O31eLwTV7v57+Z3NjW/7"}}</script>
+  <link rel="modulepreload" href="https://unpkg.com/maplibre-gl@6.11.2/dist/maplibre-gl.mjs"
+        integrity="sha384-KQzExYlfg1SnYNpLaXHTnaCTjr5wmiZ6X3sasvPb94caZfH+3+T1Sl4eJziXUtmN"
+        crossorigin="anonymous">
+  <link rel="modulepreload" href="https://unpkg.com/maplibre-gl@6.11.2/dist/maplibre-gl-shared.mjs"
+        integrity="sha384-V59ofCEPEqpSk5Mswc19DtDYbZWJtne210dFzS328Il6O31eLwTV7v57+Z3NjW/7"
+        crossorigin="anonymous">
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.11.2/dist/maplibre-gl.css"
+        integrity="sha384-ntw3zEt6rcVML7jDK0ULmHa5hxLB23afsPqzqfY+gLgMfAkbFCnCgPpkZvV5mmZX"
         crossorigin="anonymous">
 
-  <!-- mco-web-style @0.6.0 — tokens, reset, a11y utilities, navbar/panel/toast/
+  <!-- mco-web-style @0.11.2 — tokens, reset, a11y utilities, navbar/panel/toast/
        tooltip/modal shells, MapLibre control polish, and the high-contrast
        theme. What remains in <style> below is app-specific. -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.1/theme/mco-theme.css"
-        integrity="sha384-dktZyfU+lLz1JEFe+npkBVrH8FsSdtYYOPC7bJQtZwEJnvD3IiENV+UUgyXeFpnl"
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/theme/mco-theme.css"
+        integrity="sha384-22H/4uZb4dmkrTZlLp4NJ4J+Wg39RNRIVIKO0x1HPYfyUWj81FA0fyM/uoRqbqme"
         crossorigin="anonymous">
 
   <style>
@@ -373,7 +396,7 @@
     .chip[aria-pressed="true"] .chip-count { background: rgba(0,0,0,0.28); color: var(--text-on-accent); }
 
     /* ── Map ─────────────────────────────────────────────────────────────── */
-    #map-container { flex: 1; min-height: 0; position: relative; }
+    #main { flex: 1; min-height: 0; position: relative; }
     #map { width: 100%; height: 100%; }
 
     /* Loading feedback lives on the map, not the navbar — the navbar stamp
@@ -451,7 +474,7 @@
       display: flex; align-items: stretch;
       position: relative;
     }
-    #map-container { flex: 1 1 auto; min-width: 0; }
+    #main { flex: 1 1 auto; min-width: 0; }
     #sidebar {
       flex: 0 0 var(--sidebar-w);
       width: var(--sidebar-w);
@@ -552,7 +575,7 @@
     .is-compact body.sidebar-closed #sidebar { transform: translateX(-100%); margin-left: 0; }
     .is-compact #sidebar-toggle { display: none; }
     /* Deliberately NOT .mco-scrim: the kit's is viewport-fixed, and this one
-       is absolute inside #map-container so the drawer dims the map without
+       is absolute inside #main so the drawer dims the map without
        dimming the navbar above it. Colour comes from the kit token. */
     .is-compact #sidebar-scrim {
       display: block; position: absolute; inset: 0;
@@ -762,9 +785,11 @@
     }
     .pop-sibling-link:hover { border-color: var(--accent); background: var(--accent-hover); color: var(--accent); }
     .pop-sibling-name { font-weight: 500; }
+    /* --text-secondary, not --text-muted: muted on the raised row fill is
+       under 4.5:1 in dark (axe 1.4.3, found by the kit's verify matrix). */
     .pop-sibling-net {
       flex-shrink: 0; font-size: 0.6rem; font-weight: 600; letter-spacing: 0.05em;
-      text-transform: uppercase; color: var(--text-muted);
+      text-transform: uppercase; color: var(--text-secondary);
     }
     .pop-links { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
     .pop-links a {
@@ -1174,9 +1199,19 @@
       #btn-info { width: 40px; height: 40px; }
       .nav-btn.icon-only { min-width: 40px; }
       .nav-btn.date-step { min-height: 40px; height: 40px; min-width: 40px; }
-      #legend-toggle-btn, #legend-pin-btn { width: 32px; height: 32px; }
+      /* 40px, not 32/36: kit 0.9.0's verify gate audits every pointer target
+         at 390px (HOUSE-STYLE §5.5), and these were the app's stragglers. */
+      #legend-toggle-btn, #legend-pin-btn { width: 40px; height: 40px; }
       #search-dropdown li { min-height: 40px; padding: 10px 8px; }
-      .legend-row, .legend-check { min-height: 36px; padding: 7px 6px; }
+      .legend-row, .legend-check { min-height: 40px; padding: 7px 6px; }
+      /* The colour strip is 12px tall; pad its button, not the strip. */
+      #legend-gradient-btn { padding: 12px 0; }
+      /* kit-override: "Now"/"Day" in the compact mode group trim their padding
+         to share a row with the date (see ≤640px); hold the 40px width anyway.
+         The drawer's logo link is 32px art; give it a 40px hit area. */
+      #mode-group .seg-btn { min-width: 40px; }
+      /* kit-override: 40px hit area around the drawer's 32px logo. */
+      #sb-brand .logo-link { display: flex; align-items: center; justify-content: center; min-width: 40px; min-height: 40px; }
       .pop-carousel-btn { width: 40px; height: 40px; }
       .pop-close, .sheet-close { width: 44px; height: 44px; }
       /* 15px-tall text links are not a touch target. */
@@ -1190,7 +1225,7 @@
 
 <!-- WCAG 2.4.1 — first focusable element on the page, jumps past the two
      chrome rows straight to the map. -->
-<a class="mco-skip-link" href="#map-container">Skip to map</a>
+<a class="mco-skip-link" href="#main">Skip to map</a>
 
 <header id="navbar" class="mco-navbar">
   <!-- Compact viewports only: opens #sidebar as an off-canvas drawer. -->
@@ -1440,7 +1475,7 @@
     </svg>
   </button>
 
-<main id="map-container" tabindex="-1">
+<main id="main" tabindex="-1">
   <div id="map" role="application" aria-label="Mesonet data explorer map"></div>
   <!-- Ships active: boot() waits on the map 'load' event, and the very first
        paint should already show a loading cue. First render clears it. -->
@@ -1603,24 +1638,25 @@
   </div>
 </dialog>
 
-<!-- MapLibre -->
-<script src="https://unpkg.com/maplibre-gl@5.18.0/dist/maplibre-gl.js"
-        integrity="sha384-MYTfGytf3SxNyO7ZAu/U0wHCcs3NpqE92Q3wBz5PQhat8kEA/wbwb9qY6H/JLyuR"
-        crossorigin="anonymous"></script>
 <!-- FlatGeobuf (watershed boundaries) -->
 <script src="https://cdn.jsdelivr.net/npm/flatgeobuf@3.38.0/dist/flatgeobuf-geojson.min.js"
         integrity="sha384-qaUb9sZ45HYxNQezOWPyOMTRR7yph9xtoAW8TyJGHen5BcUmaBIcDil9Yj48HGav"
         crossorigin="anonymous"></script>
 
-<!-- mco-web-style @0.6.0 — classic scripts, so they run before the deferred
+<!-- mco-web-style @0.11.2 — classic scripts, so they run before the deferred
      module below and MCO / MCO.map are already globals by the time it does.
+     MapLibre is not among them: app.js awaits MCO.map.loadMapLibre(). The
+     palette module loads before mco-map.js (its marker paints read it).
      SRI hashes are the kit README's table for this exact tag; bumping @version
      without recomputing them hard-fails in the browser, which is the point. -->
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.1/core/mco-core.js"
-        integrity="sha384-ZOGCREEJsO8sY1wJ7eS/Q7K7NdZAHF+LxSMoO3ZGqBtEVISX3616cGomCW418hXH"
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/core/mco-core.js"
+        integrity="sha384-b4r3+tK/yiZ4TNEllSsbDX3qW0NhcHDsF2iPzUWunUc2vNf1qlq9t9qo2YWgoZiK"
         crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.7.1/map/mco-map.js"
-        integrity="sha384-0aF67+MSXmcocGs8r3qiehgDNzgXo9F48olS5OX575wO2llw2cuGcqLpd6+L7D76"
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/palette/mco-palette.js"
+        integrity="sha384-P+8vdCR12oZ388lO/orPRnm6Tcz69x6mhN32l7AWP7j8S7KCNijXDZrmYjWuXm8J"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/map/mco-map.js"
+        integrity="sha384-tmDqtqi4yYiDHOxkZikwzXF3Lpkb63b0Tu6K7jeCpU9gJkPB2GbpFHLasGHka6zP"
         crossorigin="anonymous"></script>
 
 <script type="module" src="app.js"></script>
