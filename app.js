@@ -2381,105 +2381,27 @@
   }
 
   // ── Search ───────────────────────────────────────────────────────────────
-  let _searchSorted = [];
-  let _activeSearchIndex = -1;
   const SEARCH_MAX_RESULTS = 8;
 
-  function populateSearch() {
-    _searchSorted = [...stations].sort((a, b) => a.name.localeCompare(b.name));
-  }
-
-  function matchScore(s, q) {
-    const n = s.name.toLowerCase();
-    const id = s.station.toLowerCase();
-    if (n === q || id === q)   return 0;
-    if (n.startsWith(q))       return 1;
-    if (id.startsWith(q))      return 2;
-    if (n.includes(q))         return 3;
-    if (id.includes(q))        return 4;
-    return Infinity;
-  }
-
-  function showSearchDropdown(rawQuery) {
-    const q = rawQuery.trim().toLowerCase();
-    if (!q) { hideSearchDropdown(); return; }
-    const matches = _searchSorted
-      .map(s => ({ s, score: matchScore(s, q) }))
-      .filter(m => m.score < Infinity)
-      .sort((a, b) => a.score - b.score || a.s.name.localeCompare(b.s.name))
-      .slice(0, SEARCH_MAX_RESULTS)
-      .map(m => m.s);
-    searchDropdown.innerHTML = '';
-    if (matches.length === 0) {
-      const li = document.createElement('li');
-      li.className = 'empty';
-      li.setAttribute('role', 'option');   // listbox children must be options
-      li.setAttribute('aria-disabled', 'true');
-      li.textContent = `No stations match "${rawQuery.trim()}"`;
-      searchDropdown.appendChild(li);
-      searchDropdown.hidden = false;
-      searchInput.setAttribute('aria-expanded', 'true');
-      _activeSearchIndex = -1;
-      MCO.announce('No matching stations.');
-      return;
-    }
-    for (const s of matches) {
-      const li = document.createElement('li');
-      li.setAttribute('role', 'option');
-      li.dataset.stationId = s.station;
-      li.id = `search-opt-${s.station}`;
-      const name = document.createElement('span');
-      name.className = 'search-name';
-      name.textContent = s.name;
-      const meta = document.createElement('span');
-      meta.className = 'search-meta';
-      meta.textContent = `${s.station} · ${s.sub_network || '—'}`;
-      li.appendChild(name);
-      li.appendChild(meta);
-      li.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        selectStation(s.station);
-      });
-      searchDropdown.appendChild(li);
-    }
-    searchDropdown.hidden = false;
-    searchInput.setAttribute('aria-expanded', 'true');
-    _activeSearchIndex = -1;
-    searchInput.removeAttribute('aria-activedescendant');
-    MCO.announce(`${matches.length} station${matches.length === 1 ? '' : 's'} found.`);
-  }
-
-  function hideSearchDropdown() {
-    searchDropdown.hidden = true;
-    searchInput.setAttribute('aria-expanded', 'false');
-    _activeSearchIndex = -1;
-    searchInput.removeAttribute('aria-activedescendant');
-  }
+  // The combobox is the kit's MCO.initSearchBox (0.8.0, the APG pattern on the
+  // dashboard's model): roles and aria-* on the field and list, ranked matching
+  // (name, id, word starts, typos), Up/Down/Home/End/Enter/Esc, a polite
+  // debounced count, and the "No matches" note as a disabled option.
+  // Esc closes the list and restores the text, clears it on a second press,
+  // and lets the third through to the page (which closes the detail).
+  const searchBox = MCO.initSearchBox({
+    input: searchInput, listbox: searchDropdown,
+    items: () => stations.map(s => ({ id: s.station, label: s.name, meta: `${s.station} · ${s.sub_network || '—'}` })),
+    value: () => _selectedStation,
+    onSelect: (id) => selectStation(id),
+    label: 'Stations', limit: SEARCH_MAX_RESULTS,
+  });
+  function populateSearch() { searchBox.refresh(); }
 
   function selectStation(stationId) {
-    hideSearchDropdown();
     _popupFocusReturn = searchInput;   // hand focus back here when the popup closes
     flyToAndOpen(stationId);
-    searchInput.value = '';
   }
-
-  function setActiveSearchItem(idx) {
-    const items = searchDropdown.querySelectorAll('li');
-    if (!items.length) return;
-    if (idx < 0)             idx = items.length - 1;
-    if (idx >= items.length) idx = 0;
-    _activeSearchIndex = idx;
-    items.forEach((it, i) => {
-      it.classList.toggle('active', i === idx);
-      it.setAttribute('aria-selected', i === idx ? 'true' : 'false');
-    });
-    items[idx].scrollIntoView({ block: 'nearest' });
-    searchInput.setAttribute('aria-activedescendant', items[idx].id);
-  }
-
-  searchInput.addEventListener('input',  () => showSearchDropdown(searchInput.value));
-  searchInput.addEventListener('focus',  () => { if (searchInput.value) showSearchDropdown(searchInput.value); });
-  searchInput.addEventListener('blur',   () => setTimeout(hideSearchDropdown, 120));
 
   function flyToAndOpen(stationId) {
     const s = stationById.get(stationId);
@@ -3536,31 +3458,6 @@
       searchInput.select();
     }
   });
-  searchInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      e.stopPropagation();   // dismiss the search only — don't also close a popup
-      searchInput.value = '';
-      hideSearchDropdown();
-      searchInput.blur();
-      return;
-    }
-    if (searchDropdown.hidden) return;
-    const items = searchDropdown.querySelectorAll('li');
-    if (!items.length) return;
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setActiveSearchItem(_activeSearchIndex + 1);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setActiveSearchItem(_activeSearchIndex - 1);
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      const idx = _activeSearchIndex >= 0 ? _activeSearchIndex : 0;
-      const el = items[idx];
-      if (el && el.dataset.stationId) selectStation(el.dataset.stationId);
-    }
-  });
-
   // ── Export (PNG with MCO branding — photo-explorer pattern) ──────────────
   // Renders a fixed EXPORT_W×EXPORT_H map off-screen so the output is
   // identical regardless of the live viewport, composites a branding card

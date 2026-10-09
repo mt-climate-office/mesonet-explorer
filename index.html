@@ -275,69 +275,14 @@
     select:focus { border-color: var(--accent-light); }
     #variable-select { min-width: 210px; }
 
-    /* ── Search ──────────────────────────────────────────────────────────── */
-    .search-wrap { position: relative; display: inline-flex; align-items: center; }
-    input[type="search"] {
-      background-color: var(--input-bg);
-      color: var(--text-primary);
-      border: 1px solid var(--ctrl-border); border-radius: var(--radius-md);
-      padding: 0 36px 0 30px; height: 32px;
-      width: 220px; max-width: 100%;
-      font-size: 0.82rem; font-family: inherit;
-      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237a8190' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='7'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>");
-      background-repeat: no-repeat;
-      background-position: 8px center;
-      background-size: 14px 14px;
-      transition: var(--transition), width 0.18s ease-out;
-    }
-    input[type="search"]:hover { border-color: var(--accent); }
-    input[type="search"]:focus { border-color: var(--accent-light); width: 260px; }
-    input[type="search"]::-webkit-search-cancel-button { filter: var(--ctrl-icon-filter, none); }
-    input[type="search"]::placeholder { color: var(--text-muted); opacity: 1; }
-
-    #search-dropdown {
-      position: absolute;
-      top: calc(100% + 4px);
-      left: 0; right: 0;
-      min-width: 100%;
-      background: var(--bg-surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      box-shadow: var(--shadow);
-      list-style: none;
-      margin: 0; padding: 4px;
-      max-height: 280px;
-      overflow-y: auto;
-      z-index: var(--z-flyout);
-    }
-    #search-dropdown[hidden] { display: none; }
-    #search-dropdown li {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 8px;
-      padding: 5px 8px;
-      font-size: 0.8rem;
-      cursor: pointer;
-      border-radius: var(--radius-sm);
-      color: var(--text-secondary);
-      white-space: nowrap;
-      overflow: hidden;
-    }
-    #search-dropdown li:hover,
-    #search-dropdown li.active {
-      background: var(--accent-hover);
-      color: var(--text-primary);
-    }
-    #search-dropdown li.empty { color: var(--text-muted); font-style: italic; cursor: default; }
-    #search-dropdown li.empty:hover { background: none; }
-    #search-dropdown .search-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-    #search-dropdown .search-meta {
-      flex-shrink: 0;
-      font-family: var(--font-mono);
-      font-size: 0.68rem;
-      color: var(--text-secondary);
-    }
+    /* ── Search ──────────────────────────────────────────────────────────
+       The field, its icon (a currentColor mask), the listbox, its options and
+       the "No matches" note are the kit's .mco-search (0.8.0), wired by
+       MCO.initSearchBox. This app keeps the width it grows to on focus and the
+       "/" hint. */
+    .mco-search-input:focus { border-color: var(--accent-line); width: 260px; }
+    .mco-search-input { padding-right: 30px; transition: border-color var(--transition), width 0.18s ease-out; }
+    .mco-search-input::-webkit-search-cancel-button { filter: var(--ctrl-icon-filter, none); }
 
     .search-kbd {
       position: absolute;
@@ -460,7 +405,7 @@
     #sidebar #variable-group .control-label,
     #sidebar #agg-group .control-label { display: none; }
     #sidebar .search-wrap { width: 100%; }
-    #sidebar input[type="search"], #sidebar input[type="search"]:focus { width: 100%; }
+    #sidebar .mco-search-input, #sidebar .mco-search-input:focus { width: 100%; }
     #sidebar #variable-select, #sidebar #agg-select { width: 100%; max-width: none; }
     #sidebar .seg-btns { width: 100%; }
     #sidebar .seg-btn { flex: 1; justify-content: center; }
@@ -1024,7 +969,7 @@
       #navbar { min-height: 44px; padding-top: 0.3rem; padding-bottom: 0.3rem; }
       .controls { order: 0; flex: 1; flex-basis: auto; flex-wrap: nowrap; min-width: 0; }
       .search-wrap { flex: 1; min-width: 0; }
-      input[type="search"], input[type="search"]:focus { width: 100%; }
+      .mco-search-input, .mco-search-input:focus { width: 100%; }
 
       /* Row 1 carries exactly three things: the menu, the time segments and the
          variable picker. Everything else is behind the one menu button. The logo
@@ -1109,14 +1054,13 @@
       .is-compact #station-sheet[data-state="peek"] .pop-value { margin-top: 0; }
     }
     @media (hover: none) {
-      .nav-btn, .seg-btn, .chip, input[type="search"], input[type="date"], select { min-height: 40px; }
+      .nav-btn, .seg-btn, .chip, input[type="date"], select { min-height: 40px; }
       #btn-info { width: 40px; height: 40px; }
       .nav-btn.icon-only { min-width: 40px; }
       .nav-btn.date-step { min-height: 40px; height: 40px; min-width: 40px; }
       /* 40px, not 32/36: kit 0.9.0's verify gate audits every pointer target
          at 390px (HOUSE-STYLE §5.5), and these were the app's stragglers. */
       #legend-toggle-btn, #legend-pin-btn { width: 40px; height: 40px; }
-      #search-dropdown li { min-height: 40px; padding: 10px 8px; }
       .legend-row, .legend-check { min-height: 40px; padding: 7px 6px; }
       /* The colour strip is 12px tall; pad its button, not the strip. */
       #legend-gradient-btn { padding: 12px 0; }
@@ -1246,14 +1190,13 @@
          class="logo-img" width="32" height="32"></a></div>
       <div class="sb-section" id="sb-search">
         <h2 class="sb-title" id="sb-search-title">Search</h2>
-        <div class="search-wrap">
+        <div class="search-wrap mco-search">
+          <span class="mco-search-icon" aria-hidden="true"></span>
           <label for="search-input" class="sr-only">Search stations</label>
-          <input type="search" id="search-input"
-                 role="combobox" aria-autocomplete="list" aria-haspopup="listbox"
-                 aria-controls="search-dropdown" aria-expanded="false"
-                 placeholder="Search stations…" autocomplete="off">
+          <!-- role/aria-* are set by MCO.initSearchBox. -->
+          <input type="search" id="search-input" class="mco-search-input" placeholder="Search stations…">
           <kbd class="search-kbd" aria-hidden="true">/</kbd>
-          <ul id="search-dropdown" role="listbox" hidden></ul>
+          <div id="search-dropdown" class="mco-search-list" hidden></div>
         </div>
       </div>
       <div class="sb-section" id="sb-networks">
