@@ -532,10 +532,14 @@
   }
   syncThemeIcons();
 
+  // The button only flips the theme; everything that depends on it listens for
+  // the kit's mco:themechange (0.9.0, fired by MCO.setTheme, which also
+  // persists the shared mco-theme key), so a theme set from anywhere else
+  // re-styles the map the same way.
   document.getElementById('btn-theme').addEventListener('click', () => {
-    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-    document.documentElement.dataset.theme = next;
-    MCO.lsSet('mco-theme', next);
+    MCO.setTheme(MCO.getTheme() === 'dark' ? 'light' : 'dark');
+  });
+  document.addEventListener('mco:themechange', () => {
     syncThemeIcons();
     map.setStyle(MCO.map.cartoStyleUrl());
     map.once('style.load', () => {
