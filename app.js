@@ -541,12 +541,8 @@
   });
   document.addEventListener('mco:themechange', () => {
     syncThemeIcons();
+    // The layers come back from the style.load handler beside the map.
     map.setStyle(MCO.map.cartoStyleUrl());
-    map.once('style.load', () => {
-      addCustomLayers();
-      map.getSource('stations')?.setData(_lastFC);
-      if (_spiderBucket) rebuildSpider();
-    });
     pushState();
   });
 
@@ -1038,6 +1034,19 @@
       ? { center: [_initLng, _initLat], zoom: _initZoom }
       : { bounds: MT_FIT_BOUNDS, fitBoundsOptions: FIT_OPTS }),
   });
+  // A basemap that 404s or hangs used to leave 'load' unfired and the loading
+  // bar spinning forever. watchBasemap (kit 0.8.0) retries the style, then
+  // falls back to a blank style that DOES load, with a Retry notice.
+  MCO.map.watchBasemap(map);
+  // Every style load wipes our sources and layers: the first one, a theme
+  // switch, and watchBasemap's retry or blank fallback alike. So re-add them on
+  // EVERY style.load, not once per caller. addCustomLayers is idempotent (it
+  // checks each id), so the first load's second call from 'load' is a no-op.
+  map.on('style.load', () => {
+    addCustomLayers();
+    if (_spiderBucket) rebuildSpider();
+  });
+
   // Top-LEFT on purpose: the station detail panel docks to the right edge, and
   // anything in a right-hand corner ends up underneath it.
   map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left');
