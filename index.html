@@ -384,25 +384,7 @@
     #map { width: 100%; height: 100%; }
 
     /* Loading feedback lives on the map, not the navbar — the navbar stamp
-       is display:none on phones. */
-    #loading-bar {
-      position: absolute; top: 0; left: 0; right: 0; height: 3px;
-      z-index: var(--z-map-progress); pointer-events: none; overflow: hidden;
-      display: none;
-    }
-    #loading-bar.active { display: block; }
-    #loading-bar.active::before {
-      content: ''; position: absolute; top: 0; bottom: 0; width: 40%;
-      background: linear-gradient(90deg, transparent, var(--accent-light), transparent);
-      animation: loading-sweep 1.1s linear infinite;
-    }
-    @keyframes loading-sweep { from { left: -40%; } to { left: 100%; } }
-    @media (prefers-reduced-motion: reduce) {
-      #loading-bar.active::before {
-        animation: none; left: 0; width: 100%;
-        background: var(--accent-light); opacity: 0.6;
-      }
-    }
+       is display:none on phones. The bar is the kit's .mco-progress. */
     #loading-note {
       position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
       z-index: var(--z-map-progress); pointer-events: none;
@@ -426,27 +408,8 @@
       max-width: calc(100% - 32px);
     }
     #empty-state[hidden] { display: none; }
-    .empty-state-card {
-      pointer-events: auto;
-      background: var(--bg-surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      box-shadow: var(--shadow);
-      padding: 10px 14px;
-      font-size: 0.82rem;
-      color: var(--text-secondary);
-      display: flex; align-items: center; gap: 10px;
-    }
-    .empty-state-card strong { color: var(--text-primary); font-weight: 600; }
-    .empty-state-retry {
-      flex-shrink: 0;
-      padding: 4px 12px; min-height: 28px;
-      border: 1px solid var(--ctrl-border); border-radius: var(--radius-md);
-      background: none; color: var(--accent-light);
-      font: inherit; font-size: 0.78rem; font-weight: 600;
-      cursor: pointer; transition: var(--transition);
-    }
-    .empty-state-retry:hover { background: var(--accent-hover); border-color: var(--accent); }
+    /* The callout is the kit's .mco-empty; only its slot is this app's. */
+    #empty-state .mco-empty { pointer-events: auto; margin: 0; box-shadow: var(--shadow); }
 
     /* ── Control sidebar ─────────────────────────────────────────────────────
        Takes a real column: opening or closing it resizes the map, which is the
@@ -1433,9 +1396,8 @@
 
 <main id="main" tabindex="-1">
   <div id="map" role="application" aria-label="Mesonet data explorer map"></div>
-  <!-- Ships active: boot() waits on the map 'load' event, and the very first
-       paint should already show a loading cue. First render clears it. -->
-  <div id="loading-bar" class="active" aria-hidden="true"></div>
+  <!-- The loading bar is MCO.loading's .mco-progress, appended here and
+       started as soon as app.js runs. -->
   <div id="loading-note" role="status" hidden></div>
   <div id="empty-state" hidden role="status" aria-live="polite"></div>
 

@@ -335,17 +335,25 @@
 
   // ── Loading indicator (bar under the control bar; the navbar stamp is
   //    display:none on phones, so this is the only loading cue there) ───────
-  const loadingBarEl  = document.getElementById('loading-bar');
+  // The bar is the kit's MCO.loading (0.9.0): aria-busy on the map frame, a
+  // .mco-progress sweep that waits 300 ms so a fast load never flashes it, and
+  // one "Still loading…" announcement past 8 s. Started right away: the first
+  // paint should already say something is coming (the module still has to
+  // wait for MapLibre). The visible batch note below is this app's own.
+  const mapLoading    = MCO.loading(document.getElementById('main'), { label: 'Loading station data' });
   const loadingNoteEl = document.getElementById('loading-note');
-  function showLoading() { loadingBarEl.classList.add('active'); }
+  let _loading = false;
+  function showLoading() { _loading = true; mapLoading.start(); }
   function hideLoading() {
-    loadingBarEl.classList.remove('active');
+    _loading = false;
+    mapLoading.done();
     loadingNoteEl.hidden = true;
     loadingNoteEl.textContent = '';
   }
+  showLoading();
   function setLoadingNote(text) {
     // Only narrate long fetches that the user is actually waiting on.
-    if (!loadingBarEl.classList.contains('active')) return;
+    if (!_loading) return;
     loadingNoteEl.textContent = text;
     loadingNoteEl.hidden = !text;
   }
@@ -1668,45 +1676,48 @@
     }
   }
 
+  // Empty states are the kit's .mco-empty callout, built with textContent (the
+  // variable label is API-derived). Any error notice goes too: whatever state
+  // just rendered supersedes it.
   function updateEmptyState() {
+    clearErrorCard();
+    emptyStateEl.replaceChildren();
     if (!stations.length) { emptyStateEl.hidden = true; return; }
-    let msg = null;
+    let lead = null, rest = '';
     if (activeNetworks.size === 0) {
-      msg = '<strong>No networks selected.</strong> Click HydroMet or AgriMet to show stations.';
+      lead = 'No networks selected.'; rest = ' Click HydroMet or AgriMet to show stations.';
     } else if (_lastRender && _lastRender.counts.ok === 0) {
-      const label = _lastRender.entry.label;
-      msg = `<strong>No data</strong> for ${MCO.escapeHTML(label)} at this time. Try another variable, date, or time mode.`;
+      lead = 'No data';
+      rest = ` for ${_lastRender.entry.label} at this time. Try another variable, date, or time mode.`;
     }
-    if (msg) {
-      emptyStateEl.innerHTML = `<div class="empty-state-card">${msg}</div>`;
-      emptyStateEl.hidden = false;
-    } else {
-      emptyStateEl.hidden = true;
+    if (lead) {
+      const card = document.createElement('p');
+      card.className = 'mco-empty';
+      const b = document.createElement('strong');
+      b.textContent = lead;
+      card.append(b, rest);
+      emptyStateEl.appendChild(card);
     }
+    emptyStateEl.hidden = !lead;
   }
 
-  // Persistent error cards in the empty-state slot (a 2.8 s toast is the only
-  // other signal, and the navbar stamp is hidden on phones). A later
-  // successful render clears them via updateEmptyState().
-  function showErrorCard(msgHTML, onRetry) {
-    emptyStateEl.innerHTML = '';
-    const card = document.createElement('div');
-    card.className = 'empty-state-card';
-    const span = document.createElement('span');
-    span.innerHTML = msgHTML;
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'empty-state-retry';
-    btn.textContent = 'Retry';
-    btn.addEventListener('click', () => { emptyStateEl.hidden = true; onRetry(); });
-    card.append(span, btn);
-    emptyStateEl.appendChild(card);
-    emptyStateEl.hidden = false;
+  // Load failures are the kit's danger notice (MCO.notice, 0.8.0) floating at
+  // the top of the map: a visible "Error" tone word, Retry, a dismiss button,
+  // and one assertive announcement. A toast alone (gone in seconds, and the
+  // navbar stamp is hidden on phones) was never enough. A later render clears
+  // it through updateEmptyState().
+  let _errorNotice = null;
+  function clearErrorCard() { if (_errorNotice) { _errorNotice.close(); _errorNotice = null; } }
+  function showErrorCard(text, onRetry) {
+    clearErrorCard();
+    emptyStateEl.hidden = true;
+    _errorNotice = MCO.notice({
+      tone: 'danger', text, container: document.getElementById('main'), place: 'over',
+      action: { label: 'Retry', onClick: () => { clearErrorCard(); onRetry(); } },
+    });
   }
   function showRenderError(entry) {
-    showErrorCard(
-      `<strong>Couldn’t load ${MCO.escapeHTML(entry.label)}.</strong> The map still shows the previous selection.`,
-      () => render());
+    showErrorCard(`Couldn’t load ${entry.label}. The map still shows the previous selection.`, () => render());
   }
 
   // ── Legend ───────────────────────────────────────────────────────────────
@@ -4007,11 +4018,9 @@
       console.error(err);
       setSyncStamp('error');
       hideLoading();
-      showErrorCard(
-        '<strong>Couldn’t reach the Mesonet API.</strong> Check your connection.',
-        () => boot());
+      showErrorCard('Couldn’t reach the Mesonet API. Check your connection.', () => boot());
       window.addEventListener('online',
-        () => { if (!stations.length) { emptyStateEl.hidden = true; boot(); } },
+        () => { if (!stations.length) { clearErrorCard(); boot(); } },
         { once: true });
       MCO.showToast(`Failed to load station list: ${err.message}`, 6000);
       MCO.ready();   // the error card IS the first meaningful state
