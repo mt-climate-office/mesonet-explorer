@@ -1598,51 +1598,38 @@
   }
 
   // Non-visual access to the dataset: the WebGL dots are unreachable by
-  // keyboard and invisible to AT, so every render also fills a hidden table.
-  const srTableEl = document.getElementById('sr-station-table');
+  // keyboard and invisible to AT, so every render also fills a hidden table:
+  // the kit's MCO.srTable twin (0.8.0) — caption with the row count, row
+  // headers, cells by textContent, rebuilt only when the content changed, and
+  // never a live region (MCO.announce says what changed). The caption names
+  // the variable, so it is set per render; the table keeps its old id for
+  // anything that looks it up.
+  const srTwinOpts = {
+    container: document.getElementById('main'),
+    caption: 'Stations',
+    rowKey: (p) => p.station,
+    columns: [
+      { key: 'name', label: 'Station', rowHeader: true, value: (p) => `${p.name} (${p.station})` },
+      { key: 'sub_network', label: 'Network' },
+      { key: 'value', label: 'Value', value: (p) => p.__value },
+      { key: 'dt', label: 'Observed', value: (p) => typeof p.dt === 'number' ? MCO.formatStampMT(p.dt) : null },
+    ],
+  };
+  const srTwin = MCO.srTable(srTwinOpts);
+  srTwin.element.querySelector('table').id = 'sr-station-table';
   function renderSRTable() {
-    if (!_lastRender || !srTableEl) return;
+    if (!_lastRender) return;
     const { entry, unit } = _lastRender;
-    srTableEl.innerHTML = '';
-    const caption = document.createElement('caption');
-    caption.textContent = `${entry.label}${unit ? ` (${unit})` : ''} by station`;
-    srTableEl.appendChild(caption);
-    const thead = document.createElement('thead');
-    const hr = document.createElement('tr');
-    for (const h of ['Station', 'Network', 'Value', 'Observed']) {
-      const th = document.createElement('th');
-      th.scope = 'col';
-      th.textContent = h;
-      hr.appendChild(th);
-    }
-    thead.appendChild(hr);
-    srTableEl.appendChild(thead);
-    const tbody = document.createElement('tbody');
+    srTwinOpts.caption = `${entry.label}${unit ? ` (${unit})` : ''} by station`;
+    const unitFor = (p) => entry.fmt === 'compass'
+      ? ` (${Math.round(p.value)}°)` : (unit ? ' ' + unit : '');
     const rows = _lastFC.features
       .map(f => f.properties)
       .filter(p => activeNetworks.has(p.sub_network))
-      .sort((a, b) => a.name.localeCompare(b.name));
-    for (const p of rows) {
-      const tr = document.createElement('tr');
-      const unitFor = (p) => entry.fmt === 'compass'
-        ? ` (${Math.round(p.value)}°)` : (unit ? ' ' + unit : '');
-      const cells = [
-        `${p.name} (${p.station})`,
-        p.sub_network || '—',
-        p.cat === 'nodata' || p.value == null
-          ? 'no data'
-          : `${p.label}${unitFor(p)}${p.cat === 'stale' ? ' (stale)' : ''}`,
-        typeof p.dt === 'number' ? MCO.formatStampMT(p.dt) : '—',
-      ];
-      cells.forEach((text, i) => {
-        const cell = document.createElement(i === 0 ? 'th' : 'td');
-        if (i === 0) cell.scope = 'row';
-        cell.textContent = text;
-        tr.appendChild(cell);
-      });
-      tbody.appendChild(tr);
-    }
-    srTableEl.appendChild(tbody);
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(p => ({ ...p, __value: p.cat === 'nodata' || p.value == null
+        ? 'no data' : `${p.label}${unitFor(p)}${p.cat === 'stale' ? ' (stale)' : ''}` }));
+    srTwin.render(rows);
   }
 
   // Keep an open popup in step with the map — variable/time/unit changes and

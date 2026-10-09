@@ -1338,18 +1338,15 @@
   </button>
 
 <main id="main" tabindex="-1">
-  <div id="map" role="application" aria-label="Mesonet data explorer map"></div>
+  <div id="map" role="application" aria-label="Mesonet data explorer map. The data is in the table that follows."></div>
   <!-- The loading bar is MCO.loading's .mco-progress, appended here and
        started as soon as app.js runs. -->
   <div id="loading-note" role="status" hidden></div>
   <div id="empty-state" hidden role="status" aria-live="polite"></div>
 
 
-  <!-- Non-visual dataset access: the WebGL station dots are invisible to
-       assistive tech, so each render also fills this hidden table. -->
-  <section class="sr-only" aria-label="Station data">
-    <table id="sr-station-table"></table>
-  </section>
+  <!-- Non-visual dataset access: app.js appends the MCO.srTable twin here
+       (a hidden table of every station shown, rebuilt with each render). -->
 </main>
 </div><!-- /#app-row -->
 
