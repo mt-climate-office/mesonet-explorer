@@ -283,7 +283,6 @@
        "/" hint. kit-override: width-on-focus and room for the hint. */
     .mco-search-input:focus { border-color: var(--accent-line); width: 260px; }
     .mco-search-input { padding-right: 30px; transition: border-color var(--transition), width 0.18s ease-out; }
-    .mco-search-input::-webkit-search-cancel-button { filter: var(--ctrl-icon-filter, none); }
 
     .search-kbd {
       position: absolute;
@@ -1090,9 +1089,10 @@
       #navbar[data-rail] .controls { gap: 0.75rem; }
       #navbar[data-rail] .controls .control-label { display: block; }
       #navbar[data-rail] #variable-select { width: 100%; max-width: none; }
-      /* The bottom sheet is body-level and fixed: start it clear of the rail,
-         or the rail covers the station's name. */
-      .is-compact #station-sheet { left: calc(var(--rail-w, 56px) + env(safe-area-inset-left)); }
+      /* The bottom sheet is body-level and fixed, and not a kit .mco-sheet (see
+         the PR), so it reads the kit's --rail-inset (0.11.1) itself, or the
+         rail covers the station's name. */
+      .is-compact #station-sheet { left: var(--rail-inset, 0px); }
     }
   </style>
 </head>
