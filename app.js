@@ -3634,6 +3634,8 @@
 
   // Branding card in the lower-left corner: MCO logo, titles, timestamp, and
   // the color-scale legend (a data map is unreadable without one).
+  // The kit's brand assets, at the same pinned tag as the stylesheet.
+  const KIT_ASSETS = 'https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.0/assets';
   async function drawBranding(ctx, W, H) {
     const { entry, unit, scale } = _lastRender;
     const bgSurface = cssVar('--bg-surface');
@@ -3642,8 +3644,8 @@
     const textMuted = cssVar('--text-muted');
     const textSec   = cssVar('--text-secondary');
 
-    const BRAND_W = 310, BRAND_BOX_H = 128;
-    const BX = 24, BY = H - 24 - BRAND_BOX_H, PAD = 12, LOGO = 46;
+    const BRAND_W = 330, BRAND_BOX_H = 128;
+    const BX = 24, BY = H - 24 - BRAND_BOX_H, PAD = 12;
     const LX = BX + PAD, LY = BY + PAD;
 
     ctx.save();
@@ -3654,25 +3656,24 @@
     ctx.strokeStyle = borderClr; ctx.lineWidth = 1; ctx.stroke();
     ctx.restore();
 
-    // Vendored, not hot-linked: img-src no longer lists climate.umt.edu, and a
-    // same-origin image also can't taint the export canvas.
-    const logoImg = await loadImg('assets/mco-logo.png');
-    if (logoImg) {
-      ctx.save();
-      ctx.beginPath(); roundRectPath(ctx, LX, LY, LOGO, LOGO, 8); ctx.clip();
-      ctx.drawImage(logoImg, LX, LY, LOGO, LOGO);
-      ctx.restore();
-    }
+    // The MCO wordmark from the pinned kit tag (0.11.0, HOUSE-STYLE §1:
+    // "wordmark in exports", outlined artwork, never "Montana Climate Office"
+    // set in a font). The fixed-colour twin is picked by the CARD's
+    // background, which follows the export theme. jsDelivr sends CORS, so with
+    // crossOrigin the canvas stays exportable; img-src allows the host.
+    const onDark = MCO.getTheme() !== 'light';
+    const WM_H = 44, WM_W = Math.round(WM_H * 432 / 159);   // the SVG's aspect
+    const wordmark = await loadImg(`${KIT_ASSETS}/mco-wordmark-on-${onDark ? 'dark' : 'light'}.svg`);
+    if (wordmark) ctx.drawImage(wordmark, LX, LY - 2, WM_W, WM_H);
 
-    const TX = LX + LOGO + 10, TW = BX + BRAND_W - PAD - TX;
+    const TX = LX + WM_W + 12, TW = BX + BRAND_W - PAD - TX;
     ctx.textBaseline = 'middle';
     ctx.fillStyle = accentLt;
     ctx.font = "700 13px 'Outfit', system-ui, sans-serif";
-    ctx.fillText('Mesonet Explorer', TX, LY + 8, TW);
+    ctx.fillText('Mesonet Explorer', TX, LY + 10, TW);
     ctx.fillStyle = textMuted;
     ctx.font = "400 11px 'Outfit', system-ui, sans-serif";
-    ctx.fillText('Montana Climate Office', TX, LY + 23, TW);
-    ctx.fillText(exportTimeLabel(), TX, LY + 37, TW);
+    ctx.fillText(exportTimeLabel(), TX, LY + 28, TW);
 
     const aggSuffix = (activeMode !== 'latest' && aggSupported(entry))
       ? ` · ${AGG_LABEL[activeAgg || defaultAggFor(entry)]}` : '';
