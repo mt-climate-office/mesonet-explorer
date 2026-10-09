@@ -785,9 +785,11 @@
     }
     .pop-sibling-link:hover { border-color: var(--accent); background: var(--accent-hover); color: var(--accent); }
     .pop-sibling-name { font-weight: 500; }
+    /* --text-secondary, not --text-muted: muted on the raised row fill is
+       under 4.5:1 in dark (axe 1.4.3, found by the kit's verify matrix). */
     .pop-sibling-net {
       flex-shrink: 0; font-size: 0.6rem; font-weight: 600; letter-spacing: 0.05em;
-      text-transform: uppercase; color: var(--text-muted);
+      text-transform: uppercase; color: var(--text-secondary);
     }
     .pop-links { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
     .pop-links a {
