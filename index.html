@@ -565,15 +565,10 @@
     /* A drawer slides away entirely rather than giving its column to the map. */
     .is-compact body.sidebar-closed #sidebar { transform: translateX(-100%); margin-left: 0; }
     .is-compact #sidebar-toggle { display: none; }
-    /* Deliberately NOT .mco-scrim: the kit's is viewport-fixed, and this one
-       is absolute inside #main so the drawer dims the map without
-       dimming the navbar above it. Colour comes from the kit token. */
-    .is-compact #sidebar-scrim {
-      display: block; position: absolute; inset: 0;
-      z-index: var(--z-map-panel);
-      background: var(--scrim);
-      -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
-    }
+    /* The scrim is the kit's .mco-scrim[data-scope="container"] (0.8.0, made
+       for exactly this): absolute inside #app-row, so the drawer dims the map
+       without dimming the navbar above it. Only the blur is this app's. */
+    .is-compact #sidebar-scrim { display: block; -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
     .is-compact #sidebar-scrim[hidden] { display: none; }
     /* #btn-drawer only exists for the drawer. */
     #btn-drawer { display: none; }
@@ -1433,7 +1428,7 @@
       <div class="sb-section" id="sb-actions" hidden></div>
     </div>
   </aside>
-  <div id="sidebar-scrim" hidden></div>
+  <div id="sidebar-scrim" class="mco-scrim" data-scope="container" aria-hidden="true" hidden></div>
   <button id="sidebar-toggle" type="button" aria-controls="sidebar" aria-expanded="true"
           title="Hide controls" aria-label="Hide controls">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
