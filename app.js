@@ -1640,7 +1640,7 @@
     if (!_selectedStation || !_sheetOpen) return;
     const keepScroll = sheetBodyEl.scrollTop;
     const hadFocus = sheetEl.contains(document.activeElement);
-    sheetBodyEl.innerHTML = popupHTML(_selectedStation);
+    sheetBodyEl.replaceChildren(popupDOM(_selectedStation));
     sheetBodyEl.scrollTop = keepScroll;
     initPhotoCarousel(() => sheetEl, _selectedStation);
     wireSiblingLinks(sheetEl);
@@ -2426,9 +2426,22 @@
     return f ? f.properties : null;
   }
 
-  function popupHTML(stationId) {
+  // The detail body, built with DOM APIs and textContent (HOUSE-STYLE §7, kit
+  // 0.8.0): no API value is ever parsed as HTML, escaped or not. Same markup
+  // and classes as the string builder it replaces, so .pop-* styling, the peek
+  // measurement and the carousel wiring are unchanged. Not MCO.map.popupContent:
+  // that is a title/facts/actions popup shell, and this panel carries a value
+  // block, sibling stations and a photo carousel.
+  function h_(tag, cls, text) {
+    const el = document.createElement(tag);
+    if (cls) el.className = cls;
+    if (text != null) el.textContent = text;
+    return el;
+  }
+  function popupDOM(stationId) {
+    const frag = document.createDocumentFragment();
     const s = stationById.get(stationId);
-    if (!s) return '';
+    if (!s) return frag;
     const rec = stationRecord(stationId);
     const lr = _lastRender;
     const elev = (typeof s.elevation === 'number')
@@ -2436,82 +2449,87 @@
       : '—';
     const installed = (typeof s.date_installed === 'number') ? MCO.formatDateMT(s.date_installed) : '—';
 
-    let valueBlock = '';
+    const head = h_('div', 'pop-head');
+    const heads = h_('div', 'pop-heads');
+    heads.append(h_('div', 'pop-title', s.name),
+      h_('div', 'pop-sub', `${s.station}${s.county ? ` · ${s.county} County` : ''}`));
+    const close = h_('button', 'pop-close', '×');
+    close.type = 'button';
+    close.setAttribute('aria-label', 'Close station details');
+    head.append(heads, close);
+    const badgeRow = h_('div');
+    badgeRow.style.marginTop = '6px';
+    badgeRow.appendChild(h_('span', 'pop-badge', s.sub_network || '—'));
+    frag.append(head, badgeRow);
+
     if (lr && rec) {
-      const varLabel = MCO.escapeHTML(lr.entry.label);
-      const unit = lr.unit ? MCO.escapeHTML(lr.unit) : '';
-      let num, timeLine = '', accent = 'var(--accent)';
+      const block = h_('div', 'pop-value');
+      const num = h_('div', 'pop-value-num');
+      let timeLine = '', accent = 'var(--accent)';
       if (rec.cat === 'nodata' || rec.value == null) {
-        num = '—';
+        num.textContent = '—';
         timeLine = 'No data for this selection';
       } else {
         // Compass variables read as points; degrees ride along for precision.
-        const unitPart = lr.entry.fmt === 'compass' ? `${Math.round(rec.value)}°` : unit;
-        num = `${MCO.escapeHTML(lr.fmt(rec.value))}<span class="pop-unit">${unitPart}</span>`;
+        const unitPart = lr.entry.fmt === 'compass' ? `${Math.round(rec.value)}°` : (lr.unit || '');
+        num.append(lr.fmt(rec.value), h_('span', 'pop-unit', unitPart));
         if (rec.color && rec.cat === 'ok') accent = rec.color;
         if (rec.dt) {
-          timeLine = activeMode === 'daily'
-            ? MCO.escapeHTML(MCO.formatDateMT(rec.dt))
-            : MCO.escapeHTML(MCO.formatStampMT(rec.dt));
+          timeLine = activeMode === 'daily' ? MCO.formatDateMT(rec.dt) : MCO.formatStampMT(rec.dt);
           if (rec.cat === 'stale') timeLine += ' · stale';
         }
       }
-      valueBlock = `
-        <div class="pop-value" style="--pop-accent:${MCO.escapeHTML(accent)}">
-          <div class="pop-value-var">${varLabel}</div>
-          <div class="pop-value-num">${num}</div>
-          ${timeLine ? `<div class="pop-value-time">${timeLine}</div>` : ''}
-        </div>`;
+      block.style.setProperty('--pop-accent', accent);
+      block.append(h_('div', 'pop-value-var', lr.entry.label), num);
+      if (timeLine) block.appendChild(h_('div', 'pop-value-time', timeLine));
+      frag.appendChild(block);
     }
 
-    // Co-located stations, reachable without the pointer-only spider.
+    const meta = h_('div', 'pop-meta');
+    for (const [k, v] of [['Elevation:', elev], ['Installed:', installed]]) {
+      const row = h_('div');
+      row.append(h_('strong', null, k), ` ${v}`);
+      meta.appendChild(row);
+    }
+    frag.appendChild(meta);
+
+    // Co-located stations, reachable without the pointer-only spider. One row
+    // per sibling rather than inline links: on touch the canvas spider is a
+    // poor affordance, so this list is the primary way across.
     const sibs = (bucketMembers.get(bucketById.get(stationId)) || [])
       .filter(m => m.station !== stationId);
-    // One row per sibling rather than inline comma-separated links: on touch the
-    // canvas spider is a poor affordance (it needs a hover to discover and a
-    // grace timer to travel), so this list is the primary way across.
-    const sibBlock = sibs.length ? `
-      <div class="pop-siblings">
-        <div class="pop-siblings-label">Also at this site</div>
-        ${sibs.map(m =>
-          `<button type="button" class="pop-sibling-link" data-station="${MCO.escapeHTML(m.station)}">
-             <span class="pop-sibling-name">${MCO.escapeHTML(m.name)}</span>
-             <span class="pop-sibling-net">${MCO.escapeHTML(m.sub_network || '—')}</span>
-           </button>`
-        ).join('')}
-      </div>` : '';
+    if (sibs.length) {
+      const box = h_('div', 'pop-siblings');
+      box.appendChild(h_('div', 'pop-siblings-label', 'Also at this site'));
+      for (const m of sibs) {
+        const b = h_('button', 'pop-sibling-link');
+        b.type = 'button';
+        b.dataset.station = m.station;
+        b.append(h_('span', 'pop-sibling-name', m.name), h_('span', 'pop-sibling-net', m.sub_network || '—'));
+        box.appendChild(b);
+      }
+      frag.appendChild(box);
+    }
 
-    return `
-      <div class="pop-head">
-        <div class="pop-heads">
-          <div class="pop-title">${MCO.escapeHTML(s.name)}</div>
-          <div class="pop-sub">${MCO.escapeHTML(s.station)}${s.county ? ` · ${MCO.escapeHTML(s.county)} County` : ''}</div>
-        </div>
-        <button type="button" class="pop-close" aria-label="Close station details">&times;</button>
-      </div>
-      <div style="margin-top:6px">
-        <span class="pop-badge">${MCO.escapeHTML(s.sub_network || '—')}</span>
-      </div>
-      ${valueBlock}
-      <div class="pop-meta">
-        <div><strong>Elevation:</strong> ${elev}</div>
-        <div><strong>Installed:</strong> ${installed}</div>
-      </div>
-      ${sibBlock}
-      <div class="pop-links">
-        <a href="${DASH_URL(stationId)}" target="_blank" rel="noopener">Station dashboard →</a>
-        <a href="${API}/latest/?stations=${encodeURIComponent(stationId)}" target="_blank" rel="noopener">Latest data (API) →</a>
-      </div>
-      ${carouselShell(stationId)}
-    `;
+    const links = h_('div', 'pop-links');
+    for (const [label, href] of [['Station dashboard →', DASH_URL(stationId)],
+                                 ['Latest data (API) →', `${API}/latest/?stations=${encodeURIComponent(stationId)}`]]) {
+      const a = h_('a', null, label);
+      a.href = href; a.target = '_blank'; a.rel = 'noopener';
+      links.appendChild(a);
+    }
+    frag.appendChild(links);
+    const car = carouselShell(stationId);
+    if (car) frag.appendChild(car);
+    return frag;
   }
 
   // The photo frame is reserved at full height from the first paint (never
   // `hidden`), so filling it in later can't resize the popup. Omitted outright
-  // only when we already KNOW there's no photo.
-  function carouselShell(stationId) {
-    if (photoFrameWanted(stationId) === false) return '';
-    return `
+  // only when we already KNOW there's no photo. Static, author-written markup
+  // (no values), so a template is fine here.
+  const CAROUSEL_TPL = document.createElement('template');
+  CAROUSEL_TPL.innerHTML = `
       <div class="pop-carousel" data-state="loading">
         <div class="pop-carousel-frame">
           <img class="pop-carousel-img" alt="">
@@ -2523,6 +2541,9 @@
           <span class="pop-carousel-counter"></span>
         </div>
       </div>`;
+  function carouselShell(stationId) {
+    if (photoFrameWanted(stationId) === false) return null;
+    return CAROUSEL_TPL.content.firstElementChild.cloneNode(true);
   }
 
   // ── Photo carousel ───────────────────────────────────────────────────────
@@ -2588,7 +2609,7 @@
     }));
   }
 
-  // Will this station show a photo frame? Answered synchronously so popupHTML
+  // Will this station show a photo frame? Answered synchronously so popupDOM
   // can reserve the frame's space in the FIRST paint — a frame that appears (or
   // vanishes) later changes the popup's height and makes MapLibre re-anchor it
   // while the user is reading. boot() warms the cache, so by the time anyone
@@ -2924,7 +2945,7 @@
   // top of the map: with one open, 38% of the surrounding dots were underneath
   // it and simply unclickable. A docked panel covers no dots at all, so any
   // station can be selected while another is showing, and the content swaps in
-  // place. Everything downstream (popupHTML, the carousel, sibling links,
+  // place. Everything downstream (popupDOM, the carousel, sibling links,
   // announcements, pushState) is dock-agnostic and shared.
   function openPopupFor(stationId, lngLat) {
     const s = stationById.get(stationId);
@@ -3013,7 +3034,7 @@
     const s = stationById.get(stationId);
     if (!s) return;
     sheetEl.setAttribute('aria-label', `${s.name} station details`);
-    sheetBodyEl.innerHTML = popupHTML(stationId);
+    sheetBodyEl.replaceChildren(popupDOM(stationId));
     sheetBodyEl.scrollTop = 0;
     // Unhide before sizing — a hidden element has no layout to measure.
     sheetEl.hidden = false;
