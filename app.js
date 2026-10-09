@@ -489,7 +489,7 @@
   // Headless export hook: ?export=light|dark forces the theme before the map
   // is built, then boot() auto-triggers a PNG export (photo-explorer pattern).
   // Read here with the rest of the URL state rather than down in the keyboard
-  // section: pushState() emits it, and pushState can run during init, which put
+  // section: writeUrl() emits it, and writeUrl can run during init, which put
   // the old late `const` in its temporal dead zone.
   const kbdShortcuts = getLower('kbd') !== 'off';
 
@@ -540,7 +540,7 @@
     themeToggle.sync();
     // The layers come back from the style.load handler beside the map.
     map.setStyle(MCO.map.cartoStyleUrl());
-    pushState();
+    writeUrl();
   });
 
   // ── Info modal ───────────────────────────────────────────────────────────
@@ -557,7 +557,7 @@
   // it with the intro — a shared ?station= link used to land on this modal. The
   // seen-intro flag is still set, so it won't ambush them on a later visit
   // either; the ? button is always there. urlParams was snapshotted at boot, so
-  // pushState()'s rewrites can't affect this test.
+  // writeUrl()'s rewrites can't affect this test.
   const DEEP_LINK_PARAMS = ['station', 'var', 'mode', 'date', 'hour', 'scale',
                             'ramp', 'agg', 'net', 'lng', 'lat', 'zoom'];
   const _isDeepLink = DEEP_LINK_PARAMS.some(k => urlParams.has(k));
@@ -1769,7 +1769,7 @@
       pressed: nodataShown,
       onToggle: () => {
         nodataShown = !nodataShown;
-        applyDotFilters(); render({ background: true }); pushState();
+        applyDotFilters(); render({ background: true }); writeUrl();
       },
     });
     if (activeMode === 'latest') {
@@ -1779,7 +1779,7 @@
         pressed: staleShown,
         onToggle: () => {
           staleShown = !staleShown;
-          applyDotFilters(); render({ background: true }); pushState();
+          applyDotFilters(); render({ background: true }); writeUrl();
         },
       });
     }
@@ -1867,12 +1867,12 @@
     mk('Counties', overlayCounties, false, (on) => {
       overlayCounties = on;
       setOverlayVisibility();
-      pushState();
+      writeUrl();
     });
     mk('Watersheds', overlayWatersheds, false, (on) => {
       overlayWatersheds = on;
       setOverlayVisibility();
-      pushState();
+      writeUrl();
       if (on && !_hucFC) {
         loadHucOnce().catch(() => MCO.showToast('Watershed boundaries failed to load'));
       }
@@ -1907,7 +1907,7 @@
       if (map.getSource('radar')) map.removeSource('radar');
     }
     renderLegend();
-    pushState();
+    writeUrl();
   }
   function refreshRadarTiles() {
     if (!radarOn || !map.getSource('radar')) return;
@@ -1970,7 +1970,7 @@
     scaleOverride = null;  // a custom temperature domain is meaningless for precip
     syncAggUI();
     render();
-    pushState();
+    writeUrl();
   });
 
   // ── Aggregation selector ─────────────────────────────────────────────────
@@ -2001,7 +2001,7 @@
   aggSelect.addEventListener('change', () => {
     activeAgg = aggSelect.value;
     render();
-    pushState();
+    writeUrl();
   });
 
   // ── Time mode + date/hour controls ───────────────────────────────────────
@@ -2050,7 +2050,7 @@
     if (mode === 'latest' && radarWanted && !radarOn) setRadar(true);
     scheduleRefresh();
     render();
-    pushState();
+    writeUrl();
   }
   for (const btn of document.querySelectorAll('.seg-btn[data-mode]')) {
     btn.addEventListener('click', () => setMode(btn.dataset.mode));
@@ -2068,7 +2068,7 @@
     dateInput.value = d;
     if (activeMode === 'hourly') clampHour();
     render();
-    pushState();
+    writeUrl();
   }
   dateInput.addEventListener('change', () => setDate(dateInput.value));
 
@@ -2104,7 +2104,7 @@
     if (d !== activeDate) { activeDate = d; dateInput.value = d; }
     updateHourReadout();
     render();
-    pushState();
+    writeUrl();
   }
   MCO.initStepper({ prev: byId('btn-hour-prev'), next: byId('btn-hour-next'),
     onStep: (d) => stepHour(d) });
@@ -2128,7 +2128,7 @@
       }
       syncUnitsUI();
       render();
-      pushState();
+      writeUrl();
     });
   }
 
@@ -2163,7 +2163,7 @@
         MCO.lsSet('mco-explorer-networks', JSON.stringify([...activeNetworks]));
         applyDotFilters();
         render({ background: true });   // recompute scale domain for visible nets
-        pushState();
+        writeUrl();
       });
       subnetFiltersEl.appendChild(chip);
     }
@@ -2179,7 +2179,7 @@
     for (const lid of ['dots-label', 'spider-label']) {
       if (map.getLayer(lid)) map.setLayoutProperty(lid, 'visibility', labelsOn ? 'visible' : 'none');
     }
-    pushState();
+    writeUrl();
   });
 
   // ── Legend collapse ──────────────────────────────────────────────────────
@@ -2207,7 +2207,7 @@
   setLegendCollapsed(legendCollapsed, { persist: false });
   function toggleLegend() {
     setLegendCollapsed(!legendCollapsed);
-    pushState();
+    writeUrl();
   }
   legendToggleBtn.addEventListener('click', (e) => {
     e.stopPropagation();   // the header row toggles too — don't double-fire
@@ -2342,14 +2342,14 @@
     scaleOverride = Object.keys(o).length ? o : null;
     scaleModal.close();
     render({ background: true });
-    pushState();
+    writeUrl();
   });
   document.getElementById('scale-reset').addEventListener('click', () => {
     scaleOverride = null;
     scaleModal.close();
     MCO.showToast('Scale reset to automatic');
     render({ background: true });
-    pushState();
+    writeUrl();
   });
 
   // ── Scale lock (pin) ─────────────────────────────────────────────────────
@@ -2370,7 +2370,7 @@
     // Reflect the new state immediately — the render below may wait on a fetch.
     legendPinBtn.setAttribute('aria-pressed', scaleLocked() ? 'true' : 'false');
     render({ background: true });   // data is cached; just recolor + relabel
-    pushState();
+    writeUrl();
   }
 
   // ── Search ───────────────────────────────────────────────────────────────
@@ -2396,7 +2396,7 @@
     flyToAndOpen(stationId);
   }
 
-  function flyToAndOpen(stationId) {
+  function flyToAndOpen(stationId, openOpts = {}) {
     const s = stationById.get(stationId);
     if (!s) { MCO.showToast('Station not found'); return; }
     if (s.sub_network && !activeNetworks.has(s.sub_network)) {
@@ -2413,7 +2413,7 @@
     // station's panel on screen showing the wrong data for the whole flight
     // (~2-4 s), which reads as the search having done nothing. The panel is
     // geo-anchored, so it simply rides along with the camera.
-    openPopupFor(stationId, [s.longitude, s.latitude]);
+    openPopupFor(stationId, [s.longitude, s.latitude], openOpts);
     map.flyTo({
       center: [s.longitude, s.latitude],
       zoom: SEARCH_FLY_ZOOM, speed: SEARCH_FLY_SPEED, animate: !MCO.reducedMotion(),
@@ -2947,11 +2947,17 @@
   // it and simply unclickable. A docked panel covers no dots at all, so any
   // station can be selected while another is showing, and the content swaps in
   // place. Everything downstream (popupDOM, the carousel, sibling links,
-  // announcements, pushState) is dock-agnostic and shared.
-  function openPopupFor(stationId, lngLat) {
+  // announcements, writeUrl) is dock-agnostic and shared.
+  // `fromHistory`: Back/Forward is re-applying a URL, so write nothing.
+  // `replace`: open without a history entry (a deep link at boot).
+  function openPopupFor(stationId, lngLat, { fromHistory = false, replace = false } = {}) {
     const s = stationById.get(stationId);
     if (!s) return;
     const ll = lngLat || [s.longitude, s.latitude];
+    // Drill-down: the FIRST step from "no station" gets its own history entry;
+    // switching stations while the panel is open replaces it, or every click
+    // would flood the history (HOUSE-STYLE §4).
+    const firstStep = !_sheetOpen;
     _selectedStation = stationId;
     openSheetFor(stationId, ll);
     announcePopup(stationId);
@@ -2960,7 +2966,9 @@
     // move is a targeted nudge when the dot you just picked would sit underneath
     // the panel; otherwise the map doesn't budge.
     revealSelectedDot(ll);
-    pushState();
+    if (fromHistory) return;
+    if (firstStep && !replace) MCO.pushUrlState(viewParams(), { state: { mcoDetail: stationId } });
+    else writeUrl();
   }
 
   // Our close button is the FIRST tabbable in the body (MapLibre's was appended
@@ -3013,7 +3021,11 @@
   // Tears down whichever presentation is open. `silent` is for the swap path
   // (re-opening the same station in the other presentation), where clearing
   // _selectedStation would drop `?station=` from the URL.
-  function closeDetail({ silent = false } = {}) {
+  // Closing a panel that opened with its own history entry goes BACK to the
+  // entry before it, rather than leaving a dead "station open" entry behind
+  // for Back to land on. The popstate that follows only re-syncs the URL.
+  let _expectPop = false;
+  function closeDetail({ silent = false, fromHistory = false } = {}) {
     const had = _sheetOpen;
     // The panel's own chrome (grab handle, close button) is persistent markup,
     // so focus can still be inside it here; hiding it later would strand focus
@@ -3025,9 +3037,29 @@
     if (!silent && _selectedStation) {
       _selectedStation = null;
       highlightSelectedDot();
-      pushState();
+      if (fromHistory) return;
+      if (history.state && history.state.mcoDetail) { _expectPop = true; history.back(); }
+      else writeUrl();
     }
   }
+
+  // Back / Forward (MCO.onUrlState, kit 0.8.0). Only the station is ever
+  // pushed, so it is the only thing to re-apply: Back closes the panel (focus
+  // returns to what opened it, else the map), Forward reopens it. Other hash
+  // changes (the skip link's #main) leave the station as it is.
+  MCO.onUrlState((params) => {
+    if (_expectPop) { _expectPop = false; writeUrl(); return; }
+    const id = (params.get('station') || '').toLowerCase() || null;
+    if (id && stationById.has(id)) {
+      if (id !== _selectedStation || !_sheetOpen) openPopupFor(id, null, { fromHistory: true });
+    } else if (_selectedStation) {
+      closeDetail({ fromHistory: true });
+    }
+    // The entry Back/Forward landed on was written before the camera moved
+    // (the reveal nudge, a pan while reading): re-sync it to what is on
+    // screen, in place.
+    writeUrl();
+  });
   const closePopup = closeDetail;   // keep the existing call sites honest
 
   // ── Station sheet (compact viewports) ────────────────────────────────────
@@ -3426,7 +3458,7 @@
       const settle = () => { _resizeFromSidebar = true; map.resize(); };
       if (MCO.reducedMotion()) settle(); else setTimeout(settle, 240);   // after the slide
     }
-    pushState();
+    writeUrl();
   }
 
   sidebarToggle.addEventListener('click', () => setSidebarOpen(!sidebarOpen));
@@ -3798,7 +3830,7 @@
     else if (_mapReady) Object.assign(params, MCO.map.cameraParamsIfDefault(map, { fitOpts }));
     if (_selectedStation) params.station = _selectedStation;
     // Not previously round-tripped, so it was silently lost on the first
-    // pushState. It's the WCAG 2.1.4 escape hatch for the single-character
+    // writeUrl. It's the WCAG 2.1.4 escape hatch for the single-character
     // shortcut — someone who needs it shouldn't have to re-add it every visit.
     // Deliberately NOT forced into a shared link: it is the sharer's input
     // preference, not part of what they were looking at.
@@ -3806,11 +3838,13 @@
     return params;
   }
 
-  function pushState() {
-    // A default view gets a clean URL — no trailing '?'.
-    const qs = new URLSearchParams(viewParams()).toString();
-    history.replaceState(null, '', qs ? `?${qs}` : location.pathname);
-  }
+  // URL writers (HOUSE-STYLE §4, kit 0.8.0). Every view adjustment (camera,
+  // filters, theme, date) REPLACES the current entry; only opening a station
+  // from a "no station" state PUSHES one (openPopupFor), so Back closes the
+  // panel and Forward reopens it. A default view gets a clean URL, no '?'.
+  // replaceUrlState keeps history.state, so the pushed entry keeps its
+  // {mcoDetail} mark while the panel stays open.
+  function writeUrl() { MCO.replaceUrlState(viewParams()); }
 
   function shareURL() {
     const qs = new URLSearchParams(viewParams({ full: true })).toString();
@@ -3865,7 +3899,7 @@
     }, 200);
   });
 
-  map.on('moveend', pushState);
+  map.on('moveend', writeUrl);
 
   // First-paint hold (kit 0.9.0). The first meaningful state is the station
   // dots ON THE CANVAS, not merely fetched: MapLibre tiles GeoJSON in its web
@@ -3951,10 +3985,12 @@
 
     if (_initStation && stationById.has(_initStation)) {
       const s = stationById.get(_initStation);
-      if (_hasInitPos) openPopupFor(_initStation, [s.longitude, s.latitude]);
-      else             flyToAndOpen(_initStation);
+      // A deep link opens in place: no history entry for a station the page
+      // was loaded with.
+      if (_hasInitPos) openPopupFor(_initStation, [s.longitude, s.latitude], { replace: true });
+      else             flyToAndOpen(_initStation, { replace: true });
     } else {
-      pushState();
+      writeUrl();
     }
   }
 
