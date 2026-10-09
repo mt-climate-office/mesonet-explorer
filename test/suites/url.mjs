@@ -39,16 +39,18 @@ export async function run({ browser, origin }) {
   {
     const { ctx, page } = await open(browser, origin);
     const keys = () => page.evaluate(() => [...new URLSearchParams(location.search).keys()].sort().join(',') || '(none)');
-    const cycle = async (label, selector, expected, settle = 1800) => {
+    // `presses` is how many clicks bring the control back to its default: 2 for
+    // a toggle, 3 for the theme (dark → light → high contrast, kit 0.10.0).
+    const cycle = async (label, selector, expected, settle = 1800, presses = 2) => {
       await page.click(selector); await page.waitForTimeout(settle);
       const on = await keys();
-      await page.click(selector); await page.waitForTimeout(settle);
+      for (let i = 1; i < presses; i++) { await page.click(selector); await page.waitForTimeout(settle); }
       const off = await keys();
       t.check(`${label}: adds '${expected}' then clears it`, on === expected && off === '(none)', `${on} -> ${off}`);
     };
     await cycle('network chip', '#subnet-filters .chip', 'net');
     await cycle('value labels', '#btn-labels', 'labels');
-    await cycle('theme toggle', '#btn-theme', 'theme');
+    await cycle('theme toggle', '#btn-theme', 'theme', 1800, 3);
     await cycle('sidebar collapse', '#sidebar-toggle', 'sidebar', 2600);
     // Units are two buttons rather than a toggle.
     await page.click('[data-units="si"]'); await page.waitForTimeout(1800);

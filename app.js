@@ -523,24 +523,21 @@
   // High-contrast counts as dark for palette purposes, so this tests
   // `!== 'light'` rather than `=== 'dark'`.
   function isDarkTheme() { return MCO.getTheme() !== 'light'; }
-  function syncThemeIcons() {
-    const dark = document.documentElement.dataset.theme !== 'light';
-    document.getElementById('icon-moon').style.display = dark ? 'none' : '';
-    document.getElementById('icon-sun') .style.display = dark ? ''     : 'none';
-    document.getElementById('btn-theme').setAttribute('aria-label',
-      dark ? 'Switch to light theme' : 'Switch to dark theme');
-  }
-  syncThemeIcons();
-
-  // The button only flips the theme; everything that depends on it listens for
-  // the kit's mco:themechange (0.9.0, fired by MCO.setTheme, which also
-  // persists the shared mco-theme key), so a theme set from anywhere else
-  // re-styles the map the same way.
-  document.getElementById('btn-theme').addEventListener('click', () => {
-    MCO.setTheme(MCO.getTheme() === 'dark' ? 'light' : 'dark');
+  // A 3-state toggle (kit 0.10.0, cycle: true): dark → light → high contrast,
+  // so high contrast is reachable from the page and not only from ?theme=. The
+  // icon shown and the aria-label name the theme a press switches TO. The
+  // button only sets the theme; everything that depends on it listens for the
+  // kit's mco:themechange (MCO.setTheme fires it and persists mco-theme), so a
+  // theme set from anywhere else re-styles the map the same way.
+  const themeToggle = MCO.initThemeToggle({
+    button: document.getElementById('btn-theme'),
+    iconSun: document.getElementById('icon-sun'),
+    iconMoon: document.getElementById('icon-moon'),
+    iconContrast: document.getElementById('icon-contrast'),
+    cycle: true,
   });
   document.addEventListener('mco:themechange', () => {
-    syncThemeIcons();
+    themeToggle.sync();
     // The layers come back from the style.load handler beside the map.
     map.setStyle(MCO.map.cartoStyleUrl());
     pushState();
