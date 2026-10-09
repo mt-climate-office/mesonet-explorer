@@ -2068,25 +2068,13 @@
   }
   dateInput.addEventListener('change', () => setDate(dateInput.value));
 
-  // Pointer hold-to-repeat via a timer; Enter/Space step too (held keys
-  // repeat through the OS key-repeat, so the timer is pointer-only).
-  function makeStepper(btnId, step) {
-    const btn = document.getElementById(btnId);
-    let timeout, interval;
-    const start = () => {
-      step();
-      timeout = setTimeout(() => { interval = setInterval(step, 150); }, 450);
-    };
-    const stop = () => { clearTimeout(timeout); clearInterval(interval); };
-    btn.addEventListener('mousedown', start);
-    btn.addEventListener('touchstart', (e) => { e.preventDefault(); start(); }, { passive: false });
-    ['mouseup', 'mouseleave', 'touchend', 'touchcancel'].forEach(ev => btn.addEventListener(ev, stop));
-    btn.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); step(); }
-    });
-  }
-  makeStepper('btn-date-next', () => setDate(MCO.shiftDate(activeDate, +1)));
-  makeStepper('btn-date-prev', () => setDate(MCO.shiftDate(activeDate, -1)));
+  // Steppers are the kit's MCO.initStepper (0.9.0): click and Enter/Space step
+  // once, a held pointer repeats. No canStep: the bounds are enforced (with a
+  // toast saying why) by setDate/stepHour, and a button disabled under the
+  // keyboard focus would drop that focus on <body>.
+  const byId = (id) => document.getElementById(id);
+  MCO.initStepper({ prev: byId('btn-date-prev'), next: byId('btn-date-next'),
+    onStep: (d) => setDate(MCO.shiftDate(activeDate, d)) });
 
   function updateHourReadout() {
     hourReadout.textContent = `${MCO.pad2(activeHour)}:00`;
@@ -2114,8 +2102,8 @@
     render();
     pushState();
   }
-  makeStepper('btn-hour-next', () => stepHour(+1));
-  makeStepper('btn-hour-prev', () => stepHour(-1));
+  MCO.initStepper({ prev: byId('btn-hour-prev'), next: byId('btn-hour-next'),
+    onStep: (d) => stepHour(d) });
 
   // ── Units toggle ─────────────────────────────────────────────────────────
   function syncUnitsUI() {
