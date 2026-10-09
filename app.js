@@ -1826,14 +1826,19 @@
   function addLegendRow(parent, { label, swatchClass, pressed, onToggle }) {
     const row = document.createElement('button');
     row.type = 'button';
-    row.className = 'legend-row';
+    // The kit's legend row (0.8.0). Not MCO.initLegendToggles: these two rows
+    // are independent show/hide switches rebuilt on every render (their counts
+    // change), not a partition of the data, so isolate-on-double-click has
+    // nothing to mean here. The swatch is the hollow ring the map draws.
+    row.className = 'mco-legend-row';
     row.setAttribute('aria-pressed', pressed ? 'true' : 'false');
-    if (!pressed) row.classList.add('off');
     const sw = document.createElement('span');
-    sw.className = `legend-swatch ${swatchClass}`;
+    sw.className = `mco-legend-swatch ${swatchClass}`.trim();
+    sw.dataset.shape = 'hollow';
+    sw.style.setProperty('--swatch', 'var(--text-muted)');
     sw.setAttribute('aria-hidden', 'true');
     const lb = document.createElement('span');
-    lb.className = 'legend-lbl';
+    lb.className = 'mco-legend-label';
     lb.textContent = label;
     row.appendChild(sw);
     row.appendChild(lb);
