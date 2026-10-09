@@ -1310,14 +1310,19 @@
       </div>
       <div class="sb-section" id="sb-time">
         <h2 class="sb-title">Time</h2>
+        <!-- No aria-label on the mode buttons (WCAG 2.5.3 label in name): the
+             name is whichever caption is displayed, "Latest" or, compact, "Now"
+             (display: none takes the other out of the name). An aria-label of
+             "Latest" on a button reading "Now", or "Daily" on "Day", leaves a
+             speech-input user saying what they see and nothing happening. -->
         <div class="control-group" id="mode-group">
           <span class="control-label">Time</span>
           <div class="seg-btns" role="group" aria-label="Time mode">
-            <button class="nav-btn seg-btn" data-mode="latest" aria-pressed="true" aria-label="Latest">
+            <button class="nav-btn seg-btn" data-mode="latest" aria-pressed="true">
               <span class="seg-long">Latest</span><span class="seg-short">Now</span></button>
-            <button class="nav-btn seg-btn" data-mode="hourly" aria-pressed="false" aria-label="Hourly">
+            <button class="nav-btn seg-btn" data-mode="hourly" aria-pressed="false">
               <span class="seg-long">Hourly</span><span class="seg-short">Hour</span></button>
-            <button class="nav-btn seg-btn" data-mode="daily"  aria-pressed="false" aria-label="Daily">
+            <button class="nav-btn seg-btn" data-mode="daily"  aria-pressed="false">
               <span class="seg-long">Daily</span><span class="seg-short">Day</span></button>
           </div>
         </div>
