@@ -1352,8 +1352,12 @@
      showModal() would take Escape before the keyboard section in app.js can
      route it (killing the closeSpider half of that path), and its ::backdrop
      would make the map underneath non-interactive. Body-level so #map's
-     overflow:hidden can't clip it and its safe-area math is viewport-relative. -->
-<section id="station-sheet" class="sheet" hidden role="dialog" aria-modal="false" tabindex="-1">
+     overflow:hidden can't clip it and its safe-area math is viewport-relative.
+     Not role="dialog" either (kit 0.9.0 sheet contract): it is non-modal and
+     the map stays usable beside it, so it is a labelled region (app.js sets
+     aria-label to "<station> station details"), not a dialog that doesn't
+     behave like one. -->
+<section id="station-sheet" class="sheet" hidden tabindex="-1">
   <div class="sheet-head" id="sheet-head">
     <span class="sheet-grab" aria-hidden="true"></span>
     <button type="button" class="sheet-expand" id="sheet-expand" aria-expanded="false">
