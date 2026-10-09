@@ -128,15 +128,6 @@
        theme, which this page had no values for at all. */
     :root { --sidebar-w: 272px; }
 
-    /* Attribution links are distinguished from the surrounding credit text by
-       colour alone (1.74:1 dark, 1.25:1 high-contrast — WCAG 1.4.1 wants 3:1 or
-       a non-colour cue). It only became a "text block" in axe's eyes once
-       hillshade added its "Terrain: Mapzen/AWS Open Data" credit beside the
-       links. Underline is the same remedy the kit applied to prose links in
-       v0.1.1; queued to move INTO the kit for 0.8.0, since every map consumer
-       adopting hillshade inherits this. Delete when that ships. */
-    .maplibregl-ctrl-attrib a { text-decoration: underline; }
-
     /* ── MapLibre control polish (app-specific remainder) ────────────────
        The glass treatment, --ctrl-icon-filter, the .maplibregl-ctrl-fit glyph,
        attribution colors and the safe-area padding are all the kit's, and were
@@ -964,33 +955,9 @@
        copy set `text-decoration: none`, which is a WCAG 1.4.1 failure the kit
        fixed in v0.1.1) all come from .mco-modal now.
 
-       Kept as a marked kit-override until 0.8.0 absorbs it: long-modal
-       ergonomics. This app's info modal is the tallest in the family, and the
-       kit's box just ends mid-sentence when it overflows. Approved for
-       back-port 2026-08-16 (CHANGELOG § Planned) — delete both rules when the
-       kit ships them. Only the DELTA over the kit's base is declared here. */
-    .info-modal-box {
-      width: min(560px, calc(100vw - 4rem));   /* kit: 540px */
-      overscroll-behavior: contain;
-      /* Scroll affordance: a soft shade pinned to the bottom of the scrollport
-         so a long modal doesn't just end with no cue. It fades out once you
-         reach the end (background-attachment: local on the last layer). */
-      background-image:
-        linear-gradient(var(--bg-surface), var(--bg-surface)),
-        linear-gradient(to top, color-mix(in srgb, var(--bg-surface) 0%, transparent), var(--bg-surface));
-      background-repeat: no-repeat;
-      background-size: 100% 100%, 100% 28px;
-      background-position: 0 0, 0 100%;
-      background-attachment: local, scroll;
-    }
-    /* Sticky header keeps the title and close button reachable while the body
-       scrolls — both modals are taller than a phone screen. */
-    .info-modal-header {
-      position: sticky; top: -1.5rem; z-index: 1;
-      margin: -1.5rem -1.5rem 1.25rem; padding: 1.5rem 1.5rem 0.75rem;
-      background: var(--bg-surface);
-      border-radius: 10px 10px 0 0;
-    }
+       The long-modal ergonomics this file used to carry as a kit-override
+       (sticky header, contained overscroll, bottom scroll shade) are the
+       kit's since 0.8.0, back-ported from here. */
     .info-lede { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 1.25rem; }
     /* Long-form reference sits behind disclosures so the modal opens short. */
     .info-more > summary {
