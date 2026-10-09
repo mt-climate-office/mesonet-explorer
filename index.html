@@ -280,7 +280,7 @@
        The field, its icon (a currentColor mask), the listbox, its options and
        the "No matches" note are the kit's .mco-search (0.8.0), wired by
        MCO.initSearchBox. This app keeps the width it grows to on focus and the
-       "/" hint. */
+       "/" hint. kit-override: width-on-focus and room for the hint. */
     .mco-search-input:focus { border-color: var(--accent-line); width: 260px; }
     .mco-search-input { padding-right: 30px; transition: border-color var(--transition), width 0.18s ease-out; }
     .mco-search-input::-webkit-search-cancel-button { filter: var(--ctrl-icon-filter, none); }
@@ -406,6 +406,7 @@
     #sidebar #variable-group .control-label,
     #sidebar #agg-group .control-label { display: none; }
     #sidebar .search-wrap { width: 100%; }
+    /* kit-override: full sidebar width. */
     #sidebar .mco-search-input, #sidebar .mco-search-input:focus { width: 100%; }
     #sidebar #variable-select, #sidebar #agg-select { width: 100%; max-width: none; }
     #sidebar .seg-btns { width: 100%; }
@@ -960,6 +961,7 @@
       #navbar { min-height: 44px; padding-top: 0.3rem; padding-bottom: 0.3rem; }
       .controls { order: 0; flex: 1; flex-basis: auto; flex-wrap: nowrap; min-width: 0; }
       .search-wrap { flex: 1; min-width: 0; }
+      /* kit-override: fills the row at this width. */
       .mco-search-input, .mco-search-input:focus { width: 100%; }
 
       /* Row 1 carries exactly three things: the menu, the time segments and the
@@ -1083,6 +1085,7 @@
                  max(0.4rem, env(safe-area-inset-bottom)) max(0.4rem, env(safe-area-inset-left));
       }
       #navbar[data-rail]::after { top: 0; bottom: 0; left: auto; right: 0; width: 2px; height: auto; }
+      /* kit-override: the badge stays on the rail; roomier groups in its drawer. */
       #navbar[data-rail] > .logo-link { display: flex; }
       #navbar[data-rail] .controls { gap: 0.75rem; }
       #navbar[data-rail] .controls .control-label { display: block; }
