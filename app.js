@@ -3719,27 +3719,6 @@
   }
 
   // ── URL state push ───────────────────────────────────────────────────────
-  function osTheme() {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  }
-
-  // Is the camera where a fresh load would have put it? cameraForBounds gives the
-  // same answer fitBounds acts on, so this stays correct as the container resizes
-  // (a collapsed sidebar means a wider map and therefore a different fit).
-  function atDefaultExtent() {
-    if (!_mapReady) return true;
-    let want;
-    try { want = map.cameraForBounds(MT_FIT_BOUNDS, fitOpts()); } catch { return false; }
-    if (!want) return false;
-    const wc = want.center;
-    const wlng = typeof wc.lng === 'number' ? wc.lng : wc[0];
-    const wlat = typeof wc.lat === 'number' ? wc.lat : wc[1];
-    const c = map.getCenter();
-    return Math.abs(map.getZoom() - want.zoom) < 0.02
-        && Math.abs(c.lng - wlng) < 0.01
-        && Math.abs(c.lat - wlat) < 0.01;
-  }
-
   // Builds the URL parameters for the current view.
   //
   // `full: false` (the address bar) omits anything sitting at its default, so a
@@ -3793,15 +3772,15 @@
     // The theme's default is the viewer's OS preference, so the address bar only
     // shows a deliberate override. A shared link always pins it.
     const theme = document.documentElement.dataset.theme;
-    if (theme) put('theme', theme, theme === osTheme());
+    if (theme) put('theme', theme, theme === MCO.osTheme());
     // The camera's default is the fitted Montana extent. All three or none — the
     // parser needs the set to position the map.
-    if (full || !atDefaultExtent()) {
-      const c = map.getCenter();
-      params.lng  = c.lng.toFixed(4);
-      params.lat  = c.lat.toFixed(4);
-      params.zoom = map.getZoom().toFixed(2);
-    }
+    // MCO.map.cameraParamsIfDefault (kit 0.8.0; replaces this file's local
+    // at-default-extent test): {} at the fitted extent, computed with the same
+    // fitOpts the fit control and zoom floor use, so it stays right as the
+    // container resizes. Before the map is ready the camera is the default.
+    if (full) Object.assign(params, MCO.map.cameraParams(map));
+    else if (_mapReady) Object.assign(params, MCO.map.cameraParamsIfDefault(map, { fitOpts }));
     if (_selectedStation) params.station = _selectedStation;
     // Not previously round-tripped, so it was silently lost on the first
     // pushState. It's the WCAG 2.1.4 escape hatch for the single-character
