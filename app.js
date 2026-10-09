@@ -1075,7 +1075,19 @@
     navGroup.appendChild(btn);
   })();
 
-  let _fitZoom;
+  // Zoom floor: the kit's MCO.map.installZoomFloor (0.8.0, hardened from this
+  // file's own guards: the re-entrancy latch and the 0.01 tolerance). Zooming
+  // out past the whole state springs back to the Montana extent; a setMinZoom
+  // clamp was tried here once and was wrong twice over (zoom-out did nothing,
+  // and MapLibre greys out its zoom-out button at minZoom with no explanation).
+  // App policy rides in onBeforeSnap: resizes are this app's own handler's
+  // business (it re-fits when you were AT the extent, and never under an open
+  // station unless the sidebar toggle asked), so the kit only snaps on zoom.
+  const zoomFloor = MCO.map.installZoomFloor(map, {
+    fitOpts: () => fitOpts(),
+    onBeforeSnap: ({ reason }) => reason === 'zoom' && _mapReady,
+  });
+  const fitZoom = () => zoomFloor.fitZoom();
   let _mapReady = false;
 
   // Cached static overlay FeatureCollections
@@ -2901,9 +2913,9 @@
   // Re-fit only when the user is already looking at the whole state; if they have
   // zoomed into a region, a container resize must not yank them out of it.
   function refitIfAtExtent() {
-    if (!_mapReady || _fitZoom === undefined) return;
-    const atExtent = map.getZoom() <= _fitZoom + 0.1;
-    _fitZoom = map.cameraForBounds(MT_FIT_BOUNDS, fitOpts()).zoom;
+    if (!_mapReady || fitZoom() === undefined) return;
+    const atExtent = map.getZoom() <= fitZoom() + 0.1;
+    zoomFloor.refresh();
     if (atExtent) map.fitBounds(MT_FIT_BOUNDS, { ...fitOpts(), animate: !MCO.reducedMotion() });
   }
 
@@ -3812,7 +3824,7 @@
   // ── Map events ───────────────────────────────────────────────────────────
   map.on('load', () => {
     addCustomLayers();
-    _fitZoom = map.cameraForBounds(MT_FIT_BOUNDS, fitOpts()).zoom;
+    zoomFloor.refresh();
     _mapReady = true;
     syncOverlayMetrics();
     // The constructor fit used flat padding (the sidebar's width isn't known
@@ -3835,7 +3847,7 @@
     // pre-resize fit zoom tells us whether the user was at full extent (e.g.
     // the navbar wrapped on mobile after the chips loaded). If so, keep them
     // fitted to Montana rather than letting the state drift out of frame.
-    const wasAtExtent = _fitZoom !== undefined && map.getZoom() <= _fitZoom + 0.1;
+    const wasAtExtent = fitZoom() !== undefined && map.getZoom() <= fitZoom() + 0.1;
     clearTimeout(_resizeTimer);
     _resizeTimer = setTimeout(() => {
       _resizeTimer = null;
@@ -3847,7 +3859,7 @@
       // the height only. That must not move the camera.
       const chromeOnly = _lastMapSize && w === _lastMapSize.w && Math.abs(h - _lastMapSize.h) < 120;
       _lastMapSize = { w, h };
-      _fitZoom = map.cameraForBounds(MT_FIT_BOUNDS, fitOpts()).zoom;
+      zoomFloor.refresh();
       syncOverlayMetrics();
       if (chromeOnly && !fromSidebar) return;
       // Never yank the camera out from under an open detail on an incidental
@@ -3855,24 +3867,6 @@
       if (_selectedStation && !fromSidebar) return;
       if (wasAtExtent) map.fitBounds(MT_FIT_BOUNDS, { ...fitOpts(), animate: !MCO.reducedMotion() });
     }, 200);
-  });
-
-  // Zooming out past the whole state springs the camera back to the Montana
-  // extent. A `setMinZoom` clamp was tried instead and was wrong twice over: it
-  // made zooming out do nothing at all, and MapLibre disables its own zoom-out
-  // button at minZoom, so the control greyed out with no explanation.
-  //
-  // No loop: the fitBounds below settles at _fitZoom, so the guard is false on
-  // the zoomend it raises. _springingBack covers the animated case, where more
-  // zoomend events can arrive while the flight is still in progress.
-  const SPRING_EPS = 0.01;
-  let _springingBack = false;
-  map.on('zoomend', () => {
-    if (!_mapReady || _springingBack || _fitZoom === undefined) return;
-    if (map.getZoom() >= _fitZoom - SPRING_EPS) return;
-    _springingBack = true;
-    map.once('moveend', () => { _springingBack = false; });
-    map.fitBounds(MT_FIT_BOUNDS, { ...fitOpts(), animate: !MCO.reducedMotion() });
   });
 
   map.on('moveend', pushState);
