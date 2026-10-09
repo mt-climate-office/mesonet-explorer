@@ -1211,17 +1211,16 @@
       });
     }
     // The detail panel is docked at the edge rather than attached to the dot,
-    // so the dot itself has to say which station you're reading.
+    // so the dot itself has to say which station you're reading. The ring is
+    // the kit's --selection-ring, read per theme at paint time (the literal
+    // '#5aaee8' this replaced is the DARK value, and too pale on light). Added
+    // with the current selection so a theme switch, which rebuilds the style,
+    // keeps the ring on the open station.
     if (!map.getLayer('dots-selected')) {
       map.addLayer({
         id: 'dots-selected', type: 'circle', source: 'stations',
-        filter: ['==', ['get', 'station'], '__none__'],
-        paint: {
-          'circle-radius': 11,
-          'circle-color': 'rgba(0,0,0,0)',
-          'circle-stroke-width': 3,
-          'circle-stroke-color': '#5aaee8',
-        },
+        filter: ['==', ['get', 'station'], _selectedStation || '__none__'],
+        paint: MCO.map.selectionPaint({ radius: 11, width: 3 }),
       });
     }
     if (!map.getLayer('stations-badge')) {
