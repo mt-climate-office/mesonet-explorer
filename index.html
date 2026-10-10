@@ -235,7 +235,7 @@
     }
     input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(60%); cursor: pointer; }
     [data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(30%); }
-    input[type="date"]:hover { background: var(--accent-hover); border-color: var(--accent); }
+    input[type="date"]:hover { background: var(--accent-hover); border-color: var(--accent-line); }
     input[type="date"]:focus { border-color: var(--accent-light); background: var(--accent-hover); }
 
     .date-stepper   { display: flex; align-items: center; gap: 4px; }
@@ -272,7 +272,7 @@
       transition: var(--transition);
       max-width: 300px;
     }
-    select:hover { border-color: var(--accent); }
+    select:hover { border-color: var(--accent-line); }
     select:focus { border-color: var(--accent-light); }
     #variable-select { min-width: 210px; }
 
@@ -310,7 +310,7 @@
       cursor: pointer; white-space: nowrap;
       transition: var(--transition);
     }
-    .chip:hover { border-color: var(--accent); color: var(--text-primary); background: var(--accent-hover); }
+    .chip:hover { border-color: var(--accent-line); color: var(--text-primary); background: var(--accent-hover); }
     /* --text-on-accent, not #fff: the kit flips it to BLACK in high-contrast,
        where --accent is a bright #5bb4ff and white text on it is 2.22:1. That
        failure only appeared once this page gained the high-contrast theme. */
@@ -428,7 +428,7 @@
       cursor: pointer; box-shadow: 2px 0 8px rgba(0,0,0,0.18);
       transition: left 0.22s cubic-bezier(0.4,0,0.2,1), color var(--transition);
     }
-    #sidebar-toggle:hover { color: var(--accent); }
+    #sidebar-toggle:hover { color: var(--accent-line); }
     #sidebar-toggle svg { width: 12px; height: 12px; }
     body.sidebar-closed #sidebar-toggle { left: 0; }
     body.sidebar-closed #sidebar-toggle svg { transform: rotate(180deg); }
@@ -505,7 +505,7 @@
       background: none; border: 0; padding: 0; cursor: pointer;
     }
     #legend-gradient-btn:hover #legend-gradient,
-    #legend-gradient-btn:focus-visible #legend-gradient { border-color: var(--accent); }
+    #legend-gradient-btn:focus-visible #legend-gradient { border-color: var(--accent-line); }
     #legend-pin-btn {
       background: none; border: none; padding: 0; flex-shrink: 0;
       width: 22px; height: 22px;
@@ -628,14 +628,14 @@
     .pop-badge {
       display: inline-block; font-size: 0.62rem; font-weight: 600;
       padding: 2px 6px; border-radius: 999px;
-      background: var(--accent-hover); border: 1px solid var(--accent);
+      background: var(--accent-hover); border: 1px solid var(--accent-line);
       color: var(--accent-light); text-transform: uppercase; letter-spacing: 0.05em;
       margin-right: 4px;
     }
     .pop-value {
       margin-top: 8px; padding: 8px 10px;
       background: var(--bg-raised); border-radius: var(--radius-sm);
-      border-left: 3px solid var(--pop-accent, var(--accent));
+      border-left: 3px solid var(--pop-accent, var(--accent-line));
     }
     .pop-value-var { font-size: 0.68rem; color: var(--text-secondary); }
     /* The reading is the headline of the panel: the kit's .mco-num-display
@@ -661,7 +661,7 @@
       font: inherit; text-align: left; color: var(--accent-light);
       cursor: pointer; transition: var(--transition);
     }
-    .pop-sibling-link:hover { border-color: var(--accent); background: var(--accent-hover); color: var(--accent); }
+    .pop-sibling-link:hover { border-color: var(--accent-line); background: var(--accent-hover); color: var(--accent-line); }
     .pop-sibling-name { font-weight: 500; }
     /* --text-secondary, not --text-muted: muted on the raised row fill is
        under 4.5:1 in dark (axe 1.4.3, found by the kit's verify matrix). */
@@ -713,7 +713,7 @@
       border: 1px solid var(--ctrl-border); background: var(--glass); color: var(--text-primary);
       font-size: 1rem; line-height: 1; cursor: pointer; transition: var(--transition);
     }
-    .pop-carousel-btn:hover { border-color: var(--accent); background: var(--accent-hover); }
+    .pop-carousel-btn:hover { border-color: var(--accent-line); background: var(--accent-hover); }
     .pop-carousel-btn.prev { left: 6px; }
     .pop-carousel-btn.next { right: 6px; }
     .pop-carousel-caption {
@@ -856,7 +856,7 @@
       transition: transform var(--transition);
     }
     .info-more[open] > summary::before { transform: rotate(90deg); }
-    .info-more > summary:hover { color: var(--accent); }
+    .info-more > summary:hover { color: var(--accent-line); }
     .info-more > *:not(summary) { margin-top: 0.5rem; }
 
     /* ── Scale editor modal ──────────────────────────────────────────────── */
@@ -891,7 +891,7 @@
       padding: 3px 6px; border-radius: 4px; cursor: pointer;
     }
     .scale-ramp-opt:hover { background: var(--accent-hover); }
-    .scale-ramp-opt:has(input:checked) { background: var(--accent-hover); box-shadow: inset 0 0 0 1px var(--accent); }
+    .scale-ramp-opt:has(input:checked) { background: var(--accent-hover); box-shadow: inset 0 0 0 1px var(--accent-line); }
     .scale-ramp-opt input { accent-color: var(--accent); flex-shrink: 0; margin: 0; }
     .scale-ramp-name { font-size: 0.75rem; color: var(--text-secondary); width: 62px; flex-shrink: 0; }
     .scale-ramp-strip {
