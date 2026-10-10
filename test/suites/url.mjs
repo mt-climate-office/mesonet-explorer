@@ -108,10 +108,15 @@ export async function run({ browser, origin }) {
     ['complex view', '?mode=hourly&var=wind_spd&units=si&station=acemocca&net=hydromet&counties=on&labels=off&legend=collapsed&sidebar=closed', 'dark'],
   ]) {
     const sender = await open(browser, origin, { query, colorScheme: senderScheme });
-    await sender.ctx.grantPermissions(['clipboard-read', 'clipboard-write']);
+    // Capture what the app hands the clipboard rather than reading it back:
+    // clipboard-read is a Chromium-only permission, and headless WebKit
+    // refuses the read, so this runs the same in both engines.
+    await sender.page.evaluate(() => {
+      navigator.clipboard.writeText = (text) => { window.__shared = text; return Promise.resolve(); };
+    });
     await sender.page.click('#btn-share');
     await sender.page.waitForTimeout(800);
-    const shared = await sender.page.evaluate(() => navigator.clipboard.readText());
+    const shared = await sender.page.evaluate(() => window.__shared);
     const senderState = await sender.page.evaluate(STATE);
     const sharedKeys = [...new URL(shared).searchParams.keys()];
     t.check(`share (${label}): fully specified`, sharedKeys.length >= 15, `${sharedKeys.length} parameters`);

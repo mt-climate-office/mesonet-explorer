@@ -4,7 +4,7 @@
 // launches headless Chrome through playwright-core, and provides the couple of
 // helpers the suites lean on: a page factory that skips the intro modal, and an
 // image differ that runs in a canvas because we have no image library.
-import { chromium } from 'playwright-core';
+import { chromium, webkit } from 'playwright-core';
 import { createServer } from 'node:http';
 import { readFile, mkdir } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
@@ -41,8 +41,21 @@ export async function serve() {
   };
 }
 
+// BROWSER=webkit runs the suites in WebKit (Safari's engine) instead of your
+// installed Chrome; needs `npx playwright-core install webkit` once.
 export async function launch() {
+  if (process.env.BROWSER === 'webkit') return webkit.launch({ headless: true });
   return chromium.launch({ channel: 'chrome', headless: true });
+}
+
+/**
+ * The page's clock, as epoch ms: FAKE_NOW (any Date-parsable string, e.g.
+ * 2026-10-10T07:30:00-06:00) pins every page's Date to that instant, so a
+ * time-of-day dependent check can be run at the hour it would fail; unset,
+ * the real time. Suites that build time-dependent queries should read it.
+ */
+export function clockNow() {
+  return process.env.FAKE_NOW ? Date.parse(process.env.FAKE_NOW) : Date.now();
 }
 
 /**
@@ -69,6 +82,8 @@ export async function open(browser, origin, {
     });
   }
   const page = await ctx.newPage();
+  // Date only (timers still run, so the map and the polling behave normally).
+  if (process.env.FAKE_NOW) await page.clock.setFixedTime(clockNow());
   const errors = [];
   page.on('pageerror', e => errors.push('pageerror: ' + e.message.slice(0, 200)));
   page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text().slice(0, 200)); });
