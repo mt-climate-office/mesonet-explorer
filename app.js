@@ -3472,10 +3472,6 @@
     scrim: document.getElementById('rail-scrim'),
   });
 
-  // initDrawer only hides the drawer when the mode CHANGES (docked ↔ not); a
-  // page that loads already compact keeps it unhidden, and so tabbable, until
-  // the first open/close. Start it hidden there (kit defect, reported).
-  if (MCO.viewport.isCompact()) sidebarEl.hidden = true;
   const sidebarDrawer = MCO.initDrawer({
     drawer: sidebarEl, toggle: btnDrawer, scrim: sidebarScrim, modal: 'compact',
     onChange: () => syncOverlayMetrics(),
