@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="mco-autolift">
 <head>
   <meta charset="UTF-8">
   <!-- CSP (meta form — GitHub Pages can't set headers; frame-ancestors/report-uri
@@ -33,9 +33,9 @@
        decided 2026-10-08) so they version with the kit and can't drift. The
        navbar logo stays vendored (assets/mco-logo.png). img-src carries
        cdn.jsdelivr.net for them. -->
-  <link rel="icon" type="image/png" sizes="32x32" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/assets/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/assets/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/assets/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.3/assets/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.3/assets/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.3/assets/apple-touch-icon.png">
 
   <!-- Open Graph -->
   <meta property="og:type"             content="website">
@@ -44,8 +44,8 @@
   <meta property="og:description"      content="Explore Montana Mesonet weather and soil data on an interactive map — latest conditions plus hourly and daily history for every station.">
   <meta property="og:url"              content="https://mesonet.climate.umt.edu/explorer/">
   <meta property="og:locale"           content="en_US">
-  <meta property="og:image"            content="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/assets/og-card.png">
-  <meta property="og:image:secure_url" content="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/assets/og-card.png">
+  <meta property="og:image"            content="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.3/assets/og-card.png">
+  <meta property="og:image:secure_url" content="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.3/assets/og-card.png">
   <meta property="og:image:type"       content="image/png">
   <meta property="og:image:width"      content="1200">
   <meta property="og:image:height"     content="630">
@@ -55,7 +55,7 @@
   <meta name="twitter:card"        content="summary_large_image">
   <meta name="twitter:title"       content="Explorer · Montana Mesonet">
   <meta name="twitter:description" content="Explore Montana Mesonet weather and soil data on an interactive map — latest conditions plus hourly and daily history for every station.">
-  <meta name="twitter:image"       content="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/assets/og-card.png">
+  <meta name="twitter:image"       content="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.3/assets/og-card.png">
   <meta name="twitter:image:alt"   content="Map of Montana showing Mesonet station observations as colored dots across the state.">
 
   <!-- mco-web-style · anti-flash theme boot. Kept INLINE and ahead of every
@@ -92,8 +92,8 @@
   <!-- House fonts: kit-hosted (mco-web-style 0.7.0), declared in mco-theme.css.
        Preloaded so the first frame is already in Outfit — no system-font flash.
        Same @version as the theme CSS; crossorigin is required on font preloads. -->
-  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/fonts/space-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.3/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.3/fonts/space-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
 
   <!-- MapLibre GL 6.x (kit 0.8.0). ES-modules only, so it is not a <script src>:
        mco-map.js imports it (MCO.map.loadMapLibre) and this ONE-LINE import map
@@ -112,11 +112,11 @@
         integrity="sha384-ntw3zEt6rcVML7jDK0ULmHa5hxLB23afsPqzqfY+gLgMfAkbFCnCgPpkZvV5mmZX"
         crossorigin="anonymous">
 
-  <!-- mco-web-style @0.11.2 — tokens, reset, a11y utilities, navbar/panel/toast/
+  <!-- mco-web-style @0.11.3 — tokens, reset, a11y utilities, navbar/panel/toast/
        tooltip/modal shells, MapLibre control polish, and the high-contrast
        theme. What remains in <style> below is app-specific. -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/theme/mco-theme.css"
-        integrity="sha384-22H/4uZb4dmkrTZlLp4NJ4J+Wg39RNRIVIKO0x1HPYfyUWj81FA0fyM/uoRqbqme"
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.3/theme/mco-theme.css"
+        integrity="sha384-SVU0zinE4kdg7DL79mgXmebk2GD/Gy4cnCeu/hn3eZSxgg3X+g4Fr4qC0Ou1bE20"
         crossorigin="anonymous">
 
   <style>
@@ -128,27 +128,11 @@
        theme, which this page had no values for at all. */
     :root { --sidebar-w: 272px; }
 
-    /* Attribution links are distinguished from the surrounding credit text by
-       colour alone (1.74:1 dark, 1.25:1 high-contrast — WCAG 1.4.1 wants 3:1 or
-       a non-colour cue). It only became a "text block" in axe's eyes once
-       hillshade added its "Terrain: Mapzen/AWS Open Data" credit beside the
-       links. Underline is the same remedy the kit applied to prose links in
-       v0.1.1; queued to move INTO the kit for 0.8.0, since every map consumer
-       adopting hillshade inherits this. Delete when that ships. */
-    .maplibregl-ctrl-attrib a { text-decoration: underline; }
-
-    /* ── MapLibre control polish (app-specific remainder) ────────────────
-       The glass treatment, --ctrl-icon-filter, the .maplibregl-ctrl-fit glyph,
-       attribution colors and the safe-area padding are all the kit's, and were
-       byte-identical here. Only this lift survives: with a station sheet docked
-       at the bottom on compact, the corner controls have to clear it.
-       Attribution must stay bottom-right (MapLibre puts it there), so it lifts
-       too. */
-    .is-compact body.sheet-open .maplibregl-ctrl-bottom-right,
-    .is-compact body.sheet-open .maplibregl-ctrl-bottom-left {
-      transform: translateY(calc(-1 * var(--sheet-h, 0px)));
-      transition: transform 0.22s cubic-bezier(0.4,0,0.2,1);
-    }
+    /* ── MapLibre control polish ─────────────────────────────────────────
+       All the kit's. The lift that kept the bottom corner controls (and the
+       attribution) clear of the compact station sheet is html.mco-autolift
+       now (kit 0.9.0), driven by --sheet-h, which app.js publishes only while
+       the sheet is bottom-docked. */
 
     /* ── App shell ───────────────────────────────────────────────────────
        The reset, reduced-motion clamp, [hidden] priority fix, .sr-only and the
@@ -179,7 +163,8 @@
     #navbar > .nav-divider  { order: 1; }
     #navbar > .brand        { order: 2; }
     #navbar > #btn-drawer   { order: 0; }
-    #navbar > .controls     { order: 3; }
+    #navbar .mco-rail       { order: 1; }
+    #navbar .controls       { order: 3; }
     #navbar > .nav-meta     { order: 4; }
 
     /* ── First paint ─────────────────────────────────────────────────────
@@ -250,7 +235,7 @@
     }
     input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(60%); cursor: pointer; }
     [data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(30%); }
-    input[type="date"]:hover { background: var(--accent-hover); border-color: var(--accent); }
+    input[type="date"]:hover { background: var(--accent-hover); border-color: var(--accent-line); }
     input[type="date"]:focus { border-color: var(--accent-light); background: var(--accent-hover); }
 
     .date-stepper   { display: flex; align-items: center; gap: 4px; }
@@ -287,73 +272,17 @@
       transition: var(--transition);
       max-width: 300px;
     }
-    select:hover { border-color: var(--accent); }
+    select:hover { border-color: var(--accent-line); }
     select:focus { border-color: var(--accent-light); }
     #variable-select { min-width: 210px; }
 
-    /* ── Search ──────────────────────────────────────────────────────────── */
-    .search-wrap { position: relative; display: inline-flex; align-items: center; }
-    input[type="search"] {
-      background-color: var(--input-bg);
-      color: var(--text-primary);
-      border: 1px solid var(--ctrl-border); border-radius: var(--radius-md);
-      padding: 0 36px 0 30px; height: 32px;
-      width: 220px; max-width: 100%;
-      font-size: 0.82rem; font-family: inherit;
-      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237a8190' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='7'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>");
-      background-repeat: no-repeat;
-      background-position: 8px center;
-      background-size: 14px 14px;
-      transition: var(--transition), width 0.18s ease-out;
-    }
-    input[type="search"]:hover { border-color: var(--accent); }
-    input[type="search"]:focus { border-color: var(--accent-light); width: 260px; }
-    input[type="search"]::-webkit-search-cancel-button { filter: var(--ctrl-icon-filter, none); }
-    input[type="search"]::placeholder { color: var(--text-muted); opacity: 1; }
-
-    #search-dropdown {
-      position: absolute;
-      top: calc(100% + 4px);
-      left: 0; right: 0;
-      min-width: 100%;
-      background: var(--bg-surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      box-shadow: var(--shadow);
-      list-style: none;
-      margin: 0; padding: 4px;
-      max-height: 280px;
-      overflow-y: auto;
-      z-index: var(--z-flyout);
-    }
-    #search-dropdown[hidden] { display: none; }
-    #search-dropdown li {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 8px;
-      padding: 5px 8px;
-      font-size: 0.8rem;
-      cursor: pointer;
-      border-radius: var(--radius-sm);
-      color: var(--text-secondary);
-      white-space: nowrap;
-      overflow: hidden;
-    }
-    #search-dropdown li:hover,
-    #search-dropdown li.active {
-      background: var(--accent-hover);
-      color: var(--text-primary);
-    }
-    #search-dropdown li.empty { color: var(--text-muted); font-style: italic; cursor: default; }
-    #search-dropdown li.empty:hover { background: none; }
-    #search-dropdown .search-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-    #search-dropdown .search-meta {
-      flex-shrink: 0;
-      font-family: var(--font-mono);
-      font-size: 0.68rem;
-      color: var(--text-secondary);
-    }
+    /* ── Search ──────────────────────────────────────────────────────────
+       The field, its icon (a currentColor mask), the listbox, its options and
+       the "No matches" note are the kit's .mco-search (0.8.0), wired by
+       MCO.initSearchBox. This app keeps the width it grows to on focus and the
+       "/" hint. kit-override: width-on-focus and room for the hint. */
+    .mco-search-input:focus { border-color: var(--accent-line); width: 260px; }
+    .mco-search-input { padding-right: 30px; transition: border-color var(--transition), width 0.18s ease-out; }
 
     .search-kbd {
       position: absolute;
@@ -381,7 +310,7 @@
       cursor: pointer; white-space: nowrap;
       transition: var(--transition);
     }
-    .chip:hover { border-color: var(--accent); color: var(--text-primary); background: var(--accent-hover); }
+    .chip:hover { border-color: var(--accent-line); color: var(--text-primary); background: var(--accent-hover); }
     /* --text-on-accent, not #fff: the kit flips it to BLACK in high-contrast,
        where --accent is a bright #5bb4ff and white text on it is 2.22:1. That
        failure only appeared once this page gained the high-contrast theme. */
@@ -400,25 +329,7 @@
     #map { width: 100%; height: 100%; }
 
     /* Loading feedback lives on the map, not the navbar — the navbar stamp
-       is display:none on phones. */
-    #loading-bar {
-      position: absolute; top: 0; left: 0; right: 0; height: 3px;
-      z-index: var(--z-map-progress); pointer-events: none; overflow: hidden;
-      display: none;
-    }
-    #loading-bar.active { display: block; }
-    #loading-bar.active::before {
-      content: ''; position: absolute; top: 0; bottom: 0; width: 40%;
-      background: linear-gradient(90deg, transparent, var(--accent-light), transparent);
-      animation: loading-sweep 1.1s linear infinite;
-    }
-    @keyframes loading-sweep { from { left: -40%; } to { left: 100%; } }
-    @media (prefers-reduced-motion: reduce) {
-      #loading-bar.active::before {
-        animation: none; left: 0; width: 100%;
-        background: var(--accent-light); opacity: 0.6;
-      }
-    }
+       is display:none on phones. The bar is the kit's .mco-progress. */
     #loading-note {
       position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
       z-index: var(--z-map-progress); pointer-events: none;
@@ -442,27 +353,8 @@
       max-width: calc(100% - 32px);
     }
     #empty-state[hidden] { display: none; }
-    .empty-state-card {
-      pointer-events: auto;
-      background: var(--bg-surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      box-shadow: var(--shadow);
-      padding: 10px 14px;
-      font-size: 0.82rem;
-      color: var(--text-secondary);
-      display: flex; align-items: center; gap: 10px;
-    }
-    .empty-state-card strong { color: var(--text-primary); font-weight: 600; }
-    .empty-state-retry {
-      flex-shrink: 0;
-      padding: 4px 12px; min-height: 28px;
-      border: 1px solid var(--ctrl-border); border-radius: var(--radius-md);
-      background: none; color: var(--accent-light);
-      font: inherit; font-size: 0.78rem; font-weight: 600;
-      cursor: pointer; transition: var(--transition);
-    }
-    .empty-state-retry:hover { background: var(--accent-hover); border-color: var(--accent); }
+    /* The callout is the kit's .mco-empty; only its slot is this app's. */
+    #empty-state .mco-empty { pointer-events: auto; margin: 0; box-shadow: var(--shadow); }
 
     /* ── Control sidebar ─────────────────────────────────────────────────────
        Takes a real column: opening or closing it resizes the map, which is the
@@ -513,7 +405,8 @@
     #sidebar #variable-group .control-label,
     #sidebar #agg-group .control-label { display: none; }
     #sidebar .search-wrap { width: 100%; }
-    #sidebar input[type="search"], #sidebar input[type="search"]:focus { width: 100%; }
+    /* kit-override: full sidebar width. */
+    #sidebar .mco-search-input, #sidebar .mco-search-input:focus { width: 100%; }
     #sidebar #variable-select, #sidebar #agg-select { width: 100%; max-width: none; }
     #sidebar .seg-btns { width: 100%; }
     #sidebar .seg-btn { flex: 1; justify-content: center; }
@@ -535,7 +428,7 @@
       cursor: pointer; box-shadow: 2px 0 8px rgba(0,0,0,0.18);
       transition: left 0.22s cubic-bezier(0.4,0,0.2,1), color var(--transition);
     }
-    #sidebar-toggle:hover { color: var(--accent); }
+    #sidebar-toggle:hover { color: var(--accent-line); }
     #sidebar-toggle svg { width: 12px; height: 12px; }
     body.sidebar-closed #sidebar-toggle { left: 0; }
     body.sidebar-closed #sidebar-toggle svg { transform: rotate(180deg); }
@@ -552,6 +445,9 @@
     }
     #sb-brand .logo-img { width: 32px; height: 32px; }
     #sb-brand .brand { flex-shrink: 1; min-width: 0; }
+    /* The drawer's × (MCO.initDrawer closes on [data-close-drawer]; the kit
+       hides it while docked). Last in the row, whatever layoutControls moves in. */
+    #sb-brand .sb-close { order: 9; margin-left: auto; }
     #sb-brand .brand-title { font-size: 0.72rem; color: var(--text-secondary); }
     /* The header hides this at narrow widths; the drawer has room for it. */
     #sb-brand .brand-subtitle { display: block; font-size: 0.58rem; white-space: normal; }
@@ -561,6 +457,7 @@
 
     /* Compact: an off-canvas drawer over the map, with a scrim, instead of a
        fixture. The desktop edge handle would be a second, redundant control. */
+    /* MCO.initDrawer drives it: [hidden] when closed, .is-open while open. */
     .is-compact #sidebar {
       position: absolute; z-index: var(--z-drawer);
       top: 0; bottom: 0; left: 0;
@@ -568,21 +465,17 @@
       width: min(300px, 86vw);
       margin-left: 0;
       box-shadow: 4px 0 28px rgba(0,0,0,0.45);
-      transform: translateX(0);
+      transform: translateX(-100%);
       transition: transform 0.22s cubic-bezier(0.4,0,0.2,1);
     }
-    /* A drawer slides away entirely rather than giving its column to the map. */
-    .is-compact body.sidebar-closed #sidebar { transform: translateX(-100%); margin-left: 0; }
+    .is-compact #sidebar.is-open { transform: none; }
+    /* A collapsed desktop column must not leave the drawer offset. */
+    .is-compact body.sidebar-closed #sidebar { margin-left: 0; }
     .is-compact #sidebar-toggle { display: none; }
-    /* Deliberately NOT .mco-scrim: the kit's is viewport-fixed, and this one
-       is absolute inside #main so the drawer dims the map without
-       dimming the navbar above it. Colour comes from the kit token. */
-    .is-compact #sidebar-scrim {
-      display: block; position: absolute; inset: 0;
-      z-index: var(--z-map-panel);
-      background: var(--scrim);
-      -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
-    }
+    /* The scrim is the kit's .mco-scrim[data-scope="container"] (0.8.0, made
+       for exactly this): absolute inside #app-row, so the drawer dims the map
+       without dimming the navbar above it. Only the blur is this app's. */
+    .is-compact #sidebar-scrim { display: block; -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
     .is-compact #sidebar-scrim[hidden] { display: none; }
     /* #btn-drawer only exists for the drawer. */
     #btn-drawer { display: none; }
@@ -612,7 +505,7 @@
       background: none; border: 0; padding: 0; cursor: pointer;
     }
     #legend-gradient-btn:hover #legend-gradient,
-    #legend-gradient-btn:focus-visible #legend-gradient { border-color: var(--accent); }
+    #legend-gradient-btn:focus-visible #legend-gradient { border-color: var(--accent-line); }
     #legend-pin-btn {
       background: none; border: none; padding: 0; flex-shrink: 0;
       width: 22px; height: 22px;
@@ -671,30 +564,15 @@
       font-size: 0.64rem; color: var(--text-secondary);
       padding: 0 2px; margin-bottom: 4px;
     }
-    .legend-row {
-      display: flex; align-items: center; gap: 7px;
-      padding: 3px 6px; margin: 0;
-      width: 100%; text-align: left;
-      background: none; border: 0; font: inherit; color: inherit;
-      border-radius: 4px; cursor: pointer;
-      transition: background var(--transition), opacity var(--transition);
-    }
-    .legend-row:hover, .legend-row:focus-visible {
-      background: var(--accent-hover);
-    }
-    /* WCAG 1.4.3: dimming the whole ROW to 0.4 dragged the label to 2.69:1.
-       Opacity on a parent can't be undone by a child — it composites the whole
-       subtree — so the dim moves to the swatch alone and the label takes an
-       explicit muted colour (5.3:1). The line-through is the real state cue and
-       is unchanged; it just no longer has to be read through a 40% veil. */
-    .legend-row.off .legend-swatch { opacity: 0.35; }
-    .legend-row.off .legend-lbl { text-decoration: line-through; color: var(--text-muted); }
-    .legend-swatch {
-      width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
-      border: 1.6px solid var(--text-muted); background: transparent;
-    }
-    .legend-swatch.stale { border-style: dashed; }
-    .legend-lbl { font-size: 0.72rem; color: var(--text-secondary); white-space: nowrap; }
+    /* Legend rows are the kit's .mco-legend-row (0.8.0): aria-pressed drives
+       the off state, which dims only the swatch and strikes the label (the
+       1.4.3 fix this file made by hand is the kit's rule now). Kept here: the
+       type size and padding of this denser sidebar legend, and the dashed
+       ring for "stale", a shape the kit doesn't have. */
+    /* kit-override: denser rows to match the sidebar's other controls. */
+    #legend-rows .mco-legend-row { font-size: 0.72rem; padding: 3px 6px; gap: 7px; }
+    #legend-rows .mco-legend-swatch { width: 12px; height: 12px; border-width: 1.6px; }
+    #legend-rows .mco-legend-swatch.stale { border-style: dashed; }
     .legend-divider {
       border: 0; border-top: 1px solid var(--border-glass);
       margin: 6px 2px;
@@ -750,20 +628,20 @@
     .pop-badge {
       display: inline-block; font-size: 0.62rem; font-weight: 600;
       padding: 2px 6px; border-radius: 999px;
-      background: var(--accent-hover); border: 1px solid var(--accent);
+      background: var(--accent-hover); border: 1px solid var(--accent-line);
       color: var(--accent-light); text-transform: uppercase; letter-spacing: 0.05em;
       margin-right: 4px;
     }
     .pop-value {
       margin-top: 8px; padding: 8px 10px;
       background: var(--bg-raised); border-radius: var(--radius-sm);
-      border-left: 3px solid var(--pop-accent, var(--accent));
+      border-left: 3px solid var(--pop-accent, var(--accent-line));
     }
     .pop-value-var { font-size: 0.68rem; color: var(--text-secondary); }
-    .pop-value-num {
-      font-size: 1.15rem; font-weight: 700; color: var(--text-primary);
-      font-family: var(--font-mono); line-height: 1.3;
-    }
+    /* The reading is the headline of the panel: the kit's .mco-num-display
+       (0.10.0, Outfit with tabular figures) at hero size. It was 1.15rem Space
+       Mono; the kit keeps mono for numerals below 1.75rem. */
+    .pop-value-num { font-size: 1.75rem; color: var(--text-primary); }
     .pop-value-num .pop-unit { font-size: 0.72rem; font-weight: 400; color: var(--text-secondary); margin-left: 3px; }
     .pop-value-time { font-family: var(--font-mono); font-size: 0.64rem; color: var(--text-secondary); margin-top: 2px; }
     .pop-meta { font-size: 0.75rem; color: var(--text-secondary); margin-top: 8px; line-height: 1.5; }
@@ -783,7 +661,7 @@
       font: inherit; text-align: left; color: var(--accent-light);
       cursor: pointer; transition: var(--transition);
     }
-    .pop-sibling-link:hover { border-color: var(--accent); background: var(--accent-hover); color: var(--accent); }
+    .pop-sibling-link:hover { border-color: var(--accent-line); background: var(--accent-hover); color: var(--accent-line); }
     .pop-sibling-name { font-weight: 500; }
     /* --text-secondary, not --text-muted: muted on the raised row fill is
        under 4.5:1 in dark (axe 1.4.3, found by the kit's verify matrix). */
@@ -835,7 +713,7 @@
       border: 1px solid var(--ctrl-border); background: var(--glass); color: var(--text-primary);
       font-size: 1rem; line-height: 1; cursor: pointer; transition: var(--transition);
     }
-    .pop-carousel-btn:hover { border-color: var(--accent); background: var(--accent-hover); }
+    .pop-carousel-btn:hover { border-color: var(--accent-line); background: var(--accent-hover); }
     .pop-carousel-btn.prev { left: 6px; }
     .pop-carousel-btn.next { right: 6px; }
     .pop-carousel-caption {
@@ -952,10 +830,6 @@
     .sheet-body .pop-meta,
     .sheet-body .pop-siblings,
     .sheet-body .pop-links { max-width: 560px; }
-    /* The toast is the one floating element left that the bottom-docked panel can
-       cover. The legend needs no special case any more: it lives in the sidebar,
-       so it and the panel never occupy the same space. */
-    .is-compact body.sheet-open .mco-toast { bottom: calc(var(--sheet-h, 0px) + 1rem); }
 
 
     /* ── Info modal ──────────────────────────────────────────────────────── */
@@ -964,33 +838,9 @@
        copy set `text-decoration: none`, which is a WCAG 1.4.1 failure the kit
        fixed in v0.1.1) all come from .mco-modal now.
 
-       Kept as a marked kit-override until 0.8.0 absorbs it: long-modal
-       ergonomics. This app's info modal is the tallest in the family, and the
-       kit's box just ends mid-sentence when it overflows. Approved for
-       back-port 2026-08-16 (CHANGELOG § Planned) — delete both rules when the
-       kit ships them. Only the DELTA over the kit's base is declared here. */
-    .info-modal-box {
-      width: min(560px, calc(100vw - 4rem));   /* kit: 540px */
-      overscroll-behavior: contain;
-      /* Scroll affordance: a soft shade pinned to the bottom of the scrollport
-         so a long modal doesn't just end with no cue. It fades out once you
-         reach the end (background-attachment: local on the last layer). */
-      background-image:
-        linear-gradient(var(--bg-surface), var(--bg-surface)),
-        linear-gradient(to top, color-mix(in srgb, var(--bg-surface) 0%, transparent), var(--bg-surface));
-      background-repeat: no-repeat;
-      background-size: 100% 100%, 100% 28px;
-      background-position: 0 0, 0 100%;
-      background-attachment: local, scroll;
-    }
-    /* Sticky header keeps the title and close button reachable while the body
-       scrolls — both modals are taller than a phone screen. */
-    .info-modal-header {
-      position: sticky; top: -1.5rem; z-index: 1;
-      margin: -1.5rem -1.5rem 1.25rem; padding: 1.5rem 1.5rem 0.75rem;
-      background: var(--bg-surface);
-      border-radius: 10px 10px 0 0;
-    }
+       The long-modal ergonomics this file used to carry as a kit-override
+       (sticky header, contained overscroll, bottom scroll shade) are the
+       kit's since 0.8.0, back-ported from here. */
     .info-lede { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 1.25rem; }
     /* Long-form reference sits behind disclosures so the modal opens short. */
     .info-more > summary {
@@ -1006,7 +856,7 @@
       transition: transform var(--transition);
     }
     .info-more[open] > summary::before { transform: rotate(90deg); }
-    .info-more > summary:hover { color: var(--accent); }
+    .info-more > summary:hover { color: var(--accent-line); }
     .info-more > *:not(summary) { margin-top: 0.5rem; }
 
     /* ── Scale editor modal ──────────────────────────────────────────────── */
@@ -1041,7 +891,7 @@
       padding: 3px 6px; border-radius: 4px; cursor: pointer;
     }
     .scale-ramp-opt:hover { background: var(--accent-hover); }
-    .scale-ramp-opt:has(input:checked) { background: var(--accent-hover); box-shadow: inset 0 0 0 1px var(--accent); }
+    .scale-ramp-opt:has(input:checked) { background: var(--accent-hover); box-shadow: inset 0 0 0 1px var(--accent-line); }
     .scale-ramp-opt input { accent-color: var(--accent); flex-shrink: 0; margin: 0; }
     .scale-ramp-name { font-size: 0.75rem; color: var(--text-secondary); width: 62px; flex-shrink: 0; }
     .scale-ramp-strip {
@@ -1074,11 +924,11 @@
     }
     .scale-domain-grid input:disabled { opacity: 0.45; cursor: not-allowed; }
     .scale-note { font-size: 0.72rem; color: var(--text-muted); line-height: 1.5; margin-top: 0.6rem; }
-    .scale-hint { font-size: 0.75rem; color: #e5a35c; min-height: 1.2em; margin-top: 0.4rem; }
-    [data-theme="light"] .scale-hint { color: #96500a; }
+    /* The kit's --warning (0.8.0): measured ≥ 4.5:1 on every surface in all
+       three themes, which the two local hexes it replaces never were for
+       high-contrast (it had no value of its own). */
+    .scale-hint { font-size: 0.75rem; color: var(--warning); min-height: 1.2em; margin-top: 0.4rem; }
     .scale-actions { display: flex; justify-content: space-between; gap: 10px; margin-top: 0.8rem; }
-    #scale-apply { background: var(--accent); border-color: var(--accent-light); color: #fff; }
-    #scale-apply:hover { background: var(--accent-dk); }
 
     /* ── Responsive ──────────────────────────────────────────────────────── */
     @media (max-width: 1060px) {
@@ -1110,7 +960,8 @@
       #navbar { min-height: 44px; padding-top: 0.3rem; padding-bottom: 0.3rem; }
       .controls { order: 0; flex: 1; flex-basis: auto; flex-wrap: nowrap; min-width: 0; }
       .search-wrap { flex: 1; min-width: 0; }
-      input[type="search"], input[type="search"]:focus { width: 100%; }
+      /* kit-override: fills the row at this width. */
+      .mco-search-input, .mco-search-input:focus { width: 100%; }
 
       /* Row 1 carries exactly three things: the menu, the time segments and the
          variable picker. Everything else is behind the one menu button. The logo
@@ -1195,15 +1046,14 @@
       .is-compact #station-sheet[data-state="peek"] .pop-value { margin-top: 0; }
     }
     @media (hover: none) {
-      .nav-btn, .seg-btn, .chip, input[type="search"], input[type="date"], select { min-height: 40px; }
+      .nav-btn, .seg-btn, .chip, input[type="date"], select { min-height: 40px; }
       #btn-info { width: 40px; height: 40px; }
       .nav-btn.icon-only { min-width: 40px; }
       .nav-btn.date-step { min-height: 40px; height: 40px; min-width: 40px; }
       /* 40px, not 32/36: kit 0.9.0's verify gate audits every pointer target
          at 390px (HOUSE-STYLE §5.5), and these were the app's stragglers. */
       #legend-toggle-btn, #legend-pin-btn { width: 40px; height: 40px; }
-      #search-dropdown li { min-height: 40px; padding: 10px 8px; }
-      .legend-row, .legend-check { min-height: 40px; padding: 7px 6px; }
+      .legend-check { min-height: 40px; padding: 7px 6px; }
       /* The colour strip is 12px tall; pad its button, not the strip. */
       #legend-gradient-btn { padding: 12px 0; }
       /* kit-override: "Now"/"Day" in the compact mode group trim their padding
@@ -1219,6 +1069,31 @@
       .pop-sibling-link { min-height: 44px; }
       .search-kbd { display: none; }
     }
+
+    /* ── Landscape-phone rail (kit 0.10.0) ──────────────────────────────────
+       The kit's .mco-navbar[data-rail] turns the bar into a 56px left column
+       at MCO.viewport.RAIL_MQ (KEEP IN SYNC). This file's own bar-row rules
+       are #navbar-scoped and outrank the kit's attribute selector, so undo
+       the ones that would fight the column here. The date/hour row moves into
+       the rail drawer too (layoutControls), so the map gets the full height. */
+    @media (max-height: 560px) and (orientation: landscape) {
+      /* kit-override: restate the kit rail's box over this file's #navbar rules. */
+      #navbar[data-rail] {
+        min-height: 0; flex-wrap: nowrap; --nav-gap: 0.35rem; gap: 0.35rem;
+        padding: max(0.4rem, env(safe-area-inset-top)) 0.4rem
+                 max(0.4rem, env(safe-area-inset-bottom)) max(0.4rem, env(safe-area-inset-left));
+      }
+      #navbar[data-rail]::after { top: 0; bottom: 0; left: auto; right: 0; width: 2px; height: auto; }
+      /* kit-override: the badge stays on the rail; roomier groups in its drawer. */
+      #navbar[data-rail] > .logo-link { display: flex; }
+      #navbar[data-rail] .controls { gap: 0.75rem; }
+      #navbar[data-rail] .controls .control-label { display: block; }
+      #navbar[data-rail] #variable-select { width: 100%; max-width: none; }
+      /* The bottom sheet is body-level and fixed, and not a kit .mco-sheet (see
+         the PR), so it reads the kit's --rail-inset (0.11.1) itself, or the
+         rail covers the station's name. */
+      .is-compact #station-sheet { left: var(--rail-inset, 0px); }
+    }
   </style>
 </head>
 <body>
@@ -1227,7 +1102,7 @@
      chrome rows straight to the map. -->
 <a class="mco-skip-link" href="#main">Skip to map</a>
 
-<header id="navbar" class="mco-navbar">
+<header id="navbar" class="mco-navbar" data-rail>
   <!-- Compact viewports only: opens #sidebar as an off-canvas drawer. -->
   <button class="nav-btn icon-only" id="btn-drawer" aria-controls="sidebar" aria-expanded="false"
           title="Controls" aria-label="Controls">
@@ -1250,8 +1125,27 @@
     <span class="brand-subtitle">A service of the Montana Climate Office</span>
   </div>
 
-  <!-- Compact only: time mode and variable move up here from the sidebar. -->
-  <div class="controls" hidden></div>
+  <!-- Landscape phones only (kit 0.10.0 rail, MCO.initNavRail): the bar becomes
+       a 56px left rail, and this button opens the time and variable controls
+       beside it. display:none everywhere else. -->
+  <div class="mco-rail">
+    <button type="button" class="nav-btn icon-only" id="btn-rail" aria-controls="nav-drawer"
+            aria-expanded="false" title="Time and variable" aria-label="Time and variable">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+        <line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2.2" fill="currentColor"/>
+        <line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2.2" fill="currentColor"/>
+        <line x1="4" y1="18" x2="20" y2="18"/><circle cx="7" cy="18" r="2.2" fill="currentColor"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Compact only: time mode and variable move up here from the sidebar (and,
+       on the rail, the date and hour too). display:contents outside the rail,
+       so the bar lays out as if it weren't there. -->
+  <div class="mco-nav-drawer" id="nav-drawer">
+    <div class="controls" hidden></div>
+  </div>
 
   <div class="nav-meta" id="nav-tools">
     <span class="refresh-status" title="Data currency">
@@ -1301,6 +1195,11 @@
         <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
         <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
       </svg>
+      <svg id="icon-contrast" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/>
+      </svg>
     </button>
     <button type="button" class="nav-btn mco-btn-info" id="btn-info" aria-label="About this map">?</button>
   </div>
@@ -1309,6 +1208,8 @@
 <!-- Compact only: the date and hour steppers (Hourly/Daily) move up here from
      the sidebar. Empty, and so hidden, on desktop. -->
 <div id="control-bar" role="region" aria-label="Data controls" hidden></div>
+<!-- The rail drawer's scrim (kit .mco-scrim, viewport-wide below the rail). -->
+<div id="rail-scrim" class="mco-scrim" aria-hidden="true" hidden></div>
 
 <!-- Flex row: the sidebar takes a real column and the map fills the rest, so
      opening or closing it genuinely resizes the map. The station detail panel is
@@ -1329,17 +1230,17 @@
            logo on short-but-wide compact viewports. -->
       <div id="sb-brand"><a href="https://climate.umt.edu" target="_blank" rel="noopener noreferrer"
          class="logo-link" aria-label="Montana Climate Office"><img src="assets/mco-logo.png" alt=""
-         class="logo-img" width="32" height="32"></a></div>
+         class="logo-img" width="32" height="32"></a><button type="button" class="modal-close sb-close"
+         data-close-drawer aria-label="Close controls">×</button></div>
       <div class="sb-section" id="sb-search">
         <h2 class="sb-title" id="sb-search-title">Search</h2>
-        <div class="search-wrap">
+        <div class="search-wrap mco-search">
+          <span class="mco-search-icon" aria-hidden="true"></span>
           <label for="search-input" class="sr-only">Search stations</label>
-          <input type="search" id="search-input"
-                 role="combobox" aria-autocomplete="list" aria-haspopup="listbox"
-                 aria-controls="search-dropdown" aria-expanded="false"
-                 placeholder="Search stations…" autocomplete="off">
+          <!-- role/aria-* are set by MCO.initSearchBox. -->
+          <input type="search" id="search-input" class="mco-search-input" placeholder="Search stations…">
           <kbd class="search-kbd" aria-hidden="true">/</kbd>
-          <ul id="search-dropdown" role="listbox" hidden></ul>
+          <div id="search-dropdown" class="mco-search-list" hidden></div>
         </div>
       </div>
       <div class="sb-section" id="sb-networks">
@@ -1348,14 +1249,19 @@
       </div>
       <div class="sb-section" id="sb-time">
         <h2 class="sb-title">Time</h2>
+        <!-- No aria-label on the mode buttons (WCAG 2.5.3 label in name): the
+             name is whichever caption is displayed, "Latest" or, compact, "Now"
+             (display: none takes the other out of the name). An aria-label of
+             "Latest" on a button reading "Now", or "Daily" on "Day", leaves a
+             speech-input user saying what they see and nothing happening. -->
         <div class="control-group" id="mode-group">
           <span class="control-label">Time</span>
           <div class="seg-btns" role="group" aria-label="Time mode">
-            <button class="nav-btn seg-btn" data-mode="latest" aria-pressed="true" aria-label="Latest">
+            <button class="nav-btn seg-btn" data-mode="latest" aria-pressed="true">
               <span class="seg-long">Latest</span><span class="seg-short">Now</span></button>
-            <button class="nav-btn seg-btn" data-mode="hourly" aria-pressed="false" aria-label="Hourly">
+            <button class="nav-btn seg-btn" data-mode="hourly" aria-pressed="false">
               <span class="seg-long">Hourly</span><span class="seg-short">Hour</span></button>
-            <button class="nav-btn seg-btn" data-mode="daily"  aria-pressed="false" aria-label="Daily">
+            <button class="nav-btn seg-btn" data-mode="daily"  aria-pressed="false">
               <span class="seg-long">Daily</span><span class="seg-short">Day</span></button>
           </div>
         </div>
@@ -1466,7 +1372,7 @@
       <div class="sb-section" id="sb-actions" hidden></div>
     </div>
   </aside>
-  <div id="sidebar-scrim" hidden></div>
+  <div id="sidebar-scrim" class="mco-scrim" data-scope="container" aria-hidden="true" hidden></div>
   <button id="sidebar-toggle" type="button" aria-controls="sidebar" aria-expanded="true"
           title="Hide controls" aria-label="Hide controls">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -1476,19 +1382,15 @@
   </button>
 
 <main id="main" tabindex="-1">
-  <div id="map" role="application" aria-label="Mesonet data explorer map"></div>
-  <!-- Ships active: boot() waits on the map 'load' event, and the very first
-       paint should already show a loading cue. First render clears it. -->
-  <div id="loading-bar" class="active" aria-hidden="true"></div>
+  <div id="map" role="application" aria-label="Mesonet data explorer map. The data is in the table that follows."></div>
+  <!-- The loading bar is MCO.loading's .mco-progress, appended here and
+       started as soon as app.js runs. -->
   <div id="loading-note" role="status" hidden></div>
   <div id="empty-state" hidden role="status" aria-live="polite"></div>
 
 
-  <!-- Non-visual dataset access: the WebGL station dots are invisible to
-       assistive tech, so each render also fills this hidden table. -->
-  <section class="sr-only" aria-label="Station data">
-    <table id="sr-station-table"></table>
-  </section>
+  <!-- Non-visual dataset access: app.js appends the MCO.srTable twin here
+       (a hidden table of every station shown, rebuilt with each render). -->
 </main>
 </div><!-- /#app-row -->
 
@@ -1498,8 +1400,12 @@
      showModal() would take Escape before the keyboard section in app.js can
      route it (killing the closeSpider half of that path), and its ::backdrop
      would make the map underneath non-interactive. Body-level so #map's
-     overflow:hidden can't clip it and its safe-area math is viewport-relative. -->
-<section id="station-sheet" class="sheet" hidden role="dialog" aria-modal="false" tabindex="-1">
+     overflow:hidden can't clip it and its safe-area math is viewport-relative.
+     Not role="dialog" either (kit 0.9.0 sheet contract): it is non-modal and
+     the map stays usable beside it, so it is a labelled region (app.js sets
+     aria-label to "<station> station details"), not a dialog that doesn't
+     behave like one. -->
+<section id="station-sheet" class="sheet" hidden tabindex="-1">
   <div class="sheet-head" id="sheet-head">
     <span class="sheet-grab" aria-hidden="true"></span>
     <button type="button" class="sheet-expand" id="sheet-expand" aria-expanded="false">
@@ -1509,8 +1415,6 @@
   </div>
   <div class="sheet-body" id="sheet-body"></div>
 </section>
-
-<div id="sr-announce" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
 <dialog id="info-modal" class="mco-modal" aria-labelledby="info-modal-title">
   <div class="info-modal-box">
@@ -1633,7 +1537,7 @@
 
     <div class="scale-actions">
       <button type="button" class="nav-btn" id="scale-reset">Reset to automatic</button>
-      <button type="button" class="nav-btn" id="scale-apply">Apply</button>
+      <button type="button" class="nav-btn is-primary" id="scale-apply">Apply</button>
     </div>
   </div>
 </dialog>
@@ -1643,19 +1547,19 @@
         integrity="sha384-qaUb9sZ45HYxNQezOWPyOMTRR7yph9xtoAW8TyJGHen5BcUmaBIcDil9Yj48HGav"
         crossorigin="anonymous"></script>
 
-<!-- mco-web-style @0.11.2 — classic scripts, so they run before the deferred
+<!-- mco-web-style @0.11.3 — classic scripts, so they run before the deferred
      module below and MCO / MCO.map are already globals by the time it does.
      MapLibre is not among them: app.js awaits MCO.map.loadMapLibre(). The
      palette module loads before mco-map.js (its marker paints read it).
      SRI hashes are the kit README's table for this exact tag; bumping @version
      without recomputing them hard-fails in the browser, which is the point. -->
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/core/mco-core.js"
-        integrity="sha384-b4r3+tK/yiZ4TNEllSsbDX3qW0NhcHDsF2iPzUWunUc2vNf1qlq9t9qo2YWgoZiK"
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.3/core/mco-core.js"
+        integrity="sha384-hwEGm+GrEB8L4Msos8t4L3tzlXRPiHR11CFgFn1jYSvD4izhSHQJIodHgm4ZuRf8"
         crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/palette/mco-palette.js"
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.3/palette/mco-palette.js"
         integrity="sha384-P+8vdCR12oZ388lO/orPRnm6Tcz69x6mhN32l7AWP7j8S7KCNijXDZrmYjWuXm8J"
         crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.2/map/mco-map.js"
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.3/map/mco-map.js"
         integrity="sha384-tmDqtqi4yYiDHOxkZikwzXF3Lpkb63b0Tu6K7jeCpU9gJkPB2GbpFHLasGHka6zP"
         crossorigin="anonymous"></script>
 

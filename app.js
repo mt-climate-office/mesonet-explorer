@@ -31,40 +31,28 @@
     `&BBOX={bbox-epsg-3857}&_ts=${ts}`;
 
   // ── Color ramps (hex stops, low → high) ──────────────────────────────────
-  // ColorBrewer (colorbrewer2.org) plus a curated subset of Fabio Crameri's
-  // Scientific colour maps (perceptually uniform, colour-vision-deficiency
-  // safe; the *O maps are cyclic — first stop === last stop).
+  // The approved ramps come from the kit's MCO.palette (0.9.0, HOUSE-STYLE §6);
+  // the eight shared names were byte-identical here. The Crameri maps the kit
+  // doesn't carry stay local (data-encoding, CVD-safe):
   // Crameri, F. (2018). Scientific colour maps. Zenodo.
   // doi:10.5281/zenodo.1243862 — MIT license. https://www.fabiocrameri.ch/colourmaps/
+  // Spectral is gone: banned by §6 (red→green, not colorblind-safe). A shared
+  // ?ramp=spectral link opens on RdBu, with a toast saying so.
+  const KIT_RAMPS = ['RdBu', 'BrBG', 'YlGnBu', 'YlOrRd', 'Blues', 'PuRd', 'batlow', 'romaO'];
   const RAMPS = {
-    // ColorBrewer
-    RdBu:     ['#67001f','#b2182b','#d6604d','#f4a582','#fddbc7','#f7f7f7','#d1e5f0','#92c5de','#4393c3','#2166ac','#053061'],
-    BrBG:     ['#543005','#8c510a','#bf812d','#dfc27d','#f6e8c3','#f5f5f5','#c7eae5','#80cdc1','#35978f','#01665e','#003c30'],
-    Spectral: ['#9e0142','#d53e4f','#f46d43','#fdae61','#fee08b','#ffffbf','#e6f598','#abdda4','#66c2a5','#3288bd','#5e4fa2'],
-    YlGnBu:   ['#ffffd9','#edf8b1','#c7e9b4','#7fcdbb','#41b6c4','#1d91c0','#225ea8','#253494','#081d58'],
-    YlOrRd:   ['#ffffcc','#ffeda0','#fed976','#feb24c','#fd8d3c','#fc4e2a','#e31a1c','#bd0026','#800026'],
-    Blues:    ['#f7fbff','#deebf7','#c6dbef','#9ecae1','#6baed6','#4292c6','#2171b5','#08519c','#08306b'],
-    PuRd:     ['#f7f4f9','#e7e1ef','#d4b9da','#c994c7','#df65b0','#e7298a','#ce1256','#980043','#67001f'],
-    // Crameri — sequential
-    batlow:   ['#011959','#103d5f','#185562','#30685c','#577647','#828231','#b38e2f','#e09651','#fba689','#fdb9c2','#faccfa'],
+    ...Object.fromEntries(KIT_RAMPS.map(n => [n, [...MCO.palette.RAMPS[n]]])),
+    // Crameri: sequential, diverging (odd stop count, neutral centre), cyclic.
     lajolla:  ['#191900','#31220e','#512d1e','#7d3b35','#b34947','#d9604e','#e38050','#e99d53','#f0bd57','#f9e384','#fffecb'],
     davos:    ['#00054a','#102a6f','#234a8c','#3a679b','#547d9c','#6c8e93','#849e89','#a4b68a','#d4dba8','#f5f5d7','#fefefe'],
     bamako:   ['#003b47','#0d4340','#1b4c37','#2e582b','#47681c','#637a0a','#818800','#a2930d','#c6ae39','#e5cb75','#ffe5ad'],
-    // Crameri — diverging (odd stop count: neutral center is a stop)
     vik:      ['#001261','#023a7b','#116496','#5496b7','#a7c9da','#ece5e0','#e1b8a0','#cd8961','#b75a26','#852206','#590008'],
     roma:     ['#7e1700','#984e14','#ac7726','#c1a343','#d2d484','#c0eac3','#89dad7','#4db3cf','#2d88be','#1e5fac','#033198'],
     broc:     ['#2c1a4c','#284174','#3f6b99','#7697b7','#b3c5d7','#ebeeec','#dcdbb8','#b6b67c','#81814c','#505023','#262600'],
     cork:     ['#2c194c','#284275','#3d6b98','#6f92b3','#adc1d4','#e6edec','#b7cfb7','#7ba77a','#438142','#195615','#0f2903'],
-    // Crameri — cyclic (0° and 360° share a color)
-    romaO:    ['#733957','#823c3d','#94502e','#aa752f','#c3a34b','#d5ce81','#cbe1b3','#a4d8cb','#74bbcd','#5495c0','#516da6','#62497d','#733957'],
     vikO:     ['#4f1a3d','#3f2c5b','#334b7f','#4575a1','#759ebc','#aebdc8','#d5beb3','#d7a387','#c57c56','#a34d2d','#7c271e','#611627','#4f1a3d'],
   };
   // Editor picker grouping + display names.
   const RAMP_GROUPS = [
-    // 'Spectral' is deliberately ABSENT: it traverses red→green and is not
-    // colorblind-safe, so HOUSE-STYLE §6 bans it. The ramp DATA is kept above
-    // so an already-shared ?ramp=Spectral link still renders what its sender
-    // saw — it just can't be newly chosen here.
     { label: 'ColorBrewer', ramps: ['RdBu','BrBG','YlGnBu','YlOrRd','Blues','PuRd'] },
     { label: 'Scientific colour maps (Crameri)',
       ramps: ['batlow','lajolla','davos','bamako','vik','roma','broc','cork','romaO','vikO'] },
@@ -329,21 +317,31 @@
   let _sheetOpen = false;
 
 
-  const srAnnounceEl = document.getElementById('sr-announce');
+  // Announcements go through MCO.announce (kit 0.8.0): the page's one polite
+  // region, present from load, cleared then set so a repeat is re-read, and
+  // de-duplicated within 500 ms.
 
   // ── Loading indicator (bar under the control bar; the navbar stamp is
   //    display:none on phones, so this is the only loading cue there) ───────
-  const loadingBarEl  = document.getElementById('loading-bar');
+  // The bar is the kit's MCO.loading (0.9.0): aria-busy on the map frame, a
+  // .mco-progress sweep that waits 300 ms so a fast load never flashes it, and
+  // one "Still loading…" announcement past 8 s. Started right away: the first
+  // paint should already say something is coming (the module still has to
+  // wait for MapLibre). The visible batch note below is this app's own.
+  const mapLoading    = MCO.loading(document.getElementById('main'), { label: 'Loading station data' });
   const loadingNoteEl = document.getElementById('loading-note');
-  function showLoading() { loadingBarEl.classList.add('active'); }
+  let _loading = false;
+  function showLoading() { _loading = true; mapLoading.start(); }
   function hideLoading() {
-    loadingBarEl.classList.remove('active');
+    _loading = false;
+    mapLoading.done();
     loadingNoteEl.hidden = true;
     loadingNoteEl.textContent = '';
   }
+  showLoading();
   function setLoadingNote(text) {
     // Only narrate long fetches that the user is actually waiting on.
-    if (!loadingBarEl.classList.contains('active')) return;
+    if (!_loading) return;
     loadingNoteEl.textContent = text;
     loadingNoteEl.hidden = !text;
   }
@@ -410,7 +408,11 @@
     const rampRaw = urlParams.get('ramp');
     if (rampRaw) {
       const rev = rampRaw.endsWith('-r');
-      const name = rev ? rampRaw.slice(0, -2) : rampRaw;
+      let name = rev ? rampRaw.slice(0, -2) : rampRaw;
+      if (MCO.palette.isBanned(name)) {
+        name = 'RdBu';
+        MCO.showToast('Spectral isn’t colorblind-safe, so this link opens on RdBu');
+      }
       if (RAMPS[name]) {
         o = o || {};
         o.ramp = name;
@@ -487,7 +489,7 @@
   // Headless export hook: ?export=light|dark forces the theme before the map
   // is built, then boot() auto-triggers a PNG export (photo-explorer pattern).
   // Read here with the rest of the URL state rather than down in the keyboard
-  // section: pushState() emits it, and pushState can run during init, which put
+  // section: writeUrl() emits it, and writeUrl can run during init, which put
   // the old late `const` in its temporal dead zone.
   const kbdShortcuts = getLower('kbd') !== 'off';
 
@@ -521,27 +523,24 @@
   // High-contrast counts as dark for palette purposes, so this tests
   // `!== 'light'` rather than `=== 'dark'`.
   function isDarkTheme() { return MCO.getTheme() !== 'light'; }
-  function syncThemeIcons() {
-    const dark = document.documentElement.dataset.theme !== 'light';
-    document.getElementById('icon-moon').style.display = dark ? 'none' : '';
-    document.getElementById('icon-sun') .style.display = dark ? ''     : 'none';
-    document.getElementById('btn-theme').setAttribute('aria-label',
-      dark ? 'Switch to light theme' : 'Switch to dark theme');
-  }
-  syncThemeIcons();
-
-  document.getElementById('btn-theme').addEventListener('click', () => {
-    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-    document.documentElement.dataset.theme = next;
-    MCO.lsSet('mco-theme', next);
-    syncThemeIcons();
+  // A 3-state toggle (kit 0.10.0, cycle: true): dark → light → high contrast,
+  // so high contrast is reachable from the page and not only from ?theme=. The
+  // icon shown and the aria-label name the theme a press switches TO. The
+  // button only sets the theme; everything that depends on it listens for the
+  // kit's mco:themechange (MCO.setTheme fires it and persists mco-theme), so a
+  // theme set from anywhere else re-styles the map the same way.
+  const themeToggle = MCO.initThemeToggle({
+    button: document.getElementById('btn-theme'),
+    iconSun: document.getElementById('icon-sun'),
+    iconMoon: document.getElementById('icon-moon'),
+    iconContrast: document.getElementById('icon-contrast'),
+    cycle: true,
+  });
+  document.addEventListener('mco:themechange', () => {
+    themeToggle.sync();
+    // The layers come back from the style.load handler beside the map.
     map.setStyle(MCO.map.cartoStyleUrl());
-    map.once('style.load', () => {
-      addCustomLayers();
-      map.getSource('stations')?.setData(_lastFC);
-      if (_spiderBucket) rebuildSpider();
-    });
-    pushState();
+    writeUrl();
   });
 
   // ── Info modal ───────────────────────────────────────────────────────────
@@ -558,7 +557,7 @@
   // it with the intro — a shared ?station= link used to land on this modal. The
   // seen-intro flag is still set, so it won't ambush them on a later visit
   // either; the ? button is always there. urlParams was snapshotted at boot, so
-  // pushState()'s rewrites can't affect this test.
+  // writeUrl()'s rewrites can't affect this test.
   const DEEP_LINK_PARAMS = ['station', 'var', 'mode', 'date', 'hour', 'scale',
                             'ramp', 'agg', 'net', 'lng', 'lat', 'zoom'];
   const _isDeepLink = DEEP_LINK_PARAMS.some(k => urlParams.has(k));
@@ -1032,6 +1031,19 @@
       ? { center: [_initLng, _initLat], zoom: _initZoom }
       : { bounds: MT_FIT_BOUNDS, fitBoundsOptions: FIT_OPTS }),
   });
+  // A basemap that 404s or hangs used to leave 'load' unfired and the loading
+  // bar spinning forever. watchBasemap (kit 0.8.0) retries the style, then
+  // falls back to a blank style that DOES load, with a Retry notice.
+  MCO.map.watchBasemap(map);
+  // Every style load wipes our sources and layers: the first one, a theme
+  // switch, and watchBasemap's retry or blank fallback alike. So re-add them on
+  // EVERY style.load, not once per caller. addCustomLayers is idempotent (it
+  // checks each id), so the first load's second call from 'load' is a no-op.
+  map.on('style.load', () => {
+    addCustomLayers();
+    if (_spiderBucket) rebuildSpider();
+  });
+
   // Top-LEFT on purpose: the station detail panel docks to the right edge, and
   // anything in a right-hand corner ends up underneath it.
   map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left');
@@ -1052,7 +1064,19 @@
     navGroup.appendChild(btn);
   })();
 
-  let _fitZoom;
+  // Zoom floor: the kit's MCO.map.installZoomFloor (0.8.0, hardened from this
+  // file's own guards: the re-entrancy latch and the 0.01 tolerance). Zooming
+  // out past the whole state springs back to the Montana extent; a setMinZoom
+  // clamp was tried here once and was wrong twice over (zoom-out did nothing,
+  // and MapLibre greys out its zoom-out button at minZoom with no explanation).
+  // App policy rides in onBeforeSnap: resizes are this app's own handler's
+  // business (it re-fits when you were AT the extent, and never under an open
+  // station unless the sidebar toggle asked), so the kit only snaps on zoom.
+  const zoomFloor = MCO.map.installZoomFloor(map, {
+    fitOpts: () => fitOpts(),
+    onBeforeSnap: ({ reason }) => reason === 'zoom' && _mapReady,
+  });
+  const fitZoom = () => zoomFloor.fitZoom();
   let _mapReady = false;
 
   // Cached static overlay FeatureCollections
@@ -1211,17 +1235,16 @@
       });
     }
     // The detail panel is docked at the edge rather than attached to the dot,
-    // so the dot itself has to say which station you're reading.
+    // so the dot itself has to say which station you're reading. The ring is
+    // the kit's --selection-ring, read per theme at paint time (the literal
+    // '#5aaee8' this replaced is the DARK value, and too pale on light). Added
+    // with the current selection so a theme switch, which rebuilds the style,
+    // keeps the ring on the open station.
     if (!map.getLayer('dots-selected')) {
       map.addLayer({
         id: 'dots-selected', type: 'circle', source: 'stations',
-        filter: ['==', ['get', 'station'], '__none__'],
-        paint: {
-          'circle-radius': 11,
-          'circle-color': 'rgba(0,0,0,0)',
-          'circle-stroke-width': 3,
-          'circle-stroke-color': '#5aaee8',
-        },
+        filter: ['==', ['get', 'station'], _selectedStation || '__none__'],
+        paint: MCO.map.selectionPaint({ radius: 11, width: 3 }),
       });
     }
     if (!map.getLayer('stations-badge')) {
@@ -1571,56 +1594,43 @@
       const disp = scale.displayDomain;
       const scalePart = !scale.endLabels && Number.isFinite(disp[0]) && Number.isFinite(disp[1])
         ? `, scale ${fmt(disp[0])} to ${fmt(disp[1])}${unit ? ' ' + unit : ''}` : '';
-      srAnnounceEl.textContent = `${entry.label}: ${counts.ok} stations reporting${scalePart}.`;
+      MCO.announce(`${entry.label}: ${counts.ok} stations reporting${scalePart}.`);
     }
   }
 
   // Non-visual access to the dataset: the WebGL dots are unreachable by
-  // keyboard and invisible to AT, so every render also fills a hidden table.
-  const srTableEl = document.getElementById('sr-station-table');
+  // keyboard and invisible to AT, so every render also fills a hidden table:
+  // the kit's MCO.srTable twin (0.8.0) — caption with the row count, row
+  // headers, cells by textContent, rebuilt only when the content changed, and
+  // never a live region (MCO.announce says what changed). The caption names
+  // the variable, so it is set per render; the table keeps its old id for
+  // anything that looks it up.
+  const srTwinOpts = {
+    container: document.getElementById('main'),
+    caption: 'Stations',
+    rowKey: (p) => p.station,
+    columns: [
+      { key: 'name', label: 'Station', rowHeader: true, value: (p) => `${p.name} (${p.station})` },
+      { key: 'sub_network', label: 'Network' },
+      { key: 'value', label: 'Value', value: (p) => p.__value },
+      { key: 'dt', label: 'Observed', value: (p) => typeof p.dt === 'number' ? MCO.formatStampMT(p.dt) : null },
+    ],
+  };
+  const srTwin = MCO.srTable(srTwinOpts);
+  srTwin.element.querySelector('table').id = 'sr-station-table';
   function renderSRTable() {
-    if (!_lastRender || !srTableEl) return;
+    if (!_lastRender) return;
     const { entry, unit } = _lastRender;
-    srTableEl.innerHTML = '';
-    const caption = document.createElement('caption');
-    caption.textContent = `${entry.label}${unit ? ` (${unit})` : ''} by station`;
-    srTableEl.appendChild(caption);
-    const thead = document.createElement('thead');
-    const hr = document.createElement('tr');
-    for (const h of ['Station', 'Network', 'Value', 'Observed']) {
-      const th = document.createElement('th');
-      th.scope = 'col';
-      th.textContent = h;
-      hr.appendChild(th);
-    }
-    thead.appendChild(hr);
-    srTableEl.appendChild(thead);
-    const tbody = document.createElement('tbody');
+    srTwinOpts.caption = `${entry.label}${unit ? ` (${unit})` : ''} by station`;
+    const unitFor = (p) => entry.fmt === 'compass'
+      ? ` (${Math.round(p.value)}°)` : (unit ? ' ' + unit : '');
     const rows = _lastFC.features
       .map(f => f.properties)
       .filter(p => activeNetworks.has(p.sub_network))
-      .sort((a, b) => a.name.localeCompare(b.name));
-    for (const p of rows) {
-      const tr = document.createElement('tr');
-      const unitFor = (p) => entry.fmt === 'compass'
-        ? ` (${Math.round(p.value)}°)` : (unit ? ' ' + unit : '');
-      const cells = [
-        `${p.name} (${p.station})`,
-        p.sub_network || '—',
-        p.cat === 'nodata' || p.value == null
-          ? 'no data'
-          : `${p.label}${unitFor(p)}${p.cat === 'stale' ? ' (stale)' : ''}`,
-        typeof p.dt === 'number' ? MCO.formatStampMT(p.dt) : '—',
-      ];
-      cells.forEach((text, i) => {
-        const cell = document.createElement(i === 0 ? 'th' : 'td');
-        if (i === 0) cell.scope = 'row';
-        cell.textContent = text;
-        tr.appendChild(cell);
-      });
-      tbody.appendChild(tr);
-    }
-    srTableEl.appendChild(tbody);
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(p => ({ ...p, __value: p.cat === 'nodata' || p.value == null
+        ? 'no data' : `${p.label}${unitFor(p)}${p.cat === 'stale' ? ' (stale)' : ''}` }));
+    srTwin.render(rows);
   }
 
   // Keep an open popup in step with the map — variable/time/unit changes and
@@ -1631,7 +1641,7 @@
     if (!_selectedStation || !_sheetOpen) return;
     const keepScroll = sheetBodyEl.scrollTop;
     const hadFocus = sheetEl.contains(document.activeElement);
-    sheetBodyEl.innerHTML = popupHTML(_selectedStation);
+    sheetBodyEl.replaceChildren(popupDOM(_selectedStation));
     sheetBodyEl.scrollTop = keepScroll;
     initPhotoCarousel(() => sheetEl, _selectedStation);
     wireSiblingLinks(sheetEl);
@@ -1654,45 +1664,48 @@
     }
   }
 
+  // Empty states are the kit's .mco-empty callout, built with textContent (the
+  // variable label is API-derived). Any error notice goes too: whatever state
+  // just rendered supersedes it.
   function updateEmptyState() {
+    clearErrorCard();
+    emptyStateEl.replaceChildren();
     if (!stations.length) { emptyStateEl.hidden = true; return; }
-    let msg = null;
+    let lead = null, rest = '';
     if (activeNetworks.size === 0) {
-      msg = '<strong>No networks selected.</strong> Click HydroMet or AgriMet to show stations.';
+      lead = 'No networks selected.'; rest = ' Click HydroMet or AgriMet to show stations.';
     } else if (_lastRender && _lastRender.counts.ok === 0) {
-      const label = _lastRender.entry.label;
-      msg = `<strong>No data</strong> for ${MCO.escapeHTML(label)} at this time. Try another variable, date, or time mode.`;
+      lead = 'No data';
+      rest = ` for ${_lastRender.entry.label} at this time. Try another variable, date, or time mode.`;
     }
-    if (msg) {
-      emptyStateEl.innerHTML = `<div class="empty-state-card">${msg}</div>`;
-      emptyStateEl.hidden = false;
-    } else {
-      emptyStateEl.hidden = true;
+    if (lead) {
+      const card = document.createElement('p');
+      card.className = 'mco-empty';
+      const b = document.createElement('strong');
+      b.textContent = lead;
+      card.append(b, rest);
+      emptyStateEl.appendChild(card);
     }
+    emptyStateEl.hidden = !lead;
   }
 
-  // Persistent error cards in the empty-state slot (a 2.8 s toast is the only
-  // other signal, and the navbar stamp is hidden on phones). A later
-  // successful render clears them via updateEmptyState().
-  function showErrorCard(msgHTML, onRetry) {
-    emptyStateEl.innerHTML = '';
-    const card = document.createElement('div');
-    card.className = 'empty-state-card';
-    const span = document.createElement('span');
-    span.innerHTML = msgHTML;
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'empty-state-retry';
-    btn.textContent = 'Retry';
-    btn.addEventListener('click', () => { emptyStateEl.hidden = true; onRetry(); });
-    card.append(span, btn);
-    emptyStateEl.appendChild(card);
-    emptyStateEl.hidden = false;
+  // Load failures are the kit's danger notice (MCO.notice, 0.8.0) floating at
+  // the top of the map: a visible "Error" tone word, Retry, a dismiss button,
+  // and one assertive announcement. A toast alone (gone in seconds, and the
+  // navbar stamp is hidden on phones) was never enough. A later render clears
+  // it through updateEmptyState().
+  let _errorNotice = null;
+  function clearErrorCard() { if (_errorNotice) { _errorNotice.close(); _errorNotice = null; } }
+  function showErrorCard(text, onRetry) {
+    clearErrorCard();
+    emptyStateEl.hidden = true;
+    _errorNotice = MCO.notice({
+      tone: 'danger', text, container: document.getElementById('main'), place: 'over',
+      action: { label: 'Retry', onClick: () => { clearErrorCard(); onRetry(); } },
+    });
   }
   function showRenderError(entry) {
-    showErrorCard(
-      `<strong>Couldn’t load ${MCO.escapeHTML(entry.label)}.</strong> The map still shows the previous selection.`,
-      () => render());
+    showErrorCard(`Couldn’t load ${entry.label}. The map still shows the previous selection.`, () => render());
   }
 
   // ── Legend ───────────────────────────────────────────────────────────────
@@ -1756,7 +1769,7 @@
       pressed: nodataShown,
       onToggle: () => {
         nodataShown = !nodataShown;
-        applyDotFilters(); render({ background: true }); pushState();
+        applyDotFilters(); render({ background: true }); writeUrl();
       },
     });
     if (activeMode === 'latest') {
@@ -1766,7 +1779,7 @@
         pressed: staleShown,
         onToggle: () => {
           staleShown = !staleShown;
-          applyDotFilters(); render({ background: true }); pushState();
+          applyDotFilters(); render({ background: true }); writeUrl();
         },
       });
     }
@@ -1814,14 +1827,19 @@
   function addLegendRow(parent, { label, swatchClass, pressed, onToggle }) {
     const row = document.createElement('button');
     row.type = 'button';
-    row.className = 'legend-row';
+    // The kit's legend row (0.8.0). Not MCO.initLegendToggles: these two rows
+    // are independent show/hide switches rebuilt on every render (their counts
+    // change), not a partition of the data, so isolate-on-double-click has
+    // nothing to mean here. The swatch is the hollow ring the map draws.
+    row.className = 'mco-legend-row';
     row.setAttribute('aria-pressed', pressed ? 'true' : 'false');
-    if (!pressed) row.classList.add('off');
     const sw = document.createElement('span');
-    sw.className = `legend-swatch ${swatchClass}`;
+    sw.className = `mco-legend-swatch ${swatchClass}`.trim();
+    sw.dataset.shape = 'hollow';
+    sw.style.setProperty('--swatch', 'var(--text-muted)');
     sw.setAttribute('aria-hidden', 'true');
     const lb = document.createElement('span');
-    lb.className = 'legend-lbl';
+    lb.className = 'mco-legend-label';
     lb.textContent = label;
     row.appendChild(sw);
     row.appendChild(lb);
@@ -1849,12 +1867,12 @@
     mk('Counties', overlayCounties, false, (on) => {
       overlayCounties = on;
       setOverlayVisibility();
-      pushState();
+      writeUrl();
     });
     mk('Watersheds', overlayWatersheds, false, (on) => {
       overlayWatersheds = on;
       setOverlayVisibility();
-      pushState();
+      writeUrl();
       if (on && !_hucFC) {
         loadHucOnce().catch(() => MCO.showToast('Watershed boundaries failed to load'));
       }
@@ -1889,7 +1907,7 @@
       if (map.getSource('radar')) map.removeSource('radar');
     }
     renderLegend();
-    pushState();
+    writeUrl();
   }
   function refreshRadarTiles() {
     if (!radarOn || !map.getSource('radar')) return;
@@ -1952,7 +1970,7 @@
     scaleOverride = null;  // a custom temperature domain is meaningless for precip
     syncAggUI();
     render();
-    pushState();
+    writeUrl();
   });
 
   // ── Aggregation selector ─────────────────────────────────────────────────
@@ -1983,7 +2001,7 @@
   aggSelect.addEventListener('change', () => {
     activeAgg = aggSelect.value;
     render();
-    pushState();
+    writeUrl();
   });
 
   // ── Time mode + date/hour controls ───────────────────────────────────────
@@ -2032,7 +2050,7 @@
     if (mode === 'latest' && radarWanted && !radarOn) setRadar(true);
     scheduleRefresh();
     render();
-    pushState();
+    writeUrl();
   }
   for (const btn of document.querySelectorAll('.seg-btn[data-mode]')) {
     btn.addEventListener('click', () => setMode(btn.dataset.mode));
@@ -2050,29 +2068,17 @@
     dateInput.value = d;
     if (activeMode === 'hourly') clampHour();
     render();
-    pushState();
+    writeUrl();
   }
   dateInput.addEventListener('change', () => setDate(dateInput.value));
 
-  // Pointer hold-to-repeat via a timer; Enter/Space step too (held keys
-  // repeat through the OS key-repeat, so the timer is pointer-only).
-  function makeStepper(btnId, step) {
-    const btn = document.getElementById(btnId);
-    let timeout, interval;
-    const start = () => {
-      step();
-      timeout = setTimeout(() => { interval = setInterval(step, 150); }, 450);
-    };
-    const stop = () => { clearTimeout(timeout); clearInterval(interval); };
-    btn.addEventListener('mousedown', start);
-    btn.addEventListener('touchstart', (e) => { e.preventDefault(); start(); }, { passive: false });
-    ['mouseup', 'mouseleave', 'touchend', 'touchcancel'].forEach(ev => btn.addEventListener(ev, stop));
-    btn.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); step(); }
-    });
-  }
-  makeStepper('btn-date-next', () => setDate(MCO.shiftDate(activeDate, +1)));
-  makeStepper('btn-date-prev', () => setDate(MCO.shiftDate(activeDate, -1)));
+  // Steppers are the kit's MCO.initStepper (0.9.0): click and Enter/Space step
+  // once, a held pointer repeats. No canStep: the bounds are enforced (with a
+  // toast saying why) by setDate/stepHour, and a button disabled under the
+  // keyboard focus would drop that focus on <body>.
+  const byId = (id) => document.getElementById(id);
+  MCO.initStepper({ prev: byId('btn-date-prev'), next: byId('btn-date-next'),
+    onStep: (d) => setDate(MCO.shiftDate(activeDate, d)) });
 
   function updateHourReadout() {
     hourReadout.textContent = `${MCO.pad2(activeHour)}:00`;
@@ -2098,10 +2104,10 @@
     if (d !== activeDate) { activeDate = d; dateInput.value = d; }
     updateHourReadout();
     render();
-    pushState();
+    writeUrl();
   }
-  makeStepper('btn-hour-next', () => stepHour(+1));
-  makeStepper('btn-hour-prev', () => stepHour(-1));
+  MCO.initStepper({ prev: byId('btn-hour-prev'), next: byId('btn-hour-next'),
+    onStep: (d) => stepHour(d) });
 
   // ── Units toggle ─────────────────────────────────────────────────────────
   function syncUnitsUI() {
@@ -2122,7 +2128,7 @@
       }
       syncUnitsUI();
       render();
-      pushState();
+      writeUrl();
     });
   }
 
@@ -2157,7 +2163,7 @@
         MCO.lsSet('mco-explorer-networks', JSON.stringify([...activeNetworks]));
         applyDotFilters();
         render({ background: true });   // recompute scale domain for visible nets
-        pushState();
+        writeUrl();
       });
       subnetFiltersEl.appendChild(chip);
     }
@@ -2173,7 +2179,7 @@
     for (const lid of ['dots-label', 'spider-label']) {
       if (map.getLayer(lid)) map.setLayoutProperty(lid, 'visibility', labelsOn ? 'visible' : 'none');
     }
-    pushState();
+    writeUrl();
   });
 
   // ── Legend collapse ──────────────────────────────────────────────────────
@@ -2201,7 +2207,7 @@
   setLegendCollapsed(legendCollapsed, { persist: false });
   function toggleLegend() {
     setLegendCollapsed(!legendCollapsed);
-    pushState();
+    writeUrl();
   }
   legendToggleBtn.addEventListener('click', (e) => {
     e.stopPropagation();   // the header row toggles too — don't double-fire
@@ -2336,14 +2342,14 @@
     scaleOverride = Object.keys(o).length ? o : null;
     scaleModal.close();
     render({ background: true });
-    pushState();
+    writeUrl();
   });
   document.getElementById('scale-reset').addEventListener('click', () => {
     scaleOverride = null;
     scaleModal.close();
     MCO.showToast('Scale reset to automatic');
     render({ background: true });
-    pushState();
+    writeUrl();
   });
 
   // ── Scale lock (pin) ─────────────────────────────────────────────────────
@@ -2364,112 +2370,33 @@
     // Reflect the new state immediately — the render below may wait on a fetch.
     legendPinBtn.setAttribute('aria-pressed', scaleLocked() ? 'true' : 'false');
     render({ background: true });   // data is cached; just recolor + relabel
-    pushState();
+    writeUrl();
   }
 
   // ── Search ───────────────────────────────────────────────────────────────
-  let _searchSorted = [];
-  let _activeSearchIndex = -1;
   const SEARCH_MAX_RESULTS = 8;
 
-  function populateSearch() {
-    _searchSorted = [...stations].sort((a, b) => a.name.localeCompare(b.name));
-  }
-
-  function matchScore(s, q) {
-    const n = s.name.toLowerCase();
-    const id = s.station.toLowerCase();
-    if (n === q || id === q)   return 0;
-    if (n.startsWith(q))       return 1;
-    if (id.startsWith(q))      return 2;
-    if (n.includes(q))         return 3;
-    if (id.includes(q))        return 4;
-    return Infinity;
-  }
-
-  function showSearchDropdown(rawQuery) {
-    const q = rawQuery.trim().toLowerCase();
-    if (!q) { hideSearchDropdown(); return; }
-    const matches = _searchSorted
-      .map(s => ({ s, score: matchScore(s, q) }))
-      .filter(m => m.score < Infinity)
-      .sort((a, b) => a.score - b.score || a.s.name.localeCompare(b.s.name))
-      .slice(0, SEARCH_MAX_RESULTS)
-      .map(m => m.s);
-    searchDropdown.innerHTML = '';
-    if (matches.length === 0) {
-      const li = document.createElement('li');
-      li.className = 'empty';
-      li.setAttribute('role', 'option');   // listbox children must be options
-      li.setAttribute('aria-disabled', 'true');
-      li.textContent = `No stations match "${rawQuery.trim()}"`;
-      searchDropdown.appendChild(li);
-      searchDropdown.hidden = false;
-      searchInput.setAttribute('aria-expanded', 'true');
-      _activeSearchIndex = -1;
-      srAnnounceEl.textContent = 'No matching stations.';
-      return;
-    }
-    for (const s of matches) {
-      const li = document.createElement('li');
-      li.setAttribute('role', 'option');
-      li.dataset.stationId = s.station;
-      li.id = `search-opt-${s.station}`;
-      const name = document.createElement('span');
-      name.className = 'search-name';
-      name.textContent = s.name;
-      const meta = document.createElement('span');
-      meta.className = 'search-meta';
-      meta.textContent = `${s.station} · ${s.sub_network || '—'}`;
-      li.appendChild(name);
-      li.appendChild(meta);
-      li.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        selectStation(s.station);
-      });
-      searchDropdown.appendChild(li);
-    }
-    searchDropdown.hidden = false;
-    searchInput.setAttribute('aria-expanded', 'true');
-    _activeSearchIndex = -1;
-    searchInput.removeAttribute('aria-activedescendant');
-    srAnnounceEl.textContent =
-      `${matches.length} station${matches.length === 1 ? '' : 's'} found.`;
-  }
-
-  function hideSearchDropdown() {
-    searchDropdown.hidden = true;
-    searchInput.setAttribute('aria-expanded', 'false');
-    _activeSearchIndex = -1;
-    searchInput.removeAttribute('aria-activedescendant');
-  }
+  // The combobox is the kit's MCO.initSearchBox (0.8.0, the APG pattern on the
+  // dashboard's model): roles and aria-* on the field and list, ranked matching
+  // (name, id, word starts, typos), Up/Down/Home/End/Enter/Esc, a polite
+  // debounced count, and the "No matches" note as a disabled option.
+  // Esc closes the list and restores the text, clears it on a second press,
+  // and lets the third through to the page (which closes the detail).
+  const searchBox = MCO.initSearchBox({
+    input: searchInput, listbox: searchDropdown,
+    items: () => stations.map(s => ({ id: s.station, label: s.name, meta: `${s.station} · ${s.sub_network || '—'}` })),
+    value: () => _selectedStation,
+    onSelect: (id) => selectStation(id),
+    label: 'Stations', limit: SEARCH_MAX_RESULTS,
+  });
+  function populateSearch() { searchBox.refresh(); }
 
   function selectStation(stationId) {
-    hideSearchDropdown();
     _popupFocusReturn = searchInput;   // hand focus back here when the popup closes
     flyToAndOpen(stationId);
-    searchInput.value = '';
   }
 
-  function setActiveSearchItem(idx) {
-    const items = searchDropdown.querySelectorAll('li');
-    if (!items.length) return;
-    if (idx < 0)             idx = items.length - 1;
-    if (idx >= items.length) idx = 0;
-    _activeSearchIndex = idx;
-    items.forEach((it, i) => {
-      it.classList.toggle('active', i === idx);
-      it.setAttribute('aria-selected', i === idx ? 'true' : 'false');
-    });
-    items[idx].scrollIntoView({ block: 'nearest' });
-    searchInput.setAttribute('aria-activedescendant', items[idx].id);
-  }
-
-  searchInput.addEventListener('input',  () => showSearchDropdown(searchInput.value));
-  searchInput.addEventListener('focus',  () => { if (searchInput.value) showSearchDropdown(searchInput.value); });
-  searchInput.addEventListener('blur',   () => setTimeout(hideSearchDropdown, 120));
-
-  function flyToAndOpen(stationId) {
+  function flyToAndOpen(stationId, openOpts = {}) {
     const s = stationById.get(stationId);
     if (!s) { MCO.showToast('Station not found'); return; }
     if (s.sub_network && !activeNetworks.has(s.sub_network)) {
@@ -2486,7 +2413,7 @@
     // station's panel on screen showing the wrong data for the whole flight
     // (~2-4 s), which reads as the search having done nothing. The panel is
     // geo-anchored, so it simply rides along with the camera.
-    openPopupFor(stationId, [s.longitude, s.latitude]);
+    openPopupFor(stationId, [s.longitude, s.latitude], openOpts);
     map.flyTo({
       center: [s.longitude, s.latitude],
       zoom: SEARCH_FLY_ZOOM, speed: SEARCH_FLY_SPEED, animate: !MCO.reducedMotion(),
@@ -2500,9 +2427,22 @@
     return f ? f.properties : null;
   }
 
-  function popupHTML(stationId) {
+  // The detail body, built with DOM APIs and textContent (HOUSE-STYLE §7, kit
+  // 0.8.0): no API value is ever parsed as HTML, escaped or not. Same markup
+  // and classes as the string builder it replaces, so .pop-* styling, the peek
+  // measurement and the carousel wiring are unchanged. Not MCO.map.popupContent:
+  // that is a title/facts/actions popup shell, and this panel carries a value
+  // block, sibling stations and a photo carousel.
+  function h_(tag, cls, text) {
+    const el = document.createElement(tag);
+    if (cls) el.className = cls;
+    if (text != null) el.textContent = text;
+    return el;
+  }
+  function popupDOM(stationId) {
+    const frag = document.createDocumentFragment();
     const s = stationById.get(stationId);
-    if (!s) return '';
+    if (!s) return frag;
     const rec = stationRecord(stationId);
     const lr = _lastRender;
     const elev = (typeof s.elevation === 'number')
@@ -2510,82 +2450,87 @@
       : '—';
     const installed = (typeof s.date_installed === 'number') ? MCO.formatDateMT(s.date_installed) : '—';
 
-    let valueBlock = '';
+    const head = h_('div', 'pop-head');
+    const heads = h_('div', 'pop-heads');
+    heads.append(h_('div', 'pop-title', s.name),
+      h_('div', 'pop-sub', `${s.station}${s.county ? ` · ${s.county} County` : ''}`));
+    const close = h_('button', 'pop-close', '×');
+    close.type = 'button';
+    close.setAttribute('aria-label', 'Close station details');
+    head.append(heads, close);
+    const badgeRow = h_('div');
+    badgeRow.style.marginTop = '6px';
+    badgeRow.appendChild(h_('span', 'pop-badge', s.sub_network || '—'));
+    frag.append(head, badgeRow);
+
     if (lr && rec) {
-      const varLabel = MCO.escapeHTML(lr.entry.label);
-      const unit = lr.unit ? MCO.escapeHTML(lr.unit) : '';
-      let num, timeLine = '', accent = 'var(--accent)';
+      const block = h_('div', 'pop-value');
+      const num = h_('div', 'pop-value-num mco-num-display');
+      let timeLine = '', accent = 'var(--accent-line)';
       if (rec.cat === 'nodata' || rec.value == null) {
-        num = '—';
+        num.textContent = '—';
         timeLine = 'No data for this selection';
       } else {
         // Compass variables read as points; degrees ride along for precision.
-        const unitPart = lr.entry.fmt === 'compass' ? `${Math.round(rec.value)}°` : unit;
-        num = `${MCO.escapeHTML(lr.fmt(rec.value))}<span class="pop-unit">${unitPart}</span>`;
+        const unitPart = lr.entry.fmt === 'compass' ? `${Math.round(rec.value)}°` : (lr.unit || '');
+        num.append(lr.fmt(rec.value), h_('span', 'pop-unit', unitPart));
         if (rec.color && rec.cat === 'ok') accent = rec.color;
         if (rec.dt) {
-          timeLine = activeMode === 'daily'
-            ? MCO.escapeHTML(MCO.formatDateMT(rec.dt))
-            : MCO.escapeHTML(MCO.formatStampMT(rec.dt));
+          timeLine = activeMode === 'daily' ? MCO.formatDateMT(rec.dt) : MCO.formatStampMT(rec.dt);
           if (rec.cat === 'stale') timeLine += ' · stale';
         }
       }
-      valueBlock = `
-        <div class="pop-value" style="--pop-accent:${MCO.escapeHTML(accent)}">
-          <div class="pop-value-var">${varLabel}</div>
-          <div class="pop-value-num">${num}</div>
-          ${timeLine ? `<div class="pop-value-time">${timeLine}</div>` : ''}
-        </div>`;
+      block.style.setProperty('--pop-accent', accent);
+      block.append(h_('div', 'pop-value-var', lr.entry.label), num);
+      if (timeLine) block.appendChild(h_('div', 'pop-value-time', timeLine));
+      frag.appendChild(block);
     }
 
-    // Co-located stations, reachable without the pointer-only spider.
+    const meta = h_('div', 'pop-meta');
+    for (const [k, v] of [['Elevation:', elev], ['Installed:', installed]]) {
+      const row = h_('div');
+      row.append(h_('strong', null, k), ` ${v}`);
+      meta.appendChild(row);
+    }
+    frag.appendChild(meta);
+
+    // Co-located stations, reachable without the pointer-only spider. One row
+    // per sibling rather than inline links: on touch the canvas spider is a
+    // poor affordance, so this list is the primary way across.
     const sibs = (bucketMembers.get(bucketById.get(stationId)) || [])
       .filter(m => m.station !== stationId);
-    // One row per sibling rather than inline comma-separated links: on touch the
-    // canvas spider is a poor affordance (it needs a hover to discover and a
-    // grace timer to travel), so this list is the primary way across.
-    const sibBlock = sibs.length ? `
-      <div class="pop-siblings">
-        <div class="pop-siblings-label">Also at this site</div>
-        ${sibs.map(m =>
-          `<button type="button" class="pop-sibling-link" data-station="${MCO.escapeHTML(m.station)}">
-             <span class="pop-sibling-name">${MCO.escapeHTML(m.name)}</span>
-             <span class="pop-sibling-net">${MCO.escapeHTML(m.sub_network || '—')}</span>
-           </button>`
-        ).join('')}
-      </div>` : '';
+    if (sibs.length) {
+      const box = h_('div', 'pop-siblings');
+      box.appendChild(h_('div', 'pop-siblings-label', 'Also at this site'));
+      for (const m of sibs) {
+        const b = h_('button', 'pop-sibling-link');
+        b.type = 'button';
+        b.dataset.station = m.station;
+        b.append(h_('span', 'pop-sibling-name', m.name), h_('span', 'pop-sibling-net', m.sub_network || '—'));
+        box.appendChild(b);
+      }
+      frag.appendChild(box);
+    }
 
-    return `
-      <div class="pop-head">
-        <div class="pop-heads">
-          <div class="pop-title">${MCO.escapeHTML(s.name)}</div>
-          <div class="pop-sub">${MCO.escapeHTML(s.station)}${s.county ? ` · ${MCO.escapeHTML(s.county)} County` : ''}</div>
-        </div>
-        <button type="button" class="pop-close" aria-label="Close station details">&times;</button>
-      </div>
-      <div style="margin-top:6px">
-        <span class="pop-badge">${MCO.escapeHTML(s.sub_network || '—')}</span>
-      </div>
-      ${valueBlock}
-      <div class="pop-meta">
-        <div><strong>Elevation:</strong> ${elev}</div>
-        <div><strong>Installed:</strong> ${installed}</div>
-      </div>
-      ${sibBlock}
-      <div class="pop-links">
-        <a href="${DASH_URL(stationId)}" target="_blank" rel="noopener">Station dashboard →</a>
-        <a href="${API}/latest/?stations=${encodeURIComponent(stationId)}" target="_blank" rel="noopener">Latest data (API) →</a>
-      </div>
-      ${carouselShell(stationId)}
-    `;
+    const links = h_('div', 'pop-links');
+    for (const [label, href] of [['Station dashboard →', DASH_URL(stationId)],
+                                 ['Latest data (API) →', `${API}/latest/?stations=${encodeURIComponent(stationId)}`]]) {
+      const a = h_('a', null, label);
+      a.href = href; a.target = '_blank'; a.rel = 'noopener';
+      links.appendChild(a);
+    }
+    frag.appendChild(links);
+    const car = carouselShell(stationId);
+    if (car) frag.appendChild(car);
+    return frag;
   }
 
   // The photo frame is reserved at full height from the first paint (never
   // `hidden`), so filling it in later can't resize the popup. Omitted outright
-  // only when we already KNOW there's no photo.
-  function carouselShell(stationId) {
-    if (photoFrameWanted(stationId) === false) return '';
-    return `
+  // only when we already KNOW there's no photo. Static, author-written markup
+  // (no values), so a template is fine here.
+  const CAROUSEL_TPL = document.createElement('template');
+  CAROUSEL_TPL.innerHTML = `
       <div class="pop-carousel" data-state="loading">
         <div class="pop-carousel-frame">
           <img class="pop-carousel-img" alt="">
@@ -2597,6 +2542,9 @@
           <span class="pop-carousel-counter"></span>
         </div>
       </div>`;
+  function carouselShell(stationId) {
+    if (photoFrameWanted(stationId) === false) return null;
+    return CAROUSEL_TPL.content.firstElementChild.cloneNode(true);
   }
 
   // ── Photo carousel ───────────────────────────────────────────────────────
@@ -2662,7 +2610,7 @@
     }));
   }
 
-  // Will this station show a photo frame? Answered synchronously so popupHTML
+  // Will this station show a photo frame? Answered synchronously so popupDOM
   // can reserve the frame's space in the FIRST paint — a frame that appears (or
   // vanishes) later changes the popup's height and makes MapLibre re-anchor it
   // while the user is reading. boot() warms the cache, so by the time anyone
@@ -2936,7 +2884,11 @@
     const chrome = (navbarEl?.offsetHeight || 0) + (controlBarEl?.offsetHeight || 0);
     const root = document.documentElement;
     root.style.setProperty('--chrome-h', `${chrome}px`);
-    if (_sheetOpen) root.style.setProperty('--sheet-h', `${sheetEl.offsetHeight}px`);
+    // --sheet-h drives the kit's html.mco-autolift (toast + bottom corner
+    // controls). Only a BOTTOM-docked sheet covers them; the desktop panel docks
+    // right, so it publishes 0.
+    root.style.setProperty('--sheet-h',
+      `${_sheetOpen && MCO.viewport.isCompact() ? sheetEl.offsetHeight : 0}px`);
   }
 
   // Flat padding, independent of what is open. The sidebar has its own column, so
@@ -2950,9 +2902,9 @@
   // Re-fit only when the user is already looking at the whole state; if they have
   // zoomed into a region, a container resize must not yank them out of it.
   function refitIfAtExtent() {
-    if (!_mapReady || _fitZoom === undefined) return;
-    const atExtent = map.getZoom() <= _fitZoom + 0.1;
-    _fitZoom = map.cameraForBounds(MT_FIT_BOUNDS, fitOpts()).zoom;
+    if (!_mapReady || fitZoom() === undefined) return;
+    const atExtent = map.getZoom() <= fitZoom() + 0.1;
+    zoomFloor.refresh();
     if (atExtent) map.fitBounds(MT_FIT_BOUNDS, { ...fitOpts(), animate: !MCO.reducedMotion() });
   }
 
@@ -2994,12 +2946,18 @@
   // top of the map: with one open, 38% of the surrounding dots were underneath
   // it and simply unclickable. A docked panel covers no dots at all, so any
   // station can be selected while another is showing, and the content swaps in
-  // place. Everything downstream (popupHTML, the carousel, sibling links,
-  // announcements, pushState) is dock-agnostic and shared.
-  function openPopupFor(stationId, lngLat) {
+  // place. Everything downstream (popupDOM, the carousel, sibling links,
+  // announcements, writeUrl) is dock-agnostic and shared.
+  // `fromHistory`: Back/Forward is re-applying a URL, so write nothing.
+  // `replace`: open without a history entry (a deep link at boot).
+  function openPopupFor(stationId, lngLat, { fromHistory = false, replace = false } = {}) {
     const s = stationById.get(stationId);
     if (!s) return;
     const ll = lngLat || [s.longitude, s.latitude];
+    // Drill-down: the FIRST step from "no station" gets its own history entry;
+    // switching stations while the panel is open replaces it, or every click
+    // would flood the history (HOUSE-STYLE §4).
+    const firstStep = !_sheetOpen;
     _selectedStation = stationId;
     openSheetFor(stationId, ll);
     announcePopup(stationId);
@@ -3008,7 +2966,9 @@
     // move is a targeted nudge when the dot you just picked would sit underneath
     // the panel; otherwise the map doesn't budge.
     revealSelectedDot(ll);
-    pushState();
+    if (fromHistory) return;
+    if (firstStep && !replace) MCO.pushUrlState(viewParams(), { state: { mcoDetail: stationId } });
+    else writeUrl();
   }
 
   // Our close button is the FIRST tabbable in the body (MapLibre's was appended
@@ -3046,7 +3006,7 @@
 
   function announcePopup(stationId) {
     const s = stationById.get(stationId);
-    if (!s || !srAnnounceEl) return;
+    if (!s) return;
     const rec = stationRecord(stationId);
     const lr = _lastRender;
     let valPart = 'no data';
@@ -3055,13 +3015,17 @@
         ? `${lr.entry.label} ${lr.fmt(rec.value)}, ${Math.round(rec.value)} degrees`
         : `${lr.entry.label} ${lr.fmt(rec.value)} ${lr.unit || ''}`;
     }
-    srAnnounceEl.textContent = `${s.name} (${s.station}), ${s.sub_network || 'station'}, ${valPart}.`;
+    MCO.announce(`${s.name} (${s.station}), ${s.sub_network || 'station'}, ${valPart}.`);
   }
 
   // Tears down whichever presentation is open. `silent` is for the swap path
   // (re-opening the same station in the other presentation), where clearing
   // _selectedStation would drop `?station=` from the URL.
-  function closeDetail({ silent = false } = {}) {
+  // Closing a panel that opened with its own history entry goes BACK to the
+  // entry before it, rather than leaving a dead "station open" entry behind
+  // for Back to land on. The popstate that follows only re-syncs the URL.
+  let _expectPop = false;
+  function closeDetail({ silent = false, fromHistory = false } = {}) {
     const had = _sheetOpen;
     // The panel's own chrome (grab handle, close button) is persistent markup,
     // so focus can still be inside it here; hiding it later would strand focus
@@ -3073,9 +3037,29 @@
     if (!silent && _selectedStation) {
       _selectedStation = null;
       highlightSelectedDot();
-      pushState();
+      if (fromHistory) return;
+      if (history.state && history.state.mcoDetail) { _expectPop = true; history.back(); }
+      else writeUrl();
     }
   }
+
+  // Back / Forward (MCO.onUrlState, kit 0.8.0). Only the station is ever
+  // pushed, so it is the only thing to re-apply: Back closes the panel (focus
+  // returns to what opened it, else the map), Forward reopens it. Other hash
+  // changes (the skip link's #main) leave the station as it is.
+  MCO.onUrlState((params) => {
+    if (_expectPop) { _expectPop = false; writeUrl(); return; }
+    const id = (params.get('station') || '').toLowerCase() || null;
+    if (id && stationById.has(id)) {
+      if (id !== _selectedStation || !_sheetOpen) openPopupFor(id, null, { fromHistory: true });
+    } else if (_selectedStation) {
+      closeDetail({ fromHistory: true });
+    }
+    // The entry Back/Forward landed on was written before the camera moved
+    // (the reveal nudge, a pan while reading): re-sync it to what is on
+    // screen, in place.
+    writeUrl();
+  });
   const closePopup = closeDetail;   // keep the existing call sites honest
 
   // ── Station sheet (compact viewports) ────────────────────────────────────
@@ -3083,7 +3067,7 @@
     const s = stationById.get(stationId);
     if (!s) return;
     sheetEl.setAttribute('aria-label', `${s.name} station details`);
-    sheetBodyEl.innerHTML = popupHTML(stationId);
+    sheetBodyEl.replaceChildren(popupDOM(stationId));
     sheetBodyEl.scrollTop = 0;
     // Unhide before sizing — a hidden element has no layout to measure.
     sheetEl.hidden = false;
@@ -3316,48 +3300,41 @@
     openPopupFor(props.station, lngLat);
   });
 
+  // The hover readout is the kit's MCO.map.initCursorTooltip (0.8.0): the
+  // queryRenderedFeatures dispatcher, textContent lines, cursor+14 placement
+  // flipped at the viewport edge, cursor: pointer, mouseout cleanup. Touch gets
+  // nothing here: browsers synthesize a mousemove on tap, which would show it
+  // under the finger, and the tap opens the sheet, whose peek IS the readout.
   const tooltipEl = document.getElementById('tooltip');
-  function showTooltip(props, e) {
-    const lr = _lastRender;
-    let valLine = '';
-    if (lr) {
-      const unit = lr.entry.fmt === 'compass'
-        ? ` · ${Math.round(props.value)}°`
-        : (lr.unit ? ` ${lr.unit}` : '');
-      valLine = props.value != null && props.label
-        ? `<span class="tooltip-val">${MCO.escapeHTML(props.label)}${MCO.escapeHTML(unit)}${props.cat === 'stale' ? ' · stale' : ''}</span>`
-        : `<span class="tooltip-val">no data</span>`;
-    }
-    tooltipEl.innerHTML =
-      `<span class="tooltip-name">${MCO.escapeHTML(props.name)}</span>` +
-      `<span class="tooltip-sub">${MCO.escapeHTML(props.station)}</span>` +
-      valLine;
-    tooltipEl.classList.add('visible');
-    // Flip to the other side of the cursor near the right/bottom viewport
-    // edges so the value isn't clipped.
-    const cx = e.originalEvent.clientX, cy = e.originalEvent.clientY, pad = 14;
-    let x = cx + pad, y = cy + pad;
-    if (x + tooltipEl.offsetWidth  > window.innerWidth  - 8) x = cx - tooltipEl.offsetWidth  - pad;
-    if (y + tooltipEl.offsetHeight > window.innerHeight - 8) y = cy - tooltipEl.offsetHeight - pad;
-    tooltipEl.style.left = `${Math.max(4, x)}px`;
-    tooltipEl.style.top  = `${Math.max(4, y)}px`;
-  }
-  function hideTooltip() { tooltipEl.classList.remove('visible'); }
+  MCO.map.initCursorTooltip(map, {
+    element: tooltipEl,
+    layers: HOVER_LAYERS,
+    render: (f) => {
+      if (MCO.viewport.isTouch()) return null;
+      const props = f.properties;
+      const lr = _lastRender;
+      let line = null;
+      if (lr) {
+        const unit = lr.entry.fmt === 'compass'
+          ? ` · ${Math.round(props.value)}°`
+          : (lr.unit ? ` ${lr.unit}` : '');
+        line = props.value != null && props.label
+          ? `${props.label}${unit}${props.cat === 'stale' ? ' · stale' : ''}`
+          : 'no data';
+      }
+      return { name: props.name, sub: props.station, line };
+    },
+  });
 
+  // Hovering an anchor of co-located stations fans them out (the tooltip above
+  // is separate). Same touch exclusion, for the same reason.
   let _hovered = false;
   map.on('mousemove', (e) => {
-    // Touch browsers synthesize a mousemove on tap, which would fire the
-    // tooltip and spiderfy the bucket right under the finger — where the user
-    // can't see either. On touch the tap opens the sheet instead, whose peek
-    // state is the readout hover gives a mouse.
     if (MCO.viewport.isTouch()) return;
     const layers = HOVER_LAYERS.filter(lid => map.getLayer(lid));
-    const feats = layers.length ? map.queryRenderedFeatures(e.point, { layers }) : [];
-    const f = feats[0] || null;
+    const f = (layers.length ? map.queryRenderedFeatures(e.point, { layers }) : [])[0] || null;
     if (f) {
-      map.getCanvas().style.cursor = 'pointer';
       cancelSpiderClose();
-      showTooltip(f.properties, e);
       _hovered = true;
       if (ANCHOR_LAYER_IDS.has(f.layer.id)
           && f.properties.colocationCount > 1
@@ -3365,15 +3342,11 @@
         openSpider(f.properties.bucket, f.geometry.coordinates.slice());
       }
     } else if (_hovered) {
-      map.getCanvas().style.cursor = '';
-      hideTooltip();
       scheduleSpiderClose();
       _hovered = false;
     }
   });
   map.getCanvas().addEventListener('mouseleave', () => {
-    map.getCanvas().style.cursor = '';
-    hideTooltip();
     scheduleSpiderClose();
     _hovered = false;
   });
@@ -3421,8 +3394,11 @@
       // is behind the one menu button.
       place(modeGroupEl, navControlsEl);
       place(variableGroupEl, navControlsEl);
-      place(dateGroup, controlBarEl);
-      place(hourGroup, controlBarEl);
+      // On the landscape rail the date and hour join them in the rail drawer,
+      // so no control row is left above the map; otherwise they are row 2.
+      const timeHome = MCO.viewport.isRail() ? navControlsEl : controlBarEl;
+      place(dateGroup, timeHome);
+      place(hourGroup, timeHome);
       place(searchWrapEl, sb('sb-search'));
       place(brandEl, sb('sb-brand'));
       place(navMetaEl, sb('sb-actions'));
@@ -3458,43 +3434,61 @@
     if (navControlsEl) navControlsEl.hidden = !navControlsEl.querySelector(':scope > *:not([hidden])');
   }
 
+  // Two jobs, two owners. Above compact the sidebar is a column you can
+  // collapse (this function: remembered, ?sidebar=, resizes the map). On
+  // compact it is an off-canvas drawer, and that is the kit's MCO.initDrawer
+  // (0.9.0, below): focus moves in and back, the rest of the page goes inert so
+  // Tab stays inside, Esc / the scrim / its × close it, and it is [hidden] when
+  // closed, so its controls leave the tab order and the accessibility tree
+  // (before, a closed drawer was only translated off-screen, every control in
+  // it still tabbable).
   function setSidebarOpen(open, { persist = true, refit = true } = {}) {
+    if (MCO.viewport.isCompact()) return;
     sidebarOpen = !!open;
     document.body.classList.toggle('sidebar-closed', !sidebarOpen);
     const label = sidebarOpen ? 'Hide controls' : 'Show controls';
     sidebarToggle.setAttribute('aria-expanded', sidebarOpen ? 'true' : 'false');
     sidebarToggle.setAttribute('aria-label', label);
     sidebarToggle.title = label;
-    btnDrawer.setAttribute('aria-expanded', sidebarOpen ? 'true' : 'false');
-    if (MCO.viewport.isCompact()) sidebarScrim.hidden = !sidebarOpen;
-    if (persist && !MCO.viewport.isCompact()) MCO.lsSet('mco-explorer-sidebar', sidebarOpen ? 'open' : 'closed');
+    if (persist) MCO.lsSet('mco-explorer-sidebar', sidebarOpen ? 'open' : 'closed');
     syncOverlayMetrics();
-    if (refit && !MCO.viewport.isCompact()) {
+    if (refit) {
       // The map container just changed width. MapLibre needs telling, and the
       // resize handler then re-fits if the user was at full extent.
       const settle = () => { _resizeFromSidebar = true; map.resize(); };
       if (MCO.reducedMotion()) settle(); else setTimeout(settle, 240);   // after the slide
     }
-    pushState();
+    writeUrl();
   }
 
   sidebarToggle.addEventListener('click', () => setSidebarOpen(!sidebarOpen));
-  btnDrawer.addEventListener('click', () => setSidebarOpen(!sidebarOpen));
-  sidebarScrim.addEventListener('click', () => setSidebarOpen(false));
+  // The landscape-phone rail (kit 0.10.0): the bar is a left column there and
+  // this opens its drawer (time + variable) beside it, with the same
+  // focus-in / inert / Esc-back-to-the-toggle contract as the sidebar drawer.
+  // Idle at every other size, where the drawer is display:contents.
+  const navRail = MCO.initNavRail({
+    toggle: document.getElementById('btn-rail'),
+    drawer: document.getElementById('nav-drawer'),
+    scrim: document.getElementById('rail-scrim'),
+  });
+
+  const sidebarDrawer = MCO.initDrawer({
+    drawer: sidebarEl, toggle: btnDrawer, scrim: sidebarScrim, modal: 'compact',
+    onChange: () => syncOverlayMetrics(),
+  });
 
   _sidebarReady = true;
   layoutControls();
-  setSidebarOpen(MCO.viewport.isCompact() ? false : sidebarOpen, { persist: false, refit: false });
+  setSidebarOpen(sidebarOpen, { persist: false, refit: false });   // no-op on compact
   // Releases the compact first-paint hold in index.html ("First paint"): every
   // control is now where it belongs, so the header and drawer can show.
   document.documentElement.classList.add('layout-ready');
 
   onViewportChange(() => {
     layoutControls();
-    // Crossing into compact turns the sidebar into a drawer: close it so it
-    // isn't covering the map. Crossing back out restores the saved preference.
-    if (MCO.viewport.isCompact()) setSidebarOpen(false, { persist: false, refit: false });
-    else setSidebarOpen(MCO.lsGet('mco-explorer-sidebar') !== 'closed',
+    // Crossing into compact the drawer takes over (closed); crossing back out
+    // restores the saved column preference.
+    if (!MCO.viewport.isCompact()) setSidebarOpen(MCO.lsGet('mco-explorer-sidebar') !== 'closed',
                         { persist: false });
   });
 
@@ -3516,35 +3510,11 @@
       // but the drawer may be what the user expects to open. Reveal it either way
       // before focusing, so the shortcut can't focus something invisible.
       if (!MCO.viewport.isCompact() && !sidebarOpen) setSidebarOpen(true);
+      if (MCO.viewport.isCompact() && !sidebarDrawer.isOpen()) sidebarDrawer.open();
       searchInput.focus();
       searchInput.select();
     }
   });
-  searchInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      e.stopPropagation();   // dismiss the search only — don't also close a popup
-      searchInput.value = '';
-      hideSearchDropdown();
-      searchInput.blur();
-      return;
-    }
-    if (searchDropdown.hidden) return;
-    const items = searchDropdown.querySelectorAll('li');
-    if (!items.length) return;
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setActiveSearchItem(_activeSearchIndex + 1);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setActiveSearchItem(_activeSearchIndex - 1);
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      const idx = _activeSearchIndex >= 0 ? _activeSearchIndex : 0;
-      const el = items[idx];
-      if (el && el.dataset.stationId) selectStation(el.dataset.stationId);
-    }
-  });
-
   // ── Export (PNG with MCO branding — photo-explorer pattern) ──────────────
   // Renders a fixed EXPORT_W×EXPORT_H map off-screen so the output is
   // identical regardless of the live viewport, composites a branding card
@@ -3705,6 +3675,9 @@
 
   // Branding card in the lower-left corner: MCO logo, titles, timestamp, and
   // the color-scale legend (a data map is unreadable without one).
+  // The kit's brand assets, at the same pinned tag as the stylesheet (bump
+  // with the kit tags in index.html).
+  const KIT_ASSETS = 'https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.3/assets';
   async function drawBranding(ctx, W, H) {
     const { entry, unit, scale } = _lastRender;
     const bgSurface = cssVar('--bg-surface');
@@ -3713,8 +3686,8 @@
     const textMuted = cssVar('--text-muted');
     const textSec   = cssVar('--text-secondary');
 
-    const BRAND_W = 310, BRAND_BOX_H = 128;
-    const BX = 24, BY = H - 24 - BRAND_BOX_H, PAD = 12, LOGO = 46;
+    const BRAND_W = 330, BRAND_BOX_H = 128;
+    const BX = 24, BY = H - 24 - BRAND_BOX_H, PAD = 12;
     const LX = BX + PAD, LY = BY + PAD;
 
     ctx.save();
@@ -3725,25 +3698,24 @@
     ctx.strokeStyle = borderClr; ctx.lineWidth = 1; ctx.stroke();
     ctx.restore();
 
-    // Vendored, not hot-linked: img-src no longer lists climate.umt.edu, and a
-    // same-origin image also can't taint the export canvas.
-    const logoImg = await loadImg('assets/mco-logo.png');
-    if (logoImg) {
-      ctx.save();
-      ctx.beginPath(); roundRectPath(ctx, LX, LY, LOGO, LOGO, 8); ctx.clip();
-      ctx.drawImage(logoImg, LX, LY, LOGO, LOGO);
-      ctx.restore();
-    }
+    // The MCO wordmark from the pinned kit tag (0.11.0, HOUSE-STYLE §1:
+    // "wordmark in exports", outlined artwork, never "Montana Climate Office"
+    // set in a font). The fixed-colour twin is picked by the CARD's
+    // background, which follows the export theme. jsDelivr sends CORS, so with
+    // crossOrigin the canvas stays exportable; img-src allows the host.
+    const onDark = MCO.getTheme() !== 'light';
+    const WM_H = 44, WM_W = Math.round(WM_H * 432 / 159);   // the SVG's aspect
+    const wordmark = await loadImg(`${KIT_ASSETS}/mco-wordmark-on-${onDark ? 'dark' : 'light'}.svg`);
+    if (wordmark) ctx.drawImage(wordmark, LX, LY - 2, WM_W, WM_H);
 
-    const TX = LX + LOGO + 10, TW = BX + BRAND_W - PAD - TX;
+    const TX = LX + WM_W + 12, TW = BX + BRAND_W - PAD - TX;
     ctx.textBaseline = 'middle';
     ctx.fillStyle = accentLt;
     ctx.font = "700 13px 'Outfit', system-ui, sans-serif";
-    ctx.fillText('Mesonet Explorer', TX, LY + 8, TW);
+    ctx.fillText('Mesonet Explorer', TX, LY + 10, TW);
     ctx.fillStyle = textMuted;
     ctx.font = "400 11px 'Outfit', system-ui, sans-serif";
-    ctx.fillText('Montana Climate Office', TX, LY + 23, TW);
-    ctx.fillText(exportTimeLabel(), TX, LY + 37, TW);
+    ctx.fillText(exportTimeLabel(), TX, LY + 28, TW);
 
     const aggSuffix = (activeMode !== 'latest' && aggSupported(entry))
       ? ` · ${AGG_LABEL[activeAgg || defaultAggFor(entry)]}` : '';
@@ -3790,27 +3762,6 @@
   }
 
   // ── URL state push ───────────────────────────────────────────────────────
-  function osTheme() {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  }
-
-  // Is the camera where a fresh load would have put it? cameraForBounds gives the
-  // same answer fitBounds acts on, so this stays correct as the container resizes
-  // (a collapsed sidebar means a wider map and therefore a different fit).
-  function atDefaultExtent() {
-    if (!_mapReady) return true;
-    let want;
-    try { want = map.cameraForBounds(MT_FIT_BOUNDS, fitOpts()); } catch { return false; }
-    if (!want) return false;
-    const wc = want.center;
-    const wlng = typeof wc.lng === 'number' ? wc.lng : wc[0];
-    const wlat = typeof wc.lat === 'number' ? wc.lat : wc[1];
-    const c = map.getCenter();
-    return Math.abs(map.getZoom() - want.zoom) < 0.02
-        && Math.abs(c.lng - wlng) < 0.01
-        && Math.abs(c.lat - wlat) < 0.01;
-  }
-
   // Builds the URL parameters for the current view.
   //
   // `full: false` (the address bar) omits anything sitting at its default, so a
@@ -3864,18 +3815,18 @@
     // The theme's default is the viewer's OS preference, so the address bar only
     // shows a deliberate override. A shared link always pins it.
     const theme = document.documentElement.dataset.theme;
-    if (theme) put('theme', theme, theme === osTheme());
+    if (theme) put('theme', theme, theme === MCO.osTheme());
     // The camera's default is the fitted Montana extent. All three or none — the
     // parser needs the set to position the map.
-    if (full || !atDefaultExtent()) {
-      const c = map.getCenter();
-      params.lng  = c.lng.toFixed(4);
-      params.lat  = c.lat.toFixed(4);
-      params.zoom = map.getZoom().toFixed(2);
-    }
+    // MCO.map.cameraParamsIfDefault (kit 0.8.0; replaces this file's local
+    // at-default-extent test): {} at the fitted extent, computed with the same
+    // fitOpts the fit control and zoom floor use, so it stays right as the
+    // container resizes. Before the map is ready the camera is the default.
+    if (full) Object.assign(params, MCO.map.cameraParams(map));
+    else if (_mapReady) Object.assign(params, MCO.map.cameraParamsIfDefault(map, { fitOpts }));
     if (_selectedStation) params.station = _selectedStation;
     // Not previously round-tripped, so it was silently lost on the first
-    // pushState. It's the WCAG 2.1.4 escape hatch for the single-character
+    // writeUrl. It's the WCAG 2.1.4 escape hatch for the single-character
     // shortcut — someone who needs it shouldn't have to re-add it every visit.
     // Deliberately NOT forced into a shared link: it is the sharer's input
     // preference, not part of what they were looking at.
@@ -3883,11 +3834,13 @@
     return params;
   }
 
-  function pushState() {
-    // A default view gets a clean URL — no trailing '?'.
-    const qs = new URLSearchParams(viewParams()).toString();
-    history.replaceState(null, '', qs ? `?${qs}` : location.pathname);
-  }
+  // URL writers (HOUSE-STYLE §4, kit 0.8.0). Every view adjustment (camera,
+  // filters, theme, date) REPLACES the current entry; only opening a station
+  // from a "no station" state PUSHES one (openPopupFor), so Back closes the
+  // panel and Forward reopens it. A default view gets a clean URL, no '?'.
+  // replaceUrlState keeps history.state, so the pushed entry keeps its
+  // {mcoDetail} mark while the panel stays open.
+  function writeUrl() { MCO.replaceUrlState(viewParams()); }
 
   function shareURL() {
     const qs = new URLSearchParams(viewParams({ full: true })).toString();
@@ -3897,7 +3850,7 @@
   // ── Map events ───────────────────────────────────────────────────────────
   map.on('load', () => {
     addCustomLayers();
-    _fitZoom = map.cameraForBounds(MT_FIT_BOUNDS, fitOpts()).zoom;
+    zoomFloor.refresh();
     _mapReady = true;
     syncOverlayMetrics();
     // The constructor fit used flat padding (the sidebar's width isn't known
@@ -3920,7 +3873,7 @@
     // pre-resize fit zoom tells us whether the user was at full extent (e.g.
     // the navbar wrapped on mobile after the chips loaded). If so, keep them
     // fitted to Montana rather than letting the state drift out of frame.
-    const wasAtExtent = _fitZoom !== undefined && map.getZoom() <= _fitZoom + 0.1;
+    const wasAtExtent = fitZoom() !== undefined && map.getZoom() <= fitZoom() + 0.1;
     clearTimeout(_resizeTimer);
     _resizeTimer = setTimeout(() => {
       _resizeTimer = null;
@@ -3932,7 +3885,7 @@
       // the height only. That must not move the camera.
       const chromeOnly = _lastMapSize && w === _lastMapSize.w && Math.abs(h - _lastMapSize.h) < 120;
       _lastMapSize = { w, h };
-      _fitZoom = map.cameraForBounds(MT_FIT_BOUNDS, fitOpts()).zoom;
+      zoomFloor.refresh();
       syncOverlayMetrics();
       if (chromeOnly && !fromSidebar) return;
       // Never yank the camera out from under an open detail on an incidental
@@ -3942,25 +3895,7 @@
     }, 200);
   });
 
-  // Zooming out past the whole state springs the camera back to the Montana
-  // extent. A `setMinZoom` clamp was tried instead and was wrong twice over: it
-  // made zooming out do nothing at all, and MapLibre disables its own zoom-out
-  // button at minZoom, so the control greyed out with no explanation.
-  //
-  // No loop: the fitBounds below settles at _fitZoom, so the guard is false on
-  // the zoomend it raises. _springingBack covers the animated case, where more
-  // zoomend events can arrive while the flight is still in progress.
-  const SPRING_EPS = 0.01;
-  let _springingBack = false;
-  map.on('zoomend', () => {
-    if (!_mapReady || _springingBack || _fitZoom === undefined) return;
-    if (map.getZoom() >= _fitZoom - SPRING_EPS) return;
-    _springingBack = true;
-    map.once('moveend', () => { _springingBack = false; });
-    map.fitBounds(MT_FIT_BOUNDS, { ...fitOpts(), animate: !MCO.reducedMotion() });
-  });
-
-  map.on('moveend', pushState);
+  map.on('moveend', writeUrl);
 
   // First-paint hold (kit 0.9.0). The first meaningful state is the station
   // dots ON THE CANVAS, not merely fetched: MapLibre tiles GeoJSON in its web
@@ -4002,11 +3937,9 @@
       console.error(err);
       setSyncStamp('error');
       hideLoading();
-      showErrorCard(
-        '<strong>Couldn’t reach the Mesonet API.</strong> Check your connection.',
-        () => boot());
+      showErrorCard('Couldn’t reach the Mesonet API. Check your connection.', () => boot());
       window.addEventListener('online',
-        () => { if (!stations.length) { emptyStateEl.hidden = true; boot(); } },
+        () => { if (!stations.length) { clearErrorCard(); boot(); } },
         { once: true });
       MCO.showToast(`Failed to load station list: ${err.message}`, 6000);
       MCO.ready();   // the error card IS the first meaningful state
@@ -4048,10 +3981,12 @@
 
     if (_initStation && stationById.has(_initStation)) {
       const s = stationById.get(_initStation);
-      if (_hasInitPos) openPopupFor(_initStation, [s.longitude, s.latitude]);
-      else             flyToAndOpen(_initStation);
+      // A deep link opens in place: no history entry for a station the page
+      // was loaded with.
+      if (_hasInitPos) openPopupFor(_initStation, [s.longitude, s.latitude], { replace: true });
+      else             flyToAndOpen(_initStation, { replace: true });
     } else {
-      pushState();
+      writeUrl();
     }
   }
 

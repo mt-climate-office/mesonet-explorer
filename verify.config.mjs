@@ -79,6 +79,28 @@ export default {
       await close();
     }
     {
+      // Drill-down history (HOUSE-STYLE §4): opening a station from no station
+      // pushes one entry; Back closes it with focus on the opener (here the
+      // search field) or the map; Forward reopens it.
+      const { page, close } = await open('', {});
+      const st = () => page.evaluate(() => ({ station: new URLSearchParams(location.search).get('station'),
+        open: !document.getElementById('station-sheet').hidden, focus: document.activeElement && document.activeElement.id,
+        canvas: !!(document.activeElement && document.activeElement.classList.contains('maplibregl-canvas')) }));
+      await page.focus('#search-input');
+      await page.keyboard.type('boze'); await page.waitForTimeout(600);
+      await page.keyboard.press('Enter'); await page.waitForTimeout(1500);
+      const opened = await st();
+      check('opening a station pushes ?station= and shows the panel', opened.open && !!opened.station, JSON.stringify(opened));
+      await page.goBack(); await page.waitForTimeout(1000);
+      const back = await st();
+      check('Back closes the station panel, focus on its opener or the map',
+        !back.open && !back.station && (back.focus === 'search-input' || back.canvas), JSON.stringify(back));
+      await page.goForward(); await page.waitForTimeout(1000);
+      const fwd = await st();
+      check('Forward reopens the same station', fwd.open && fwd.station === opened.station, JSON.stringify(fwd));
+      await close();
+    }
+    {
       const { page, close } = await open('?mode=daily&var=ppt', {});
       check('?mode=daily&var=ppt round-trips in the URL', await page.evaluate(() => /mode=daily/.test(location.search) && /var=ppt/.test(location.search)));
       await close();

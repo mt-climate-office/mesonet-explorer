@@ -3,7 +3,21 @@
 // Two contracts pull in opposite directions and both matter:
 //   - the address bar omits anything at its default, so a fresh load is bare;
 //   - the share button writes everything, so a recipient sees what the sharer saw.
-import { open, recorder } from '../lib/harness.mjs';
+import { open, recorder, clockNow } from '../lib/harness.mjs';
+
+// The app's default hour is the last COMPLETE Mountain-time hour
+// (MCO.lastCompleteHourMT), whatever the date: a load without ?hour= lands
+// there, so the URL rightly elides it. A fixed hour in a round-trip query is
+// therefore "the default" for one hour every day (hour=6 failed 07:00–07:59
+// MT). Pick the hour twelve away from the default at the page's clock, which
+// can never be it.
+function nonDefaultHour(now = clockNow()) {
+  const h = Number(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Denver', hour: 'numeric', hourCycle: 'h23',
+  }).format(now));
+  const last = (h + 23) % 24;          // lastCompleteHourMT().hour
+  return (last + 12) % 24;
+}
 
 export const name = 'url';
 
@@ -39,16 +53,18 @@ export async function run({ browser, origin }) {
   {
     const { ctx, page } = await open(browser, origin);
     const keys = () => page.evaluate(() => [...new URLSearchParams(location.search).keys()].sort().join(',') || '(none)');
-    const cycle = async (label, selector, expected, settle = 1800) => {
+    // `presses` is how many clicks bring the control back to its default: 2 for
+    // a toggle, 3 for the theme (dark → light → high contrast, kit 0.10.0).
+    const cycle = async (label, selector, expected, settle = 1800, presses = 2) => {
       await page.click(selector); await page.waitForTimeout(settle);
       const on = await keys();
-      await page.click(selector); await page.waitForTimeout(settle);
+      for (let i = 1; i < presses; i++) { await page.click(selector); await page.waitForTimeout(settle); }
       const off = await keys();
       t.check(`${label}: adds '${expected}' then clears it`, on === expected && off === '(none)', `${on} -> ${off}`);
     };
     await cycle('network chip', '#subnet-filters .chip', 'net');
     await cycle('value labels', '#btn-labels', 'labels');
-    await cycle('theme toggle', '#btn-theme', 'theme');
+    await cycle('theme toggle', '#btn-theme', 'theme', 1800, 3);
     await cycle('sidebar collapse', '#sidebar-toggle', 'sidebar', 2600);
     // Units are two buttons rather than a toggle.
     await page.click('[data-units="si"]'); await page.waitForTimeout(1800);
@@ -67,7 +83,7 @@ export async function run({ browser, origin }) {
   // Everything still works as input, and round-trips to the minimal form.
   for (const [query, expectKeys] of [
     ['?mode=daily', 'mode'],
-    ['?mode=hourly&date=2026-07-01&hour=6', 'date,hour,mode'],
+    [`?mode=hourly&date=2026-07-01&hour=${nonDefaultHour()}`, 'date,hour,mode'],
     ['?var=wind_spd&units=si&counties=on', 'counties,units,var'],
     ['?labels=off', 'labels'],
     ['?kbd=off', 'kbd'],
@@ -106,10 +122,15 @@ export async function run({ browser, origin }) {
     ['complex view', '?mode=hourly&var=wind_spd&units=si&station=acemocca&net=hydromet&counties=on&labels=off&legend=collapsed&sidebar=closed', 'dark'],
   ]) {
     const sender = await open(browser, origin, { query, colorScheme: senderScheme });
-    await sender.ctx.grantPermissions(['clipboard-read', 'clipboard-write']);
+    // Capture what the app hands the clipboard rather than reading it back:
+    // clipboard-read is a Chromium-only permission, and headless WebKit
+    // refuses the read, so this runs the same in both engines.
+    await sender.page.evaluate(() => {
+      navigator.clipboard.writeText = (text) => { window.__shared = text; return Promise.resolve(); };
+    });
     await sender.page.click('#btn-share');
     await sender.page.waitForTimeout(800);
-    const shared = await sender.page.evaluate(() => navigator.clipboard.readText());
+    const shared = await sender.page.evaluate(() => window.__shared);
     const senderState = await sender.page.evaluate(STATE);
     const sharedKeys = [...new URL(shared).searchParams.keys()];
     t.check(`share (${label}): fully specified`, sharedKeys.length >= 15, `${sharedKeys.length} parameters`);

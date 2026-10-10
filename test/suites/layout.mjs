@@ -24,7 +24,11 @@ const REACHABILITY = `(() => {
   }).map(el => el.textContent.trim().slice(0, 18));
   const nb = q('#navbar'), cb = q('#control-bar'), map = q('#map');
   const mr = map.getBoundingClientRect();
-  const chrome = Math.round(nb.getBoundingClientRect().height) + (cb.hidden ? 0 : Math.round(cb.getBoundingClientRect().height));
+  // On a landscape phone the navbar is the kit's left rail (0.10.0), beside the
+  // map rather than above it, so it only counts as chrome above when it spans
+  // the width.
+  const navAbove = nb.getBoundingClientRect().width >= innerWidth - 1;
+  const chrome = (navAbove ? Math.round(nb.getBoundingClientRect().height) : 0) + (cb.hidden ? 0 : Math.round(cb.getBoundingClientRect().height));
   const panel = sheet && sheet.getBoundingClientRect();
   return {
     dead,
