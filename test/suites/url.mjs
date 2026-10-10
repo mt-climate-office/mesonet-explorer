@@ -3,7 +3,21 @@
 // Two contracts pull in opposite directions and both matter:
 //   - the address bar omits anything at its default, so a fresh load is bare;
 //   - the share button writes everything, so a recipient sees what the sharer saw.
-import { open, recorder } from '../lib/harness.mjs';
+import { open, recorder, clockNow } from '../lib/harness.mjs';
+
+// The app's default hour is the last COMPLETE Mountain-time hour
+// (MCO.lastCompleteHourMT), whatever the date: a load without ?hour= lands
+// there, so the URL rightly elides it. A fixed hour in a round-trip query is
+// therefore "the default" for one hour every day (hour=6 failed 07:00–07:59
+// MT). Pick the hour twelve away from the default at the page's clock, which
+// can never be it.
+function nonDefaultHour(now = clockNow()) {
+  const h = Number(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Denver', hour: 'numeric', hourCycle: 'h23',
+  }).format(now));
+  const last = (h + 23) % 24;          // lastCompleteHourMT().hour
+  return (last + 12) % 24;
+}
 
 export const name = 'url';
 
@@ -69,7 +83,7 @@ export async function run({ browser, origin }) {
   // Everything still works as input, and round-trips to the minimal form.
   for (const [query, expectKeys] of [
     ['?mode=daily', 'mode'],
-    ['?mode=hourly&date=2026-07-01&hour=6', 'date,hour,mode'],
+    [`?mode=hourly&date=2026-07-01&hour=${nonDefaultHour()}`, 'date,hour,mode'],
     ['?var=wind_spd&units=si&counties=on', 'counties,units,var'],
     ['?labels=off', 'labels'],
     ['?kbd=off', 'kbd'],
