@@ -2563,7 +2563,10 @@
   //   Hourly/Daily  the archive's per-station MONTHLY manifest CSV, one fetch
   //                 (70-250 KB) that then covers every day in the month, so
   //                 scrubbing through days costs nothing more.
-  const PHOTO_BASE = 'https://data2.climate.umt.edu/mesonet';
+  // TEMPORARY: data2.climate.umt.edu's TLS certificate expired (2026-10-18); its
+  // CloudFront distribution's default domain serves the same paths. Revert to
+  // 'https://data2.climate.umt.edu/mesonet' (and drop it from the CSP) once renewed.
+  const PHOTO_BASE = 'https://d1s8jav5n0eyyf.cloudfront.net/mesonet';
   const PHOTO_PREFIX = 'photos/webp/large';
   const PHOTO_TTL = 5 * 60_000;      // re-check anything still changing on the refresh cadence
 

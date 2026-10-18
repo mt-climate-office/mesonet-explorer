@@ -14,7 +14,7 @@ export const name = 'photos';
 const STATION = 'aceabsar';
 const DATE = '2026-09-01';           // legacy patrol: frames at 09:00 and 15:00 MDT only
 const HOURLY_DATE = '2026-09-15';    // hourly patrol trial: a frame every hour
-const ARCHIVE = 'https://data2.climate.umt.edu/mesonet/photos/webp/large/';
+const ARCHIVE = 'https://d1s8jav5n0eyyf.cloudfront.net/mesonet/photos/webp/large/';
 
 /** Wait for the carousel to settle, then describe it. */
 async function carousel(page) {
@@ -172,7 +172,7 @@ export async function run({ browser, origin }) {
     const pick = await (async () => {
       try {
         const [sched, api] = await Promise.all([
-          fetch('https://data2.climate.umt.edu/mesonet/photos/schedule/schedule.json').then(r => r.json()),
+          fetch('https://d1s8jav5n0eyyf.cloudfront.net/mesonet/photos/schedule/schedule.json').then(r => r.json()),
           fetch('https://mesonet2.climate.umt.edu/api/photos/?type=json').then(r => r.json()),
         ]);
         const known = new Set(api.map(r => r['Station ID']));
