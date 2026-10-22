@@ -85,7 +85,8 @@ All station data come live from the **[Montana Mesonet API v2](https://mesonet2.
 |---|---|
 | `/stations/` | Station metadata (fetched once at boot) |
 | `/observations/grouped/` | Core observations, all three modes (`latest=true`, `hour=true`, or `day=true` + `start_time`/`end_time`); one fetch per mode/timestamp serves ~21 variables |
-| `/derived/`, `/derived/hourly/`, `/derived/daily/` | Derived variables (feels-like, ET, GDD, saturation, SWP, frost depth, …), per element |
+| `/derived/`, `/derived/hourly/`, `/derived/daily/` | Derived variables (feels-like, ET, GDD, frost depth, …), per element |
+| `/latest/`, `/observations/hourly/`, `/observations/daily/` + data2 `mesonet/soils/soil_params.json` | Percent saturation and soil water potential, computed client-side from per-depth VWC and the mesonet-soils lab fits (the API retired both in Oct 2026; same math as mesonet-dashboard's `web/src/core/ag/compute/soil.ts`), then averaged into shallow/mid/deep bands |
 | `/derived/ppt/` | Precipitation accumulation windows (Latest only) |
 | `/derived/change/` | Soil-moisture change (Latest only; fetched in station batches — the unfiltered call times out) |
 | `/latest/`, `/observations/hourly/`, `/observations/daily/` | VPD and well variables (`elements=` list); also all aggregation (`agg_func=`) queries |

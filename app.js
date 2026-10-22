@@ -98,6 +98,8 @@
   //   'pptwin' → /derived/ppt/ (latest only; all precip windows in one call)
   //   'extra'  → /latest or /observations/(hourly|daily) with elements= list
   //   'change' → /derived/change/ (latest only; deferred, station-batched)
+  //   'soil'   → per-depth VWC + mesonet-soils lab fits, computed client-side
+  //              (calc 'sat' | 'swp'; the API retired both in Oct 2026)
   // col: display-name prefix of the wide column (before any "(...)"/unit suffix)
   // modes: which time modes support the variable
   // scale: {ramp, rev, mid, log} — mid keyed by displayed unit; log → color-map in log10 space
@@ -147,12 +149,12 @@
     { key:'soil_vwc_shallow', label:'Soil VWC — Shallow (0–4 in)',   group:'Soil Moisture', col:'Shallow Soil VWC',   source:'obs', els:['soil_vwc_0005','soil_vwc_0010'], band:true, modes:ALL_MODES, scale:{ramp:'YlGnBu'} },
     { key:'soil_vwc_mid',     label:'Soil VWC — Mid (8–20 in)',      group:'Soil Moisture', col:'Mid-depth Soil VWC', source:'obs', els:['soil_vwc_0020','soil_vwc_0050'], band:true, modes:ALL_MODES, scale:{ramp:'YlGnBu'} },
     { key:'soil_vwc_deep',    label:'Soil VWC — Deep (28–40 in)',    group:'Soil Moisture', col:'Deep Soil VWC',      source:'obs', els:['soil_vwc_0070','soil_vwc_0076','soil_vwc_0091','soil_vwc_0100'], band:true, modes:ALL_MODES, scale:{ramp:'YlGnBu'} },
-    { key:'sat_shallow', label:'Percent Saturation — Shallow', group:'Soil Moisture', col:'Shallow Percent Saturation',   source:'derived', element:'percent_saturation', modes:ALL_MODES, scale:{ramp:'BrBG'} },
-    { key:'sat_mid',     label:'Percent Saturation — Mid',     group:'Soil Moisture', col:'Mid Depth Percent Saturation', source:'derived', element:'percent_saturation', modes:ALL_MODES, scale:{ramp:'BrBG'} },
-    { key:'sat_deep',    label:'Percent Saturation — Deep',    group:'Soil Moisture', col:'Deep Percent Saturation',      source:'derived', element:'percent_saturation', modes:ALL_MODES, scale:{ramp:'BrBG'} },
-    { key:'swp_shallow', label:'Soil Water Potential — Shallow', group:'Soil Moisture', col:'Shallow Soil Water Potential',   source:'derived', element:'swp', modes:ALL_MODES, scale:{ramp:'BrBG', log:true}, fmt:'p2' },
-    { key:'swp_mid',     label:'Soil Water Potential — Mid',     group:'Soil Moisture', col:'Mid Depth Soil Water Potential', source:'derived', element:'swp', modes:ALL_MODES, scale:{ramp:'BrBG', log:true}, fmt:'p2' },
-    { key:'swp_deep',    label:'Soil Water Potential — Deep',    group:'Soil Moisture', col:'Deep Soil Water Potential',      source:'derived', element:'swp', modes:ALL_MODES, scale:{ramp:'BrBG', log:true}, fmt:'p2' },
+    { key:'sat_shallow', label:'Percent Saturation — Shallow', group:'Soil Moisture', col:'Shallow Percent Saturation',   source:'soil', calc:'sat', modes:ALL_MODES, scale:{ramp:'BrBG'} },
+    { key:'sat_mid',     label:'Percent Saturation — Mid',     group:'Soil Moisture', col:'Mid Depth Percent Saturation', source:'soil', calc:'sat', modes:ALL_MODES, scale:{ramp:'BrBG'} },
+    { key:'sat_deep',    label:'Percent Saturation — Deep',    group:'Soil Moisture', col:'Deep Percent Saturation',      source:'soil', calc:'sat', modes:ALL_MODES, scale:{ramp:'BrBG'} },
+    { key:'swp_shallow', label:'Soil Water Potential — Shallow', group:'Soil Moisture', col:'Shallow Soil Water Potential',   source:'soil', calc:'swp', modes:ALL_MODES, scale:{ramp:'BrBG', rev:true, log:true}, fmt:'p2' },
+    { key:'swp_mid',     label:'Soil Water Potential — Mid',     group:'Soil Moisture', col:'Mid Depth Soil Water Potential', source:'soil', calc:'swp', modes:ALL_MODES, scale:{ramp:'BrBG', rev:true, log:true}, fmt:'p2' },
+    { key:'swp_deep',    label:'Soil Water Potential — Deep',    group:'Soil Moisture', col:'Deep Soil Water Potential',      source:'soil', calc:'swp', modes:ALL_MODES, scale:{ramp:'BrBG', rev:true, log:true}, fmt:'p2' },
     // Soil moisture change (latest only — /derived/change/, deferred fetch)
     { key:'dvwc_shallow_1',  label:'Δ VWC 1-day — Shallow',  group:'Soil Moisture', col:'1-day',  depth:'shallow', source:'change', modes:['latest'], scale:{ramp:'BrBG', mid:{'%':0}}, fmt:'p1' },
     { key:'dvwc_mid_1',      label:'Δ VWC 1-day — Mid',      group:'Soil Moisture', col:'1-day',  depth:'mid',     source:'change', modes:['latest'], scale:{ramp:'BrBG', mid:{'%':0}}, fmt:'p1' },
@@ -809,6 +811,99 @@
     });
   }
 
+  // Percent saturation and soil water potential: the API dropped both when the
+  // lab soil calibrations moved out of it (mesonet-db-rds 7ac1d88), so they
+  // are computed here the way mesonet-dashboard does (web/src/core/ag/compute/
+  // soil.ts): per-depth VWC from the raw-element endpoints, plus mesonet-soils'
+  // fits from data2. Percent saturation = clip(VWC / porosity, 0–100 %); SWP =
+  // Fredlund–Xing inverse of VWC clipped to that station+depth's lab range.
+  // Depths then average into the shallow/mid/deep bands, as the API's grouped
+  // output did, under the old column names so extractValues is unchanged.
+  const SOIL_PARAMS_URL = 'https://data2.climate.umt.edu/mesonet/soils/soil_params.json';
+  const SOIL_VWC_ELS = ['soil_vwc_0005','soil_vwc_0010','soil_vwc_0020','soil_vwc_0050',
+                        'soil_vwc_0070','soil_vwc_0076','soil_vwc_0091','soil_vwc_0100'];
+  const SOIL_BAND_COL = {
+    sat: { shallow: 'Shallow Percent Saturation', mid: 'Mid Depth Percent Saturation', deep: 'Deep Percent Saturation' },
+    swp: { shallow: 'Shallow Soil Water Potential', mid: 'Mid Depth Soil Water Potential', deep: 'Deep Soil Water Potential' },
+  };
+  // Band edges in cm, as the API's reclassify_soil_by_depth.
+  const soilBand = (cm) => cm <= 10 ? 'shallow' : cm <= 50 ? 'mid' : 'deep';
+
+  // → Map("station|depthCm" → {fx:{r,s,n,m,h}|null, por, lo, hi})
+  function fetchSoilParams() {
+    return cached('soilparams', async () => {
+      const j = await MCO.fetchJSON(SOIL_PARAMS_URL, { timeoutMs: 15_000 });
+      const ci = Object.fromEntries(j.columns.map((c, i) => [c, i]));
+      const obj = (keys, vals) => vals ? Object.fromEntries(keys.map((k, i) => [k, vals[i]])) : null;
+      const out = new Map();
+      for (const r of j.rows) {
+        out.set(`${r[ci.station]}|${r[ci.depthCm]}`, {
+          fx:  obj(j.fxKeys, r[ci.fx]),
+          por: r[ci.porosityPct],
+          lo:  r[ci.labVwcMinPct] ?? -Infinity,
+          hi:  r[ci.labVwcMaxPct] ?? Infinity,
+        });
+      }
+      return out;
+    });
+  }
+
+  function fetchSoilVwc(mode, date, hour) {
+    const tk = timeKeyFor(mode, date, hour);
+    const els = SOIL_VWC_ELS.map(e => `elements=${e}`).join('&');
+    return cached(`soilvwc|${tk}`, () => {
+      let url;
+      if (mode === 'latest') {
+        url = `${API}/latest/?type=json&${els}&units=us`;
+      } else if (mode === 'hourly') {
+        const w = hourWindow(date, hour);
+        url = `${API}/observations/hourly/?type=json&${els}&wide=true&start_time=${w.start}&end_time=${w.end}&units=us&rm_na=true&tz=${encodeURIComponent(TZ)}`;
+      } else {
+        url = `${API}/observations/daily/?type=json&${els}&wide=true&start_time=${date}&end_time=${MCO.shiftDate(date, 1)}&units=us&rm_na=true&tz=${encodeURIComponent(TZ)}`;
+      }
+      return MCO.fetchJSON(url, { timeoutMs: timeoutForMode(mode) });
+    });
+  }
+
+  // Fredlund–Xing inverse, θ (fraction) → ψ (kPa); non-finite → null.
+  function fxInverse(theta, p) {
+    const inner = Math.exp(((p.s - p.r) / (theta - p.r)) ** (1 / p.m)) - Math.E;
+    const v = p.h * inner ** (1 / p.n);
+    return Number.isFinite(v) ? v : null;
+  }
+
+  function fetchSoilDerived(entry, mode, date, hour, units) {
+    const tk = timeKeyFor(mode, date, hour);
+    return cached(`soil:${entry.calc}|${units}|${tk}`, async () => {
+      const [rows, params] = await Promise.all([fetchSoilVwc(mode, date, hour), fetchSoilParams()]);
+      const unit = entry.calc === 'sat' ? '%' : units === 'si' ? 'kPa' : 'bar';
+      const cols = SOIL_BAND_COL[entry.calc];
+      return rows.map(row => {
+        const acc = { shallow: [], mid: [], deep: [] };
+        for (const [k, vwc] of Object.entries(row)) {
+          const m = k.match(/^Soil VWC @ -(\d+) cm/);
+          if (!m || typeof vwc !== 'number' || !Number.isFinite(vwc)) continue;
+          const cm = +m[1];
+          const p = params.get(`${row.station}|${cm}`);
+          if (!p) continue;
+          let v = null;
+          if (entry.calc === 'sat') {
+            if (typeof p.por === 'number') v = Math.min(100, Math.max(0, vwc / p.por * 100));
+          } else if (p.fx) {
+            v = fxInverse(Math.min(p.hi, Math.max(p.lo, vwc)) / 100, p.fx);
+            if (v != null && unit === 'bar') v /= 100;
+          }
+          if (v != null) acc[soilBand(cm)].push(v);
+        }
+        const out = { station: row.station, datetime: row.datetime };
+        for (const b of ['shallow', 'mid', 'deep']) {
+          if (acc[b].length) out[`${cols[b]} [${unit}]`] = acc[b].reduce((a, c) => a + c, 0) / acc[b].length;
+        }
+        return out;
+      });
+    });
+  }
+
   // Aggregation fetches bypass the grouped route (it ignores agg_func) and
   // query /observations/hourly|daily per entry with its raw element ids.
   // The plain endpoints handle units correctly, so no SI fixups here.
@@ -850,6 +945,7 @@
       case 'pptwin':  return fetchPptWindows(units);
       case 'extra':   return fetchExtra(mode, date, hour, units);
       case 'change':  return fetchChange();
+      case 'soil':    return fetchSoilDerived(entry, mode, date, hour, units);
       default:        return Promise.reject(new Error(`Unknown source ${entry.source}`));
     }
   }
