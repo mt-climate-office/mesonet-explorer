@@ -3776,7 +3776,7 @@
   // the color-scale legend (a data map is unreadable without one).
   // The kit's brand assets, at the same pinned tag as the stylesheet (bump
   // with the kit tags in index.html).
-  const KIT_ASSETS = 'https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.11.3/assets';
+  const KIT_ASSETS = 'https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.16.2/assets';
   async function drawBranding(ctx, W, H) {
     const { entry, unit, scale } = _lastRender;
     const bgSurface = cssVar('--bg-surface');
