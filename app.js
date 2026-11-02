@@ -114,7 +114,6 @@
     // Atmosphere
     { key:'air_temp',   label:'Air Temperature',        group:'Atmosphere', col:'Air Temperature',       source:'obs',    els:['air_temp_0200','air_temp_0244'], modes:ALL_MODES, scale:{ramp:'RdBu', rev:true, mid:MID_FREEZE} },
     { key:'rh',         label:'Relative Humidity',      group:'Atmosphere', col:'Relative Humidity',     source:'obs',    els:['rh'], modes:ALL_MODES, scale:{ramp:'BrBG', mid:MID_RH} },
-    { key:'bp',         label:'Atmospheric Pressure',   group:'Atmosphere', col:'Atmospheric Pressure',  source:'obs',    els:['bp'], modes:ALL_MODES, scale:{ramp:'PuRd'} },
     { key:'sol_rad',    label:'Solar Radiation',        group:'Atmosphere', col:'Solar Radiation',       source:'obs',    els:['sol_rad'], modes:ALL_MODES, scale:{ramp:'YlOrRd'} },
     { key:'vpd',        label:'Vapor Pressure Deficit', group:'Atmosphere', col:'VPD',                   source:'extra',  els:['vpd_atmo'], modes:ALL_MODES, scale:{ramp:'YlOrRd'} },
     { key:'feels_like', label:'Feels-Like Temperature', group:'Atmosphere', col:'Feels Like Temperature',source:'derived', element:'feels_like', modes:ALL_MODES, scale:{ramp:'RdBu', rev:true, mid:MID_FREEZE} },
@@ -122,7 +121,10 @@
     { key:'wind_chill', label:'Wind Chill',             group:'Atmosphere', col:'Wind Chill',            source:'derived', element:'wind_chill', modes:ALL_MODES, scale:{ramp:'RdBu', rev:true, mid:MID_FREEZE} },
     { key:'wet_bulb',   label:'Wet Bulb Temperature',   group:'Atmosphere', col:'Wet Bulb Temperature',  source:'derived', element:'wet_bulb',   modes:ALL_MODES, scale:{ramp:'RdBu', rev:true, mid:MID_FREEZE} },
     { key:'cci',        label:'Comprehensive Climate Index', group:'Atmosphere', col:'Comprehensive Climate Index', source:'derived', element:'cci', modes:ALL_MODES, scale:{ramp:'RdBu', rev:true, mid:MID_FREEZE} },
-    { key:'slp',        label:'Sea-Level Pressure',     group:'Atmosphere', col:'Sea Level Corrected Pressure', source:'derived', element:'slp', modes:ALL_MODES, scale:{ramp:'PuRd'} },
+    // NWS-style sea-level pressure (API `mslp`, 2026-11-02). It replaces both
+    // station pressure (a map of it is mostly a map of elevation) and the API's
+    // legacy `slp`, a temperature-free offset. Key stays 'slp' for old links.
+    { key:'slp',        label:'Sea-Level Pressure',     group:'Atmosphere', col:'Sea Level Pressure',    source:'derived', element:'mslp', modes:ALL_MODES, scale:{ramp:'PuRd'} },
 
     // Wind
     { key:'wind_spd', label:'Wind Speed',     group:'Wind', col:'Wind Speed',     source:'obs', els:['wind_spd_1000','wind_spd_0244'], modes:ALL_MODES, scale:{ramp:'YlGnBu'} },
@@ -196,7 +198,6 @@
   const VARIABLE_DESC = {
     air_temp:   'Air temperature measured above ground.',
     rh:         'Moisture in the air, as a share of the most it could hold.',
-    bp:         'Air pressure at the station.',
     sol_rad:    'Incoming solar energy.',
     vpd:        'Drying power of the air — higher means faster water loss from plants and soil.',
     feels_like: 'Temperature as it feels, blending heat index and wind chill.',
@@ -204,7 +205,7 @@
     wind_chill: 'How cold it feels once wind is factored in.',
     wet_bulb:   'Lowest temperature evaporation can cool to — a heat-stress indicator.',
     cci:        'Livestock weather-stress index combining temperature, humidity, wind, and sun.',
-    slp:        'Air pressure corrected to sea level, comparable across elevations.',
+    slp:        'Air pressure reduced to sea level the way the National Weather Service does, so stations at different elevations compare.',
     wind_spd:   'Sustained wind speed.',
     windgust:   'Strongest brief burst of wind in the period.',
     wind_dir:   'Direction the wind blows from, as compass points (N, SSW, …).',
@@ -373,8 +374,11 @@
     return (u === 'hourly' || u === 'daily') ? u : 'latest';
   })();
 
+  // Retired variable keys still in old links → their replacement.
+  const VAR_ALIASES = { bp: 'slp' };
   let activeVar = (() => {
-    const u = getLower('var');
+    const raw = getLower('var');
+    const u = VAR_ALIASES[raw] || raw;
     return (u && REGISTRY_BY_KEY.has(u)) ? u : 'air_temp';
   })();
   // A deep-linked variable that doesn't exist in the deep-linked mode has no
