@@ -78,6 +78,19 @@
   const SI_OVERRIDES = {
     snow_depth: { from: 'in', unit: 'cm', f: v => v * 2.54 },
   };
+  // Per-variable U.S. display units where the API's U.S. unit is not the one
+  // U.S. readers expect: barometric pressure in inHg, not mbar (1 inHg =
+  // 33.8639 mbar), and VPD in kPa, as agronomy and growers use it. Keyed off
+  // the returned unit, so a no-op if the API changes.
+  const US_OVERRIDES = {
+    baro: { from: 'mbar', unit: 'inHg', f: v => v / 33.8638866667 },
+    vpd:  { from: 'mbar', unit: 'kPa',  f: v => v * 0.1 },
+  };
+  // The U.S. display override for `entry`'s returned `unit`, or null.
+  const usOverride = (entry, units, unit) => {
+    const ov = units !== 'si' && entry.usKey ? US_OVERRIDES[entry.usKey] : null;
+    return ov && unit === ov.from ? ov : null;
+  };
 
   // /observations/hourly|daily rename columns per agg_func
   // ("Maximum Air Temperature @ 2 m [°F]"); map both directions here.
@@ -104,6 +117,7 @@
   // modes: which time modes support the variable
   // scale: {ramp, rev, mid, log} — mid keyed by displayed unit; log → color-map in log10 space
   // fmt: 'p2' = 2 decimals; default auto (integers when range > 5, else 1 dp)
+  // siKey / usKey: per-variable unit override (SI_OVERRIDES / US_OVERRIDES)
   // els: raw element ids for aggregation fetches (/observations/hourly|daily
   //      renames columns per agg_func, so agg queries go per-entry). Order =
   //      coalesce preference for alternative sensors (2 m before 8 ft).
@@ -115,7 +129,7 @@
     { key:'air_temp',   label:'Air Temperature',        group:'Atmosphere', col:'Air Temperature',       source:'obs',    els:['air_temp_0200','air_temp_0244'], modes:ALL_MODES, scale:{ramp:'RdBu', rev:true, mid:MID_FREEZE} },
     { key:'rh',         label:'Relative Humidity',      group:'Atmosphere', col:'Relative Humidity',     source:'obs',    els:['rh'], modes:ALL_MODES, scale:{ramp:'BrBG', mid:MID_RH} },
     { key:'sol_rad',    label:'Solar Radiation',        group:'Atmosphere', col:'Solar Radiation',       source:'obs',    els:['sol_rad'], modes:ALL_MODES, scale:{ramp:'YlOrRd'} },
-    { key:'vpd',        label:'Vapor Pressure Deficit', group:'Atmosphere', col:'VPD',                   source:'extra',  els:['vpd_atmo'], modes:ALL_MODES, scale:{ramp:'YlOrRd'} },
+    { key:'vpd',        label:'Vapor Pressure Deficit', group:'Atmosphere', col:'VPD',                   source:'extra',  els:['vpd_atmo'], modes:ALL_MODES, scale:{ramp:'YlOrRd'}, fmt:'p2', usKey:'vpd' },
     { key:'feels_like', label:'Feels-Like Temperature', group:'Atmosphere', col:'Feels Like Temperature',source:'derived', element:'feels_like', modes:ALL_MODES, scale:{ramp:'RdBu', rev:true, mid:MID_FREEZE} },
     { key:'heat_index', label:'Heat Index',             group:'Atmosphere', col:'Heat Index',            source:'derived', element:'heat_index', modes:ALL_MODES, scale:{ramp:'YlOrRd'} },
     { key:'wind_chill', label:'Wind Chill',             group:'Atmosphere', col:'Wind Chill',            source:'derived', element:'wind_chill', modes:ALL_MODES, scale:{ramp:'RdBu', rev:true, mid:MID_FREEZE} },
@@ -123,8 +137,9 @@
     { key:'cci',        label:'Comprehensive Climate Index', group:'Atmosphere', col:'Comprehensive Climate Index', source:'derived', element:'cci', modes:ALL_MODES, scale:{ramp:'RdBu', rev:true, mid:MID_FREEZE} },
     // NWS-style sea-level pressure (API `mslp`, 2026-11-02). It replaces both
     // station pressure (a map of it is mostly a map of elevation) and the API's
-    // legacy `slp`, a temperature-free offset. Key stays 'slp' for old links.
-    { key:'slp',        label:'Sea-Level Pressure',     group:'Atmosphere', col:'Sea Level Pressure',    source:'derived', element:'mslp', modes:ALL_MODES, scale:{ramp:'PuRd'} },
+    // legacy `slp`, a temperature-free offset. Named the way U.S. readers know
+    // it; the earlier 'slp' key still resolves (VAR_ALIASES).
+    { key:'bp',         label:'Barometric Pressure',    group:'Atmosphere', col:'Sea Level Pressure',    source:'derived', element:'mslp', modes:ALL_MODES, scale:{ramp:'PuRd'}, fmt:'p2', usKey:'baro' },
 
     // Wind
     { key:'wind_spd', label:'Wind Speed',     group:'Wind', col:'Wind Speed',     source:'obs', els:['wind_spd_1000','wind_spd_0244'], modes:ALL_MODES, scale:{ramp:'YlGnBu'} },
@@ -205,7 +220,7 @@
     wind_chill: 'How cold it feels once wind is factored in.',
     wet_bulb:   'Lowest temperature evaporation can cool to — a heat-stress indicator.',
     cci:        'Livestock weather-stress index combining temperature, humidity, wind, and sun.',
-    slp:        'Air pressure reduced to sea level the way the National Weather Service does, so stations at different elevations compare.',
+    bp:         'Air pressure reduced to sea level the way the National Weather Service does, so stations at different elevations compare.',
     wind_spd:   'Sustained wind speed.',
     windgust:   'Strongest brief burst of wind in the period.',
     wind_dir:   'Direction the wind blows from, as compass points (N, SSW, …).',
@@ -375,7 +390,7 @@
   })();
 
   // Retired variable keys still in old links → their replacement.
-  const VAR_ALIASES = { bp: 'slp' };
+  const VAR_ALIASES = { slp: 'bp' };
   let activeVar = (() => {
     const raw = getLower('var');
     const u = VAR_ALIASES[raw] || raw;
@@ -1028,6 +1043,11 @@
         if (siBehavior === 'convert') conv = mapping;
       }
     }
+    const usOv = usOverride(entry, units, unit);
+    if (usOv) {
+      unit = usOv.unit;
+      conv = usOv;
+    }
 
     for (const row of rows) {
       const raw = row[colInfo.key];
@@ -1044,7 +1064,7 @@
   // "{AggPrefix}{description_short} [unit]" per raw element. Alternative
   // sensors (2 m vs 8 ft) coalesce in els order; depth bands combine by the
   // aggregation's own semantics (min of mins, max of maxes, mean of means).
-  function extractAggValues(rows, entry, agg) {
+  function extractAggValues(rows, entry, agg, units) {
     const byStation = new Map();
     const prefix = AGG_PREFIX[agg];
     let unit = null, maxDt = null;
@@ -1062,6 +1082,7 @@
         }
       }
     }
+    const usOv = usOverride(entry, units, unit);
     const combine = (vals) => {
       if (!vals.length) return null;
       if (!entry.band) return vals[0];
@@ -1078,9 +1099,9 @@
         if (typeof v === 'number' && Number.isFinite(v)) vals.push(v);
       }
       const v = combine(vals);
-      if (v != null) byStation.set(row.station, { v, dt });
+      if (v != null) byStation.set(row.station, { v: usOv ? usOv.f(v) : v, dt });
     }
-    return { byStation, unit, maxDt };
+    return { byStation, unit: usOv ? usOv.unit : unit, maxDt };
   }
 
   // ── App state (data) ─────────────────────────────────────────────────────
@@ -1589,7 +1610,7 @@
     if (token !== renderToken) return;
 
     const { byStation, unit, maxDt } = aggActive(entry)
-      ? extractAggValues(rows, entry, activeAgg)
+      ? extractAggValues(rows, entry, activeAgg, activeUnits)
       : extractValues(rows, entry, activeUnits);
 
     // Stale classification (latest mode only; rows lacking a timestamp are
