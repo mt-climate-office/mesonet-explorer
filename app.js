@@ -129,7 +129,7 @@
     { key:'air_temp',   label:'Air Temperature',        group:'Atmosphere', col:'Air Temperature',       source:'obs',    els:['air_temp_0200','air_temp_0244'], modes:ALL_MODES, scale:{ramp:'RdBu', rev:true, mid:MID_FREEZE} },
     { key:'rh',         label:'Relative Humidity',      group:'Atmosphere', col:'Relative Humidity',     source:'obs',    els:['rh'], modes:ALL_MODES, scale:{ramp:'BrBG', mid:MID_RH} },
     { key:'sol_rad',    label:'Solar Radiation',        group:'Atmosphere', col:'Solar Radiation',       source:'obs',    els:['sol_rad'], modes:ALL_MODES, scale:{ramp:'YlOrRd'} },
-    { key:'vpd',        label:'Vapor Pressure Deficit', group:'Atmosphere', col:'VPD',                   source:'extra',  els:['vpd_atmo'], modes:ALL_MODES, scale:{ramp:'YlOrRd'}, fmt:'p2', usKey:'vpd' },
+    { key:'vpd',        label:'Vapor Pressure Deficit', group:'Atmosphere', col:'Vapor Pressure Deficit',source:'derived', element:'vpd', modes:ALL_MODES, scale:{ramp:'YlOrRd'}, fmt:'p2', usKey:'vpd' },
     { key:'feels_like', label:'Feels-Like Temperature', group:'Atmosphere', col:'Feels Like Temperature',source:'derived', element:'feels_like', modes:ALL_MODES, scale:{ramp:'RdBu', rev:true, mid:MID_FREEZE} },
     { key:'heat_index', label:'Heat Index',             group:'Atmosphere', col:'Heat Index',            source:'derived', element:'heat_index', modes:ALL_MODES, scale:{ramp:'YlOrRd'} },
     { key:'wind_chill', label:'Wind Chill',             group:'Atmosphere', col:'Wind Chill',            source:'derived', element:'wind_chill', modes:ALL_MODES, scale:{ramp:'RdBu', rev:true, mid:MID_FREEZE} },
@@ -279,7 +279,7 @@
                        'Soil Temperature', 'Soil Electrical Conductivity',
                        'ET & Agriculture', 'Groundwater'];
   // Elements bundled into the single 'extra' fetch
-  const EXTRA_ELEMENTS = ['vpd_atmo', 'well_lvl', 'well_tmp', 'well_eco'];
+  const EXTRA_ELEMENTS = ['well_lvl', 'well_tmp', 'well_eco'];
 
   const bucketKey = (lat, lon) =>
     `${lat.toFixed(BUCKET_PRECISION)},${lon.toFixed(BUCKET_PRECISION)}`;
