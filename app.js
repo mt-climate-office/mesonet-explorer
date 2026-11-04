@@ -360,7 +360,7 @@
   // region, present from load, cleared then set so a repeat is re-read, and
   // de-duplicated within 500 ms.
 
-  // ── Loading indicator (bar under the control bar; the navbar stamp is
+  // ── Loading indicator (bar at the top of the map; the navbar stamp is
   //    display:none on phones, so this is the only loading cue there) ───────
   // The bar is the kit's MCO.loading (0.9.0): aria-busy on the map frame, a
   // .mco-progress sweep that waits 300 ms so a fast load never flashes it, and

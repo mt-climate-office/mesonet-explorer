@@ -24,7 +24,7 @@ short note on what was done.
 ## Ideas / someday
 
 - [ ] **Enable a temporal timelapse.** Users are able to select start and end points (days, hours, timestamp, depending on temporal aggregation. A slider appears allowing people to smoothly move through the time period. Pressing a play button iterates through.
-- [ ] **Adjustable staleness threshold.** Let the user change the 3-hour staleness cutoff (e.g. 1 h / 3 h / 6 h / 24 h).
+- [ ] **Adjustable staleness threshold.** Let the user change the 2-hour staleness cutoff, the family rule since kit 0.21.0 (e.g. 1 h / 2 h / 6 h / 24 h).
 
 ### Deferred from the July 2026 audit
 
