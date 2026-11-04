@@ -56,11 +56,32 @@ export default {
   scenarios: [
     { name: 'latest', query: '', ready: drawn },
     { name: 'daily', query: '?mode=daily&var=ppt', ready: drawn },
-    // A deep-linked station opens the detail panel (right dock on desktop,
-    // bottom sheet at 390).
+    // A deep-linked station opens the kit sheet (MCO.initSheet): end-docked at
+    // 1440, the bottom sheet at 390. Every scenario runs at both widths.
     { name: 'station', query: '?station=acemocca', ready: () => {
-      const s = document.getElementById('station-sheet');
-      return document.querySelectorAll('#sr-station-table tbody tr').length > 50 && !!s && !s.hidden;
+      const s = document.querySelector('.mco-sheet');
+      return document.querySelectorAll('#sr-station-table tbody tr').length > 50 && !!s && !s.hidden
+        && s.dataset.state !== 'closed';
+    } },
+    // The compact nav drawer open (kit 0.21.0 data-rail="compact"): at 390 the
+    // ready function presses ☰ once and waits for the right-hand drawer; at
+    // 1440 there is no drawer (#nav-drawer is display:contents), so the map
+    // alone is the evidence.
+    { name: 'drawer', query: '', ready: () => {
+      if (document.querySelectorAll('#sr-station-table tbody tr').length <= 50) return false;
+      if (!matchMedia('(max-width: 640px)').matches) return true;
+      const d = document.getElementById('nav-drawer');
+      if (!window.__drawerPressed) { window.__drawerPressed = true; document.getElementById('btn-rail').click(); }
+      return d.classList.contains('is-open');
+    } },
+    // A chip toggle: the AgriMet network chip (.mco-chip[aria-pressed]) pressed
+    // off, then the map re-rendered without it (?net=hydromet in the URL).
+    { name: 'chip', query: '', ready: () => {
+      if (document.querySelectorAll('#sr-station-table tbody tr').length <= 50) return false;
+      const c = document.querySelector('#subnet-filters .mco-chip[data-network="AgriMet"]');
+      if (!c) return false;
+      if (!window.__chipPressed) { window.__chipPressed = true; c.click(); }
+      return c.getAttribute('aria-pressed') === 'false' && /net=hydromet/.test(location.search);
     } },
   ],
   exemptTargets: '',
@@ -84,18 +105,22 @@ export default {
       // search field) or the map; Forward reopens it.
       const { page, close } = await open('', {});
       const st = () => page.evaluate(() => ({ station: new URLSearchParams(location.search).get('station'),
-        open: !document.getElementById('station-sheet').hidden, focus: document.activeElement && document.activeElement.id,
+        open: !document.querySelector('.mco-sheet').hidden, focus: document.activeElement && document.activeElement.id,
         canvas: !!(document.activeElement && document.activeElement.classList.contains('maplibregl-canvas')) }));
       await page.focus('#search-input');
       await page.keyboard.type('boze'); await page.waitForTimeout(600);
-      await page.keyboard.press('Enter'); await page.waitForTimeout(1500);
+      // MCO.map.flyToAndOpen opens the sheet once the map is idle at the
+      // station, so wait for it rather than for a fixed time.
+      await page.keyboard.press('Enter');
+      await page.waitForFunction(() => !document.querySelector('.mco-sheet').hidden, null, { timeout: 15000 }).catch(() => {});
       const opened = await st();
       check('opening a station pushes ?station= and shows the panel', opened.open && !!opened.station, JSON.stringify(opened));
       await page.goBack(); await page.waitForTimeout(1000);
       const back = await st();
       check('Back closes the station panel, focus on its opener or the map',
         !back.open && !back.station && (back.focus === 'search-input' || back.canvas), JSON.stringify(back));
-      await page.goForward(); await page.waitForTimeout(1000);
+      await page.goForward();
+      await page.waitForFunction(() => !document.querySelector('.mco-sheet').hidden, null, { timeout: 15000 }).catch(() => {});
       const fwd = await st();
       check('Forward reopens the same station', fwd.open && fwd.station === opened.station, JSON.stringify(fwd));
       await close();

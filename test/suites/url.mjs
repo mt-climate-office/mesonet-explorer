@@ -62,7 +62,7 @@ export async function run({ browser, origin }) {
       const off = await keys();
       t.check(`${label}: adds '${expected}' then clears it`, on === expected && off === '(none)', `${on} -> ${off}`);
     };
-    await cycle('network chip', '#subnet-filters .chip', 'net');
+    await cycle('network chip', '#subnet-filters .mco-chip', 'net');
     await cycle('value labels', '#btn-labels', 'labels');
     await cycle('theme toggle', '#btn-theme', 'theme', 1800, 3);
     await cycle('sidebar collapse', '#sidebar-toggle', 'sidebar', 2600);
