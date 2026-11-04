@@ -17,18 +17,19 @@ const REACHABILITY = `(() => {
     const first = el.getBoundingClientRect();
     if (!(first.width > 0 && first.height > 0)) return false;
     // Content below a scrollport's fold is legitimately not hittable.
-    if (scroller && !el.closest('.pop-head')) el.scrollIntoView({ block: 'center' });
+    if (scroller && !el.closest('.mco-sheet-head')) el.scrollIntoView({ block: 'center' });
     const b = el.getBoundingClientRect();
     const hit = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2);
     return !(hit && hit.closest('#station-sheet'));
   }).map(el => el.textContent.trim().slice(0, 18));
-  const nb = q('#navbar'), cb = q('#control-bar'), map = q('#map');
+  // One bar since kit 0.21.0's compact bar: the phone's second row is gone.
+  const nb = q('#navbar'), map = q('#map');
   const mr = map.getBoundingClientRect();
   // On a landscape phone the navbar is the kit's left rail (0.10.0), beside the
   // map rather than above it, so it only counts as chrome above when it spans
   // the width.
   const navAbove = nb.getBoundingClientRect().width >= innerWidth - 1;
-  const chrome = (navAbove ? Math.round(nb.getBoundingClientRect().height) : 0) + (cb.hidden ? 0 : Math.round(cb.getBoundingClientRect().height));
+  const chrome = navAbove ? Math.round(nb.getBoundingClientRect().height) : 0;
   const panel = sheet && sheet.getBoundingClientRect();
   return {
     dead,
@@ -37,7 +38,6 @@ const REACHABILITY = `(() => {
                                   panel.left >= -1 && panel.right <= innerWidth + 1) : null,
     // A gap here means something invisible is still taking up space.
     chromeGap: Math.round(mr.top) - chrome,
-    controlBarOverflow: cb.hidden ? 0 : cb.scrollWidth - cb.clientWidth,
     navbarOverflow: nb.scrollWidth - nb.clientWidth,
     sheetOverflow: scroller ? scroller.scrollWidth - scroller.clientWidth : 0,
     documentOverflow: document.scrollingElement.scrollWidth - document.scrollingElement.clientWidth,
@@ -78,10 +78,12 @@ export async function run({ browser, origin }) {
     t.check(`${label}: every panel control is clickable`, r.dead.length === 0, r.dead.join(', ') || 'none dead');
     t.check(`${label}: no invisible chrome`, r.chromeGap === 0, `${r.chromeGap}px gap above the map`);
     t.check(`${label}: nothing hidden behind a scroll`,
-      r.controlBarOverflow === 0 && r.navbarOverflow === 0 && r.sheetOverflow === 0 && r.documentOverflow === 0,
-      `bar ${r.controlBarOverflow}, nav ${r.navbarOverflow}, sheet ${r.sheetOverflow}, doc ${r.documentOverflow}`);
+      r.navbarOverflow === 0 && r.sheetOverflow === 0 && r.documentOverflow === 0,
+      `nav ${r.navbarOverflow}, sheet ${r.sheetOverflow}, doc ${r.documentOverflow}`);
     t.check(`${label}: variable picker on screen`, r.variableOnScreen);
-    t.check(`${label}: legend lives in the sidebar`, r.legendParent === 'sb-legend', r.legendParent);
+    // Its section moves into the nav drawer on compact (layoutControls), so the
+    // parent is the same section at every size.
+    t.check(`${label}: legend lives in its sidebar section`, r.legendParent === 'sb-legend', r.legendParent);
     t.check(`${label}: screen-reader table populated`, r.srTableRows > 100, `${r.srTableRows} rows`);
     // Proves the inline theme script ran, i.e. the pinned CSP hash still matches.
     t.check(`${label}: inline theme script ran (CSP hash valid)`, r.themeApplied);
@@ -102,19 +104,20 @@ export async function run({ browser, origin }) {
     await ctx.close();
   }
 
-  // Mobile header: one row in Latest, two in Hourly and Daily, down to 320px.
+  // Mobile header: ONE row in every mode, down to 320px (kit 0.21.0 compact
+  // bar: badge · variable · search · ☰, ≤ 64px; the date and hour steppers
+  // moved into the drawer with the rest of the Time section).
   for (const mode of ['latest', 'hourly', 'daily']) {
     for (const width of [320, 375, 390]) {
       const { ctx, page } = await open(browser, origin, {
         query: `?mode=${mode}`, width, height: 780, touch: true,
       });
       const r = await page.evaluate(() => {
-        const nb = document.getElementById('navbar'), cb = document.getElementById('control-bar');
-        return { chrome: Math.round(cb.hidden ? nb.getBoundingClientRect().bottom
-                                              : cb.getBoundingClientRect().bottom),
-                 overflow: (cb.hidden ? 0 : cb.scrollWidth - cb.clientWidth) + (nb.scrollWidth - nb.clientWidth) };
+        const nb = document.getElementById('navbar');
+        return { chrome: Math.round(nb.getBoundingClientRect().bottom),
+                 overflow: nb.scrollWidth - nb.clientWidth };
       });
-      const expected = mode === 'latest' ? 60 : 115;   // one row vs two, with slack
+      const expected = 64;   // the family's phone-bar ceiling
       t.check(`${width}px ${mode}: header stays compact`,
         r.chrome <= expected && r.overflow === 0, `${r.chrome}px, overflow ${r.overflow}`);
       await ctx.close();

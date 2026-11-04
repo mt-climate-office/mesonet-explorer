@@ -97,6 +97,14 @@ export async function open(browser, origin, {
       null, { timeout: 60000, polling: 250 },
     ).catch(() => {});
   }
+  // A ?station= deep link opens through the kit's MCO.map.flyToAndOpen
+  // (0.21.0), which waits for the map to be idle at the station, so its sheet
+  // arrives a beat after the first render. Wait for it the same way.
+  if (waitForData && /[?&]station=/.test(query)) {
+    await page.waitForFunction(() => { const s = document.querySelector('.mco-sheet');
+      return !!s && !s.hidden && s.dataset.state !== 'closed'; },
+    null, { timeout: 15000, polling: 100 }).catch(() => {});
+  }
   await page.waitForTimeout(wait);
   return { ctx, page, errors };
 }

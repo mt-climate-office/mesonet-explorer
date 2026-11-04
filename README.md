@@ -7,7 +7,7 @@ Interactive map explorer for [Montana Mesonet](https://climate.umt.edu/mesonet/)
 ## Features
 
 - **Three time modes**
-  - **Latest** — most recent observation at every station, auto-refreshed every 5 minutes (paused while the tab is hidden). Stations reporting more than 3 hours ago are hidden as *stale* (toggle them back in the legend).
+  - **Latest** — most recent observation at every station, auto-refreshed every 5 minutes (paused while the tab is hidden). Stations whose last report is 2 hours old or more are hidden as *stale* (toggle them back in the legend).
   - **Hourly** — any date + hour since the network began; hold-to-repeat steppers, midnight wrap.
   - **Daily** — any date; daily aggregates (totals for precipitation, averages otherwise).
 - **Aggregation selector** (Hourly/Daily) — min / max / average / sum / std dev for observed variables, next to the variable picker. It auto-selects each variable's own default (average for most, sum for precipitation), so the selection is always explicit.
@@ -22,7 +22,7 @@ Interactive map explorer for [Montana Mesonet](https://climate.umt.edu/mesonet/)
 - **PNG export** — one click downloads a branded 2800×1400 map of the current view (fixed Montana framing independent of your window, MCO logo, timestamp, and color scale), emulating the Mesonet Photo Explorer's export.
 - **Shareable URLs** — every choice lives in the query string; light/dark theme.
 - **Left control sidebar** — search, networks, time, variable, aggregation and the legend in one column, collapsible via the tab on its outer edge. It takes a real column, so toggling it resizes the map and re-fits Montana. The detail panel is deliberately the opposite: it floats, so selecting a station never moves the camera. Zoom and fit-to-extent sit at the map's **top-left**, clear of the panel.
-- **Built for phones as well as desks** — below 640 px the sidebar becomes a **☰** drawer (networks, aggregation, legend) while time and variable stay inline in the top bar, and a **⋯** tray holds units, labels, export, share and theme. Nothing hides behind a horizontal scroll. Touch gets a 10 px tap tolerance, 40–44 px targets, and the peek sheet in place of hover.
+- **Built for phones as well as desks** — below 640 px the bar is one row (the kit's compact bar): the logo, the variable picker, search, and a **☰** at the right edge that opens a right-hand drawer with everything else (search, networks, time, aggregation, legend, units, labels, export, share, theme, help). On a landscape phone the bar is the kit's left rail with the same drawer. Nothing hides behind a horizontal scroll. Touch gets a 10 px tap tolerance, 40–44 px targets, and the peek sheet in place of hover.
 
 ## URL parameters
 
@@ -62,11 +62,11 @@ part of the view.) The address bar stays minimal either way.
 | `ramp` | ramp name, `-r` suffix = reversed (e.g. `vik`, `batlow-r`) | variable's default | Color ramp override (ColorBrewer + Crameri names) |
 | `radar` | `on` | off | NEXRAD overlay (Latest only) |
 | `nodata` | `hide` | show | Hide no-data stations |
-| `stale` | `show` | hide | Show stale (> 3 h) stations (Latest only) |
+| `stale` | `show` | hide | Show stale (≥ 2 h) stations (Latest only) |
 | `counties` | `on` | off | County-boundary overlay |
 | `watersheds` | `on` | off | HUC6 watershed overlay |
 | `legend` | `collapsed` \| `open` | open | Legend state (it lives in the sidebar, so collapsing it no longer buys map back) |
-| `sidebar` | `open` \| `closed` | open | Left control sidebar. Desktop only — on compact viewports it's a drawer that always starts closed |
+| `sidebar` | `open` \| `closed` | open | Left control sidebar. Desktop only — on compact viewports its sections live in the ☰ drawer, which always starts closed |
 | `theme` | `light` \| `dark` | OS preference | Color theme; emitted only when it differs from the OS preference |
 | `kbd` | `off` | on | Disable the `/` search shortcut (WCAG 2.1.4). Round-trips, so it survives a reload |
 | `lng`, `lat`, `zoom` | floats | Montana extent | Map camera. All three or none; omitted while the map is at the fitted extent |
@@ -126,7 +126,7 @@ Deliberately zero-build, matching the MCO pattern ([mesonet-status](https://gith
 - Fonts: Outfit (UI) + Space Mono (numerals/metadata), kit-hosted by mco-web-style (≥ 0.7.0) and preloaded from `index.html`, with `font-display: block` so first paint uses the real faces instead of swapping.
 - Dark-first theme tokens with a light theme; `localStorage['mco-theme']` is shared across MCO apps.
 - **Every z-index is a token**, declared with its tier in one commented block in `index.html` (`--z-map-overlay` … `--z-toast`). Add to a tier rather than inventing a number — MapLibre's own corner controls sit at z-index 2, so anything floating over the map has to clear that.
-- **One breakpoint lives in two places.** `COMPACT_MQ` in `app.js` (`max-width: 640px`, `max-height: 560px`) decides *behaviour* — which edge the detail panel docks to, whether the sidebar is a fixture or a drawer, and where each control group lives. The CSS decides *layout*, and splits the two on purpose: the narrow rules are width-only (`max-width: 640px`), because a short-but-wide window has plenty of room for the full header and must not get the phone layout; short-viewport rules are height-only. Keep the JS query in sync with the two `@media` blocks marked `NARROW LAYOUT` and `SHORT VIEWPORTS`.
+- **One breakpoint lives in two places.** `COMPACT_MQ` in `app.js` (`max-width: 640px`, `max-height: 560px`) decides *behaviour* — which edge the detail panel docks to, whether the sidebar is a column or its sections live in the ☰ drawer, and where each control group lives. The kit's `MCO.viewport` owns the query, and its `mco-theme.css` owns the compact bar and the landscape rail. The app's own CSS keeps one copy of the compact-bar query (`PORTRAIT PHONE` in `index.html`) and the height-only `SHORT VIEWPORTS` rules; keep them in sync with the kit.
 
 ## Security
 
