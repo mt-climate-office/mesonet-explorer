@@ -19,9 +19,6 @@
   const SEARCH_FLY_ZOOM   = 11;
   const SEARCH_FLY_SPEED  = 1.4;
   const LABEL_MINZOOM     = 5;
-  const BUCKET_PRECISION  = 4;      // co-location bucket (~11 m)
-  const SPIDER_RADIUS_PX  = 26;     // distance from anchor to spider foot
-  const SPIDER_CLOSE_GRACE_MS = 250;
   const NULL_COLOR        = '#9aa3b3';
   const EARLIEST_DATE     = '2016-01-01';   // refined from station install dates at boot
 
@@ -209,6 +206,31 @@
   ];
   const REGISTRY_BY_KEY = new Map(REGISTRY.map(e => [e.key, e]));
 
+  // Short labels for the variable picker when it is the compact bar's hot
+  // control (a portrait phone, 0.21.0): the bar also carries the badge, the
+  // search button and ☰, which leaves the picker ~180px at 390px and ~110px
+  // at 320px. The option group ("Soil Moisture", …) carries the rest of the
+  // meaning in the open list. Anything not listed keeps its full label.
+  const SHORT_LABELS = {
+    air_temp: 'Air Temp', rh: 'Humidity', sol_rad: 'Solar Rad', vpd: 'VPD',
+    feels_like: 'Feels Like', wet_bulb: 'Wet Bulb', cci: 'CCI', bp: 'Pressure',
+    wind_dir: 'Wind Dir', ppt_max_rate: 'Max Rate',
+    ppt_midnight: 'Precip Today', ppt_24h: '24-h Precip', ppt_2: '2-day Precip',
+    ppt_7: '7-day Precip', ppt_14: '14-day Precip', ppt_30: '30-day Precip',
+    ppt_60: '60-day Precip', ppt_90: '90-day Precip', ppt_180: '180-day Precip',
+    ppt_ytd: 'YTD Precip',
+    soil_vwc_shallow: 'VWC Shallow', soil_vwc_mid: 'VWC Mid', soil_vwc_deep: 'VWC Deep',
+    sat_shallow: 'Sat. Shallow', sat_mid: 'Sat. Mid', sat_deep: 'Sat. Deep',
+    swp_shallow: 'SWP Shallow', swp_mid: 'SWP Mid', swp_deep: 'SWP Deep',
+    dvwc_shallow_1: 'ΔVWC 1d Shal.', dvwc_mid_1: 'ΔVWC 1d Mid', dvwc_deep_1: 'ΔVWC 1d Deep',
+    dvwc_shallow_7: 'ΔVWC 7d Shal.', dvwc_mid_7: 'ΔVWC 7d Mid', dvwc_deep_7: 'ΔVWC 7d Deep',
+    dvwc_shallow_14: 'ΔVWC 14d Shal.', dvwc_mid_14: 'ΔVWC 14d Mid', dvwc_deep_14: 'ΔVWC 14d Deep',
+    dvwc_shallow_30: 'ΔVWC 30d Shal.', dvwc_mid_30: 'ΔVWC 30d Mid', dvwc_deep_30: 'ΔVWC 30d Deep',
+    soil_temp_shallow: 'Soil T Shallow', soil_temp_mid: 'Soil T Mid', soil_temp_deep: 'Soil T Deep',
+    soil_ec_shallow: 'EC Shallow', soil_ec_mid: 'EC Mid', soil_ec_deep: 'EC Deep',
+    eto: 'Ref. ET', gdd: 'GDD', well_lvl: 'Well Level', well_tmp: 'Well Temp',
+  };
+
   // Plain-language one-liners shown under the legend title (DRAFT copy —
   // MCO scientists should refine). Depths appear in the labels already.
   const VARIABLE_DESC = {
@@ -282,9 +304,6 @@
   // Elements bundled into the single 'extra' fetch
   const EXTRA_ELEMENTS = ['well_lvl', 'well_tmp', 'well_eco'];
 
-  const bucketKey = (lat, lon) =>
-    `${lat.toFixed(BUCKET_PRECISION)},${lon.toFixed(BUCKET_PRECISION)}`;
-
 
 
   // ── Viewport class ────────────────────────────────────────────────────────
@@ -328,12 +347,13 @@
   const hourReadout    = document.getElementById('hour-readout');
   const emptyStateEl   = document.getElementById('empty-state');
   const navbarEl       = document.getElementById('navbar');
-  const controlBarEl   = document.getElementById('control-bar');
   const sheetEl        = document.getElementById('station-sheet');
   const sheetBodyEl    = document.getElementById('sheet-body');
-  const sheetHeadEl    = document.getElementById('sheet-head');
-  const sheetExpandEl  = document.getElementById('sheet-expand');
+  const sheetTitleEl   = document.getElementById('sheet-title');
   let _sheetOpen = false;
+  // The navbar's height is --chrome-h, which the kit sheet docks under
+  // (MCO.metrics, a ResizeObserver; the rail's CSS pins it to 0 itself).
+  MCO.metrics.observe('--chrome-h', navbarEl);
 
 
   // Announcements go through MCO.announce (kit 0.8.0): the page's one polite
@@ -566,28 +586,23 @@
   });
 
   // ── Info modal ───────────────────────────────────────────────────────────
+  // The kit's MCO.initInfoModal (0.21.0): focus on the close button, focus
+  // back to the opener, and the first-visit intro once per key. A deep link is
+  // an explicit request to see something specific, so the intro never covers
+  // it (a shared ?station= link used to land on this modal). urlParams was
+  // snapshotted at boot, so writeUrl()'s rewrites can't affect the test.
   const btnInfo = document.getElementById('btn-info');
-  btnInfo.addEventListener('click', () => infoModal.showModal());
-  infoModal.addEventListener('click', (e) => {
-    if (e.target === infoModal || e.target.dataset.closeModal !== undefined) infoModal.close();
-  });
-  infoModal.addEventListener('close', () => {
-    btnInfo.focus();
-    MCO.lsSet('mco-explorer-seen-intro', '1');
-  });
-  // A deep link is an explicit request to see something specific, so don't cover
-  // it with the intro — a shared ?station= link used to land on this modal. The
-  // seen-intro flag is still set, so it won't ambush them on a later visit
-  // either; the ? button is always there. urlParams was snapshotted at boot, so
-  // writeUrl()'s rewrites can't affect this test.
   const DEEP_LINK_PARAMS = ['station', 'var', 'mode', 'date', 'hour', 'scale',
-                            'ramp', 'agg', 'net', 'lng', 'lat', 'zoom'];
-  const _isDeepLink = DEEP_LINK_PARAMS.some(k => urlParams.has(k));
-  if (!MCO.lsGet('mco-explorer-seen-intro') && !_exportParam && !_isDeepLink) {
-    setTimeout(() => { if (!infoModal.open) infoModal.showModal(); }, 350);
-  } else if (_isDeepLink) {
-    MCO.lsSet('mco-explorer-seen-intro', '1');
-  }
+                            'ramp', 'agg', 'net', 'lng', 'lat', 'zoom', 'export'];
+  const infoDialog = MCO.initInfoModal({
+    dialog: infoModal,
+    intro: { key: 'mco-explorer-seen-intro', skip: () => DEEP_LINK_PARAMS.some(k => urlParams.has(k)) },
+  });
+  // The ? button sits in the compact drawer on a phone: close the drawer first
+  // (focus back to ☰, which the dialog then returns to), or the drawer's inert
+  // page would include the dialog itself.
+  btnInfo.addEventListener('click', () => { closeNavDrawer(); infoDialog.open(); });
+  document.getElementById('info-credit').textContent = MCO.credit({ source: 'Montana Mesonet' });
 
   // ── Share ────────────────────────────────────────────────────────────────
   document.getElementById('btn-share').addEventListener('click', async () => {
@@ -1109,15 +1124,11 @@
   let stations    = [];
   let elementDesc = new Map();     // element id → description_short (boot)
   let stationById = new Map();
-  // Co-location: static bucket assignment (boot) + per-render visibility-aware
-  // membership, so hiding a network/category promotes the next visible member
-  // to anchor (ported from mesonet-status).
-  let bucketById    = new Map();   // station id → bucket key (static)
-  let bucketMembers = new Map();   // bucket key → [station meta, display order]
-  let bucketAnchor  = new Map();   // bucket key → anchor station id
-  let bucketIndex   = new Map();   // station id → index among visible members
+  // Co-location is the kit's MCO.map.colocation (0.21.0; see "Click & hover"):
+  // it groups the visible stations into 4-decimal buckets on every render, so
+  // hiding a network or category promotes the next visible member to anchor.
   let _propsById    = new Map();   // station id → feature props from last render
-  let _spiderBucket = null;        // bucket key currently fanned out, or null
+  let _catById      = new Map();   // station id → 'ok' | 'stale' | 'nodata' (last render)
   let _lastFC = { type: 'FeatureCollection', features: [] };
   let _lastRender = null;          // {entry, unit, scale, fmt, counts, maxDt}
   let _popupFocusReturn = null;    // element to refocus when the popup closes
@@ -1163,7 +1174,7 @@
   // checks each id), so the first load's second call from 'load' is a no-op.
   map.on('style.load', () => {
     addCustomLayers();
-    if (_spiderBucket) rebuildSpider();
+    coloc.refresh();   // re-fans an open spider into the new style's sources
   });
 
   // Top-LEFT on purpose: the station detail panel docks to the right edge, and
@@ -1180,7 +1191,7 @@
     btn.setAttribute('aria-label', 'Zoom to full extent');
     btn.innerHTML = `<span class="maplibregl-ctrl-icon" aria-hidden="true"></span>`;
     btn.addEventListener('click', () => {
-      closeSpider();
+      coloc.close();
       map.fitBounds(MT_FIT_BOUNDS, { ...fitOpts(), animate: !MCO.reducedMotion() });
     });
     navGroup.appendChild(btn);
@@ -1246,12 +1257,7 @@
     if (!map.getSource('stations')) {
       map.addSource('stations', { type: 'geojson', data: _lastFC });
     }
-    if (!map.getSource('spider')) {
-      map.addSource('spider', { type: 'geojson', data: emptyFC() });
-    }
-    if (!map.getSource('spider-lines')) {
-      map.addSource('spider-lines', { type: 'geojson', data: emptyFC() });
-    }
+    coloc.addSources();   // the kit's spider feet + connector sources
     if (!map.getSource('tribal')) {
       map.addSource('tribal', { type: 'geojson', data: _tribalFC || 'data/mt_reservations_simple.geojson' });
     }
@@ -1324,12 +1330,8 @@
 
     if (!map.getLayer('spider-lines-layer')) {
       map.addLayer({
-        id: 'spider-lines-layer', type: 'line', source: 'spider-lines',
-        paint: {
-          'line-color': ['get', '_strokeColor'],
-          'line-width': 1.2,
-          'line-opacity': 0.65,
-        },
+        id: 'spider-lines-layer', type: 'line', source: coloc.spiderLinesSource,
+        paint: MCO.map.colocation.spiderLinePaint(),
       });
     }
 
@@ -1369,24 +1371,10 @@
         paint: MCO.map.selectionPaint({ radius: 11, width: 3 }),
       });
     }
+    // The colocated site's count badge: the kit's disc + count (0.21.0).
     if (!map.getLayer('stations-badge')) {
-      map.addLayer({
-        id: 'stations-badge', type: 'symbol', source: 'stations',
-        layout: {
-          'text-field': ['to-string', ['get', 'colocationCount']],
-          'text-font':  ['Open Sans Bold', 'Arial Unicode MS Bold'],
-          'text-size':  10,
-          'text-offset': [0, -1.05],
-          'text-anchor': 'bottom',
-          'text-allow-overlap': true,
-          'text-ignore-placement': true,
-        },
-        paint: {
-          'text-color': '#ffffff',
-          'text-halo-color': '#1a1a2e',
-          'text-halo-width': 1.2,
-        },
-      });
+      MCO.map.colocation.badgeLayers({ id: 'stations-badge', source: 'stations', filter: netMatch() })
+        .forEach((l) => map.addLayer(l));
     }
 
     if (!map.getLayer('dots-label')) {
@@ -1403,13 +1391,13 @@
     // cat-driven paint reproduces the value/stale/nodata looks exactly.
     if (!map.getLayer('spider-layer')) {
       map.addLayer({
-        id: 'spider-layer', type: 'circle', source: 'spider',
+        id: 'spider-layer', type: 'circle', source: coloc.spiderSource,
         paint: spiderCirclePaint(),
       });
     }
     if (!map.getLayer('spider-label')) {
       map.addLayer({
-        id: 'spider-label', type: 'symbol', source: 'spider',
+        id: 'spider-label', type: 'symbol', source: coloc.spiderSource,
         minzoom: LABEL_MINZOOM,
         layout: dotLabelLayout(),
         paint: labelPaint(),
@@ -1419,32 +1407,23 @@
     applyDotFilters();
   }
 
+  // Every station draws with the kit's one station paint (MCO.map.stationPaint,
+  // 0.21.0): no network encoding, HydroMet and AgriMet alike. The data value is
+  // the fill; no-data and stale dots are hollow rings in a muted stroke, which
+  // the legend's hollow swatches (data-shape="hollow") match.
+  const R_NODATA = ['interpolate', ['linear'], ['zoom'], 4, 2.5, 7, 3.5, 10, 5, 14, 6.5];
+  const R_STALE  = ['interpolate', ['linear'], ['zoom'], 4, 3, 7, 4.5, 10, 6.5, 14, 8.5];
+  const R_VALUE  = ['interpolate', ['linear'], ['zoom'], 4, 3.5, 7, 5, 10, 7, 14, 9];
   function nodataDotPaint() {
-    return {
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 2.5, 7, 3.5, 10, 5, 14, 6.5],
-      'circle-color': 'rgba(0,0,0,0)',
-      'circle-stroke-color': mutedStrokeColor(),
-      'circle-stroke-width': 1.2,
-      'circle-opacity': 0,
-    };
+    return MCO.map.stationPaint({ fill: 'rgba(0,0,0,0)', radius: R_NODATA,
+      stroke: mutedStrokeColor(), strokeWidth: 1.2 });
   }
   function staleDotPaint() {
-    return {
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 3, 7, 4.5, 10, 6.5, 14, 8.5],
-      'circle-color': 'rgba(0,0,0,0)',
-      'circle-stroke-color': mutedStrokeColor(),
-      'circle-stroke-width': 1.8,
-      'circle-opacity': 0,
-    };
+    return MCO.map.stationPaint({ fill: 'rgba(0,0,0,0)', radius: R_STALE,
+      stroke: mutedStrokeColor(), strokeWidth: 1.8 });
   }
   function valueDotPaint() {
-    return {
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 3.5, 7, 5, 10, 7, 14, 9],
-      'circle-color': ['get', 'color'],
-      'circle-stroke-color': dotStrokeColor(),
-      'circle-stroke-width': 1.2,
-      'circle-opacity': 0.95,
-    };
+    return { ...MCO.map.stationPaint({ fill: ['get', 'color'], radius: R_VALUE }), 'circle-opacity': 0.95 };
   }
 
   function dotLabelLayout() {
@@ -1463,33 +1442,37 @@
     };
   }
 
+  // Spider feet carry the render props, so one layer reproduces all three looks.
   function spiderCirclePaint() {
     const byCat = (ok, stale, nodata) =>
       ['match', ['get', 'cat'], 'stale', stale, 'nodata', nodata, ok];
+    const fill = ['match', ['get', 'cat'], 'ok', ['get', 'color'], 'rgba(0,0,0,0)'];
     return {
-      'circle-radius': ['interpolate', ['linear'], ['zoom'],
-        4,  byCat(3.5, 3,   2.5),
-        7,  byCat(5,   4.5, 3.5),
-        10, byCat(7,   6.5, 5),
-        14, byCat(9,   8.5, 6.5)],
-      'circle-color':        ['get', 'color'],
-      'circle-opacity':      byCat(0.95, 0, 0),
-      'circle-stroke-color': byCat(dotStrokeColor(), mutedStrokeColor(), mutedStrokeColor()),
-      'circle-stroke-width': byCat(1.2, 1.8, 1.2),
+      ...MCO.map.stationPaint({
+        fill,
+        radius: ['interpolate', ['linear'], ['zoom'],
+          4,  byCat(3.5, 3,   2.5),
+          7,  byCat(5,   4.5, 3.5),
+          10, byCat(7,   6.5, 5),
+          14, byCat(9,   8.5, 6.5)],
+        stroke: byCat(dotStrokeColor(), mutedStrokeColor(), mutedStrokeColor()),
+        strokeWidth: byCat(1.2, 1.8, 1.2),
+      }),
+      'circle-opacity': byCat(0.95, 0, 0),
     };
   }
 
   // Layer filters per category + network visibility (applied at feature level
   // via the `net` property so the source doesn't need re-emitting). Main dot
   // layers show only bucket anchors; siblings appear via the spider fan-out.
-  const ANCHOR_ONLY = ['==', ['get', 'colocationIndex'], 0];
+  const ANCHOR_ONLY = MCO.map.colocation.ANCHOR_ONLY;
   function netMatch() {
     return ['in', ['get', 'sub_network'], ['literal', [...activeNetworks]]];
   }
   function valueFilter()  { return ['all', ANCHOR_ONLY, ['==', ['get', 'cat'], 'ok'],     netMatch()]; }
   function staleFilter()  { return ['all', ANCHOR_ONLY, ['==', ['get', 'cat'], 'stale'],  netMatch(), ['literal', staleShown]]; }
   function nodataFilter() { return ['all', ANCHOR_ONLY, ['==', ['get', 'cat'], 'nodata'], netMatch(), ['literal', nodataShown]]; }
-  function badgeFilter()  { return ['all', ANCHOR_ONLY, ['>', ['get', 'colocationCount'], 1], netMatch()]; }
+  function badgeFilter()  { return MCO.map.colocation.badgeFilter(netMatch()); }
   // Spider membership already excludes hidden nets/cats, but keep a category
   // guard for the toggle→re-render window.
   function spiderCatFilter() {
@@ -1504,7 +1487,9 @@
     map.setFilter('dots-stale',  staleFilter());
     map.setFilter('dots-nodata', nodataFilter());
     map.setFilter('dots-label',  valueFilter());
-    if (map.getLayer('stations-badge')) map.setFilter('stations-badge', badgeFilter());
+    for (const lid of ['stations-badge', 'stations-badge-disc']) {
+      if (map.getLayer(lid)) map.setFilter(lid, badgeFilter());
+    }
     if (map.getLayer('spider-layer'))   map.setFilter('spider-layer',   spiderCatFilter());
     if (map.getLayer('spider-label'))   map.setFilter('spider-label',   ['all', ['==', ['get', 'cat'], 'ok']]);
     updateEmptyState();
@@ -1560,39 +1545,20 @@
   }
 
   // ── Co-location membership (visibility-aware) ────────────────────────────
+  // A station is a member of its site only while its network AND category are
+  // visible, so the badge counts what you can actually expand, and a hidden
+  // anchor promotes its sibling (MCO.map.colocation's visible + rank).
   const netRank = (n) => n === 'HydroMet' ? 0 : n === 'AgriMet' ? 1 : 99;
   function catVisible(cat) {
     return cat === 'ok' || (cat === 'stale' && staleShown) || (cat === 'nodata' && nodataShown);
   }
-  // A station is a bucket member only while its network AND category are
-  // visible — so the badge counts what you can actually expand, and a hidden
-  // anchor automatically promotes its sibling.
-  function recomputeColocation(catById) {
-    bucketMembers.clear(); bucketAnchor.clear(); bucketIndex.clear();
-    for (const s of stations) {
-      if (s.sub_network && !activeNetworks.has(s.sub_network)) continue;
-      if (!catVisible(catById.get(s.station))) continue;
-      const k = bucketById.get(s.station);
-      let arr = bucketMembers.get(k);
-      if (!arr) { arr = []; bucketMembers.set(k, arr); }
-      arr.push(s);
-    }
-    for (const [k, members] of bucketMembers) {
-      members.sort((a, b) => netRank(a.sub_network) - netRank(b.sub_network)
-                          || a.station.localeCompare(b.station));
-      bucketAnchor.set(k, members[0].station);
-      members.forEach((s, i) => bucketIndex.set(s.station, i));
-    }
-  }
 
   // ── Render pipeline ──────────────────────────────────────────────────────
-  function setSyncStamp(text) { refreshStampEl.textContent = text; }
-
   async function render({ background = false } = {}) {
     const token = ++renderToken;
     const entry = REGISTRY_BY_KEY.get(activeVar);
     if (!entry) return;
-    if (!background) { setSyncStamp('loading…'); showLoading(); }
+    if (!background) showLoading();
 
     let rows;
     try {
@@ -1600,7 +1566,6 @@
     } catch (err) {
       if (token !== renderToken) return;
       console.error(err);
-      setSyncStamp('error');
       hideLoading();
       if (!background) showRenderError(entry);
       MCO.showToast(entry.source === 'change'
@@ -1670,12 +1635,12 @@
       const rec = byStation.get(s.station);
       catById.set(s.station, !rec ? 'nodata' : isStale(rec.dt) ? 'stale' : 'ok');
     }
-    recomputeColocation(catById);
+    _catById = catById;
 
-    // Pass 2 — build features at true coordinates (anchors carry the badge).
+    // Pass 2 — the render props per station. MCO.map.colocation adds the
+    // colocation fields (count, index, bucket) when it writes the source.
     const counts = { ok: 0, stale: 0, nodata: 0 };
-    const features = [];
-    _propsById.clear();
+    _propsById = new Map();
     for (const s of stations) {
       const rec = byStation.get(s.station);
       const cat = catById.get(s.station);
@@ -1685,26 +1650,15 @@
         if (cat === 'ok') color = scale(scale.xform ? scale.xform(rec.v) : rec.v);
       }
       if (activeNetworks.has(s.sub_network)) counts[cat]++;
-      const props = {
+      _propsById.set(s.station, {
         station: s.station, name: s.name, sub_network: s.sub_network,
         cat, color, label, value, dt,
-        bucket: bucketById.get(s.station),
-        colocationIndex: bucketIndex.get(s.station) ?? 0,
-        colocationCount: bucketIndex.has(s.station)
-          ? bucketMembers.get(bucketById.get(s.station)).length : 1,
-      };
-      _propsById.set(s.station, props);
-      features.push({
-        type: 'Feature',
-        geometry: { type: 'Point', coordinates: [s.longitude, s.latitude] },
-        properties: props,
       });
     }
-    _lastFC = { type: 'FeatureCollection', features };
+    _lastFetchAt = Date.now();
+    _lastFC = coloc.setData(stations);
     _lastRender = { entry, unit, scale, fmt, counts, maxDt };
-    map.getSource('stations')?.setData(_lastFC);
     applyDotFilters();
-    if (_spiderBucket) rebuildSpider();
     renderLegend();
     updateSyncStampFromData();
     hideLoading();
@@ -1746,8 +1700,7 @@
     srTwinOpts.caption = `${entry.label}${unit ? ` (${unit})` : ''} by station`;
     const unitFor = (p) => entry.fmt === 'compass'
       ? ` (${Math.round(p.value)}°)` : (unit ? ' ' + unit : '');
-    const rows = _lastFC.features
-      .map(f => f.properties)
+    const rows = [..._propsById.values()]
       .filter(p => activeNetworks.has(p.sub_network))
       .sort((a, b) => a.name.localeCompare(b.name))
       .map(p => ({ ...p, __value: p.cat === 'nodata' || p.value == null
@@ -1762,28 +1715,25 @@
   function refreshOpenPopup() {
     if (!_selectedStation || !_sheetOpen) return;
     const keepScroll = sheetBodyEl.scrollTop;
-    const hadFocus = sheetEl.contains(document.activeElement);
+    const hadFocus = sheetBodyEl.contains(document.activeElement);
     sheetBodyEl.replaceChildren(popupDOM(_selectedStation));
     sheetBodyEl.scrollTop = keepScroll;
     initPhotoCarousel(() => sheetEl, _selectedStation);
     wireSiblingLinks(sheetEl);
-    wireDetailChrome(sheetEl);
-    // The value block's height varies by variable, so peek has to re-measure.
-    if (sheetEl.dataset.state === 'peek') syncSheetPeekHeight();
-    if (hadFocus && !sheetEl.contains(document.activeElement)) focusDetailRoot(sheetEl);
-    syncOverlayMetrics();
+    // The value block's height varies by variable, so peek has to re-measure:
+    // re-applying the state makes the kit measure [data-peek] again.
+    if (sheet.state() === 'peek') sheet.setState('peek');
+    if (hadFocus && !sheetBodyEl.contains(document.activeElement)) sheetTitleEl.focus({ preventScroll: true });
   }
 
+  // The freshness stamp is the kit's MCO.formatUpdatedMT (0.21.0): "Updated
+  // 2:45 PM MST", the time of the newest observation in what is shown, with
+  // the date when that is not today in Mountain time. A feed with no data time
+  // (the precipitation windows) falls back to when it was fetched.
+  let _lastFetchAt = null;
   function updateSyncStampFromData() {
     if (!_lastRender) return;
-    const { maxDt } = _lastRender;
-    if (activeMode === 'latest') {
-      setSyncStamp(maxDt ? `as of ${MCO.formatStampMT(maxDt)}` : 'current');
-    } else if (activeMode === 'hourly') {
-      setSyncStamp(`${activeDate} ${MCO.pad2(activeHour)}:00 MT`);
-    } else {
-      setSyncStamp(activeDate);
-    }
+    MCO.formatUpdatedMT(_lastRender.maxDt || _lastFetchAt, { into: refreshStampEl });
   }
 
   // Empty states are the kit's .mco-empty callout, built with textContent (the
@@ -1969,22 +1919,27 @@
     parent.appendChild(row);
   }
 
+  // Overlays are layers, so they are the kit's .mco-chip[aria-pressed]
+  // (HOUSE-STYLE §5.7), like the network filters.
   function renderOverlayChecks() {
-    legendOverlaysEl.innerHTML = '';
-    const mk = (label, checked, disabled, onChange, title) => {
-      const wrap = document.createElement('label');
-      wrap.className = `legend-check${disabled ? ' disabled' : ''}`;
-      if (title) wrap.title = title;
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.checked = checked;
-      cb.disabled = disabled;
-      cb.addEventListener('change', () => onChange(cb.checked));
-      const sp = document.createElement('span');
-      sp.textContent = label;
-      wrap.appendChild(cb);
-      wrap.appendChild(sp);
-      legendOverlaysEl.appendChild(wrap);
+    // Rebuilt on every legend render (the Radar chip's availability follows
+    // the mode), so keep keyboard focus on the chip that was pressed.
+    const focusIdx = [...legendOverlaysEl.children].indexOf(document.activeElement);
+    legendOverlaysEl.replaceChildren();
+    const mk = (label, pressed, disabled, onToggle, title) => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'mco-chip';
+      chip.textContent = label;
+      chip.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+      chip.disabled = disabled;
+      if (title) chip.title = title;
+      chip.addEventListener('click', () => {
+        const on = chip.getAttribute('aria-pressed') !== 'true';
+        chip.setAttribute('aria-pressed', on ? 'true' : 'false');
+        onToggle(on);
+      });
+      legendOverlaysEl.appendChild(chip);
     };
     mk('Counties', overlayCounties, false, (on) => {
       overlayCounties = on;
@@ -2003,6 +1958,7 @@
       radarWanted = on;
       setRadar(on);
     }, activeMode !== 'latest' ? 'Radar is available in Latest mode' : 'NEXRAD base reflectivity');
+    if (focusIdx >= 0) legendOverlaysEl.children[focusIdx]?.focus();
   }
 
   function setOverlayVisibility() {
@@ -2011,7 +1967,7 @@
     if (map.getLayer('huc-line'))    map.setLayoutProperty('huc-line',    'visibility', vis(overlayWatersheds));
   }
 
-  // ── Radar overlay (legend checkbox is the only toggle) ──────────────────
+  // ── Radar overlay (the legend's Radar chip is the only toggle) ──────────
   function setRadar(on) {
     radarOn = on && activeMode === 'latest';
     if (radarOn) {
@@ -2079,7 +2035,7 @@
       for (const e of entries) {
         const opt = document.createElement('option');
         opt.value = e.key;
-        opt.textContent = e.label;
+        opt.textContent = (_pickerInBar && SHORT_LABELS[e.key]) || e.label;
         og.appendChild(opt);
       }
       variableSelect.appendChild(og);
@@ -2139,9 +2095,6 @@
     rs.classList.toggle('static', activeMode !== 'latest');
     rs.title = activeMode === 'latest' ? 'Updates every 5 minutes' : 'Selected time';
     syncSidebarSections();
-    // Showing/hiding the date + hour groups changes the control bar's height,
-    // which changes how much room the popup and legend have.
-    syncOverlayMetrics();
   }
 
   function setMode(mode) {
@@ -2266,17 +2219,16 @@
     for (const net of allNetworks) {
       const chip = document.createElement('button');
       chip.type = 'button';
-      chip.className = 'chip';
+      chip.className = 'mco-chip';
       chip.dataset.network = net;
       chip.setAttribute('aria-pressed', activeNetworks.has(net) ? 'true' : 'false');
       chip.title = NETWORK_DESC[net] || `Show or hide ${net} stations`;
       const lbl = document.createElement('span');
       lbl.textContent = net;
       const count = document.createElement('span');
-      count.className = 'chip-count';
+      count.className = 'mco-chip-count';
       count.textContent = String(byNet[net] || 0);
-      chip.appendChild(lbl);
-      chip.appendChild(count);
+      chip.append(lbl, ' ', count);
       chip.addEventListener('click', () => {
         const on = chip.getAttribute('aria-pressed') !== 'true';
         chip.setAttribute('aria-pressed', on ? 'true' : 'false');
@@ -2420,6 +2372,7 @@
       fixed ? 'This variable uses a fixed range — only the ramp can change.' :
       isLog ? 'Logarithmic scale: min and max must be greater than 0.' : '';
     paintScalePreview();
+    closeNavDrawer();   // its inert page would include the dialog
     scaleModal.showModal();
   }
   legendGradientBtn.addEventListener('click', openScaleEditor);
@@ -2427,7 +2380,9 @@
   scaleModal.addEventListener('click', (e) => {
     if (e.target === scaleModal || e.target.dataset.closeModal !== undefined) scaleModal.close();
   });
-  scaleModal.addEventListener('close', () => legendGradientBtn.focus());
+  // Back to the strip, or to ☰ when the strip went away with the closed drawer.
+  scaleModal.addEventListener('close', () =>
+    (legendGradientBtn.getClientRects().length ? legendGradientBtn : navRailToggle).focus());
 
   document.getElementById('scale-apply').addEventListener('click', () => {
     const entry = REGISTRY_BY_KEY.get(activeVar);
@@ -2514,39 +2469,49 @@
   function populateSearch() { searchBox.refresh(); }
 
   function selectStation(stationId) {
-    _popupFocusReturn = searchInput;   // hand focus back here when the popup closes
+    // Hand focus back to the field when the detail closes; on a phone the
+    // field is in the drawer, which closes now, so the bar's search button
+    // takes it instead (MCO.initNavRail: "hands the toggle to whatever opens
+    // next").
+    if (navRail.isOpen()) {
+      navRail.close({ restoreFocus: false });
+      _popupFocusReturn = navRail.isDrawerMode() ? searchToggle : navRailToggle;
+    } else {
+      _popupFocusReturn = searchInput;
+    }
     flyToAndOpen(stationId);
   }
 
+  // Search picks, the sr-table and the ?station= deep link: the kit's
+  // MCO.map.flyToAndOpen (0.21.0) opens the detail once the map is idle with
+  // the station in view, rather than on the first moveend (which can fire
+  // before the camera arrives). A station on a hidden network turns its
+  // network back on first.
   function flyToAndOpen(stationId, openOpts = {}) {
     const s = stationById.get(stationId);
     if (!s) { MCO.showToast('Station not found'); return; }
-    if (s.sub_network && !activeNetworks.has(s.sub_network)) {
-      activeNetworks.add(s.sub_network);
-      MCO.lsSet('mco-explorer-networks', JSON.stringify([...activeNetworks]));
-      for (const chip of subnetFiltersEl.querySelectorAll('.chip')) {
-        if (chip.dataset.network === s.sub_network) chip.setAttribute('aria-pressed', 'true');
-      }
-      applyDotFilters();
-      render({ background: true });   // recompute colocation for the re-enabled network
-    }
-    closeSpider();
-    // Open the detail FIRST, then fly. Waiting for moveend left the previous
-    // station's panel on screen showing the wrong data for the whole flight
-    // (~2-4 s), which reads as the search having done nothing. The panel is
-    // geo-anchored, so it simply rides along with the camera.
-    openPopupFor(stationId, [s.longitude, s.latitude], openOpts);
-    map.flyTo({
+    coloc.close();
+    MCO.map.flyToAndOpen(map, {
       center: [s.longitude, s.latitude],
-      zoom: SEARCH_FLY_ZOOM, speed: SEARCH_FLY_SPEED, animate: !MCO.reducedMotion(),
+      zoom: SEARCH_FLY_ZOOM, speed: SEARCH_FLY_SPEED,
+      ensureVisible: () => {
+        if (!s.sub_network || activeNetworks.has(s.sub_network)) return;
+        activeNetworks.add(s.sub_network);
+        MCO.lsSet('mco-explorer-networks', JSON.stringify([...activeNetworks]));
+        for (const chip of subnetFiltersEl.querySelectorAll('.mco-chip')) {
+          if (chip.dataset.network === s.sub_network) chip.setAttribute('aria-pressed', 'true');
+        }
+        applyDotFilters();
+        render({ background: true });   // recompute colocation for the re-enabled network
+      },
+      open: () => openPopupFor(stationId, [s.longitude, s.latitude], openOpts),
     });
   }
 
   // ── Popup ────────────────────────────────────────────────────────────────
   function stationRecord(stationId) {
-    // Current variable's value record for the popup/tooltip, from the last FC.
-    const f = _lastFC.features.find(x => x.properties.station === stationId);
-    return f ? f.properties : null;
+    // Current variable's value record for the popup/tooltip, from the last render.
+    return _propsById.get(stationId) || null;
   }
 
   // The detail body, built with DOM APIs and textContent (HOUSE-STYLE §7, kit
@@ -2572,18 +2537,13 @@
       : '—';
     const installed = (typeof s.date_installed === 'number') ? MCO.formatDateMT(s.date_installed) : '—';
 
-    const head = h_('div', 'pop-head');
-    const heads = h_('div', 'pop-heads');
-    heads.append(h_('div', 'pop-title', s.name),
-      h_('div', 'pop-sub', `${s.station}${s.county ? ` · ${s.county} County` : ''}`));
-    const close = h_('button', 'pop-close', '×');
-    close.type = 'button';
-    close.setAttribute('aria-label', 'Close station details');
-    head.append(heads, close);
+    // The station name is the kit sheet's title (openSheetFor); the body
+    // starts with the id and county.
+    const sub = h_('div', 'pop-sub', `${s.station}${s.county ? ` · ${s.county} County` : ''}`);
     const badgeRow = h_('div');
     badgeRow.style.marginTop = '6px';
     badgeRow.appendChild(h_('span', 'pop-badge', s.sub_network || '—'));
-    frag.append(head, badgeRow);
+    frag.append(sub, badgeRow);
 
     if (lr && rec) {
       const block = h_('div', 'pop-value');
@@ -2603,6 +2563,9 @@
         }
       }
       block.style.setProperty('--pop-accent', accent);
+      // Peek on a phone shows the sheet head down to this block (the kit
+      // measures [data-peek]): the lightweight readout hover gives a mouse.
+      block.dataset.peek = '';
       block.append(h_('div', 'pop-value-var', lr.entry.label), num);
       if (timeLine) block.appendChild(h_('div', 'pop-value-time', timeLine));
       frag.appendChild(block);
@@ -2619,8 +2582,7 @@
     // Co-located stations, reachable without the pointer-only spider. One row
     // per sibling rather than inline links: on touch the canvas spider is a
     // poor affordance, so this list is the primary way across.
-    const sibs = (bucketMembers.get(bucketById.get(stationId)) || [])
-      .filter(m => m.station !== stationId);
+    const sibs = coloc.siblings(stationId);
     if (sibs.length) {
       const box = h_('div', 'pop-siblings');
       box.appendChild(h_('div', 'pop-siblings-label', 'Also at this site'));
@@ -3001,21 +2963,6 @@
     show(0);
   }
 
-  // Every clamp derives from the live MAP container, not the viewport: popups
-  // are clipped by .maplibregl-map's overflow:hidden, and the chrome above the
-  // map is 130-250px depending on mode and width.
-  function syncOverlayMetrics() {
-    if (!map) return;
-    const chrome = (navbarEl?.offsetHeight || 0) + (controlBarEl?.offsetHeight || 0);
-    const root = document.documentElement;
-    root.style.setProperty('--chrome-h', `${chrome}px`);
-    // --sheet-h drives the kit's html.mco-autolift (toast + bottom corner
-    // controls). Only a BOTTOM-docked sheet covers them; the desktop panel docks
-    // right, so it publishes 0.
-    root.style.setProperty('--sheet-h',
-      `${_sheetOpen && MCO.viewport.isCompact() ? sheetEl.offsetHeight : 0}px`);
-  }
-
   // Flat padding, independent of what is open. The sidebar has its own column, so
   // its effect on the map already shows up in the container size; the detail panel
   // floats and must not influence the camera at all — that is what keeps the map
@@ -3067,12 +3014,12 @@
   }
 
   // One docked panel, two dock edges — bottom on compact viewports, right on
-  // desktop. This replaced a MapLibre Popup anchored to the dot, which sat on
-  // top of the map: with one open, 38% of the surrounding dots were underneath
-  // it and simply unclickable. A docked panel covers no dots at all, so any
-  // station can be selected while another is showing, and the content swaps in
-  // place. Everything downstream (popupDOM, the carousel, sibling links,
-  // announcements, writeUrl) is dock-agnostic and shared.
+  // desktop: the kit's MCO.initSheet (0.21.0 adoption; the kit's sheet was
+  // lifted from this app's own panel in 0.9.0). This replaced a MapLibre Popup
+  // anchored to the dot, which sat on top of the map: with one open, 38% of
+  // the surrounding dots were underneath it and simply unclickable. A docked
+  // panel covers no dots at all, so any station can be selected while another
+  // is showing, and the content swaps in place.
   // `fromHistory`: Back/Forward is re-applying a URL, so write nothing.
   // `replace`: open without a history entry (a deep link at boot).
   function openPopupFor(stationId, lngLat, { fromHistory = false, replace = false } = {}) {
@@ -3084,7 +3031,7 @@
     // would flood the history (HOUSE-STYLE §4).
     const firstStep = !_sheetOpen;
     _selectedStation = stationId;
-    openSheetFor(stationId, ll);
+    openSheetFor(stationId);
     announcePopup(stationId);
     highlightSelectedDot();
     // No re-fit — the panel floats, so the scale never changes. The only camera
@@ -3096,32 +3043,8 @@
     else writeUrl();
   }
 
-  // Our close button is the FIRST tabbable in the body (MapLibre's was appended
-  // last, which is why focus goes to the content container rather than to it).
-  function wireDetailChrome(root) {
-    if (!root) return;
-    root.querySelectorAll('.pop-close').forEach(btn => {
-      btn.addEventListener('click', (e) => { e.stopPropagation(); closeDetail(); });
-    });
-  }
-
-  function focusDetailRoot(el) { if (el) { el.tabIndex = -1; el.focus(); } }
-
-  // `force` skips the stranded-focus test for callers that already know focus is
-  // inside the surface being torn down — the sheet's chrome is persistent
-  // markup, and Chrome only reassigns activeElement asynchronously after it is
-  // hidden, so the test below would bail and leave focus on <body>.
-  function restorePopupFocus({ force = false } = {}) {
-    const target = _popupFocusReturn || map.getCanvas();
-    _popupFocusReturn = null;
-    // Only restore when removal stranded focus on <body> (it was inside the
-    // popup); a click elsewhere already put focus where the user wants it.
-    if (!force && document.activeElement && document.activeElement !== document.body) return;
-    target.focus?.();
-  }
-
   // Keyboard and touch path to co-located stations (the canvas spider is
-  // pointer-only). Takes an element so the popup and the sheet share it.
+  // pointer-only): the sheet's "Also at this site" rows.
   function wireSiblingLinks(root) {
     if (!root) return;
     root.querySelectorAll('.pop-sibling-link').forEach(btn => {
@@ -3143,29 +3066,28 @@
     MCO.announce(`${s.name} (${s.station}), ${s.sub_network || 'station'}, ${valPart}.`);
   }
 
-  // Tears down whichever presentation is open. `silent` is for the swap path
-  // (re-opening the same station in the other presentation), where clearing
-  // _selectedStation would drop `?station=` from the URL.
-  // Closing a panel that opened with its own history entry goes BACK to the
-  // entry before it, rather than leaving a dead "station open" entry behind
-  // for Back to land on. The popstate that follows only re-syncs the URL.
+  // Closing goes through the kit sheet (its ×, Esc, a drag below peek, or
+  // this), which then calls onSheetClosed below. Closing a panel that opened
+  // with its own history entry goes BACK to the entry before it, rather than
+  // leaving a dead "station open" entry behind for Back to land on. The
+  // popstate that follows only re-syncs the URL.
   let _expectPop = false;
-  function closeDetail({ silent = false, fromHistory = false } = {}) {
-    const had = _sheetOpen;
-    // The panel's own chrome (grab handle, close button) is persistent markup,
-    // so focus can still be inside it here; hiding it later would strand focus
-    // on <body> after restorePopupFocus() had already decided to bail.
-    const focusWasInSheet = _sheetOpen && sheetEl.contains(document.activeElement);
-    if (_sheetOpen) closeSheet({ restoreFocus: !silent && focusWasInSheet });
-    if (!had) return;
-    if (!silent && !focusWasInSheet) restorePopupFocus();
-    if (!silent && _selectedStation) {
-      _selectedStation = null;
-      highlightSelectedDot();
-      if (fromHistory) return;
-      if (history.state && history.state.mcoDetail) { _expectPop = true; history.back(); }
-      else writeUrl();
-    }
+  let _closingFromHistory = false;
+  function closeDetail({ fromHistory = false } = {}) {
+    if (!_sheetOpen) return;
+    _closingFromHistory = fromHistory;
+    sheet.close();
+    _closingFromHistory = false;
+  }
+  function onSheetClosed() {
+    _sheetOpen = false;
+    _popupFocusReturn = null;
+    if (!_selectedStation) return;
+    _selectedStation = null;
+    highlightSelectedDot();
+    if (_closingFromHistory) return;
+    if (history.state && history.state.mcoDetail) { _expectPop = true; history.back(); }
+    else writeUrl();
   }
 
   // Back / Forward (MCO.onUrlState, kit 0.8.0). Only the station is ever
@@ -3187,243 +3109,79 @@
   });
   const closePopup = closeDetail;   // keep the existing call sites honest
 
-  // ── Station sheet (compact viewports) ────────────────────────────────────
-  function openSheetFor(stationId, ll) {
+  // ── Station sheet ────────────────────────────────────────────────────────
+  // MCO.initSheet owns the detents, the drag and its keyboard twin (the grip),
+  // focus (in to the title, back to the opener or the map), Esc through
+  // MCO.escStack, inertness in the full detent on compact, and --sheet-h for
+  // the kit's auto-lift of the toast and the bottom map controls.
+  const sheet = MCO.initSheet({
+    sheet: sheetEl,
+    peekHeight: 'auto',
+    fallbackFocus: map.getCanvas(),
+    onState: (state) => { if (state === 'closed' && _sheetOpen) onSheetClosed(); },
+  });
+  function openSheetFor(stationId) {
     const s = stationById.get(stationId);
     if (!s) return;
-    sheetEl.setAttribute('aria-label', `${s.name} station details`);
+    sheetTitleEl.textContent = s.name;
     sheetBodyEl.replaceChildren(popupDOM(stationId));
-    sheetBodyEl.scrollTop = 0;
-    // Unhide before sizing — a hidden element has no layout to measure.
-    sheetEl.hidden = false;
     // Touch gets the peek readout first — the analogue of hovering a dot.
-    setSheetState(MCO.viewport.isTouch() ? 'peek' : 'full', { focus: false });
-    sheetEl.classList.add('enter');
-    requestAnimationFrame(() => sheetEl.classList.remove('enter'));
-    document.body.classList.add('sheet-open');
+    const opener = _popupFocusReturn && _popupFocusReturn.isConnected ? _popupFocusReturn : undefined;
+    sheet.open(MCO.viewport.isTouch() ? 'peek' : 'full', { opener });
     _sheetOpen = true;
     initPhotoCarousel(() => sheetEl, stationId);
     wireSiblingLinks(sheetEl);
-    wireDetailChrome(sheetEl);
-    focusDetailRoot(sheetEl);
-    syncOverlayMetrics();
   }
-
-  function setSheetState(state, { focus = true } = {}) {
-    sheetEl.dataset.state = state;
-    sheetExpandEl.setAttribute('aria-expanded', state === 'full' ? 'true' : 'false');
-    sheetExpandEl.querySelector('.sr-only').textContent =
-      state === 'full' ? 'Collapse station details' : 'Expand station details';
-    if (state === 'peek') syncSheetPeekHeight();
-    syncOverlayMetrics();
-    if (focus && state === 'full') sheetBodyEl.scrollTop = 0;
-  }
-
-  // Peek must show the value block whole — including its timestamp line — so
-  // measure it rather than guessing. Safe to read while clipped: getBoundingClientRect
-  // reports layout position regardless of the ancestor's overflow.
-  function syncSheetPeekHeight() {
-    const v = sheetBodyEl.querySelector('.pop-value') ||
-              sheetBodyEl.querySelector('.pop-badge');
-    if (!v) return;
-    const need = v.getBoundingClientRect().bottom - sheetBodyEl.getBoundingClientRect().top;
-    if (!(need > 0)) return;
-    const h = Math.round(sheetHeadEl.offsetHeight + need + 18);   // 18 = bottom padding
-    sheetEl.style.setProperty('--sheet-peek-h', `${h}px`);
-  }
-
-  function closeSheet({ restoreFocus = false } = {}) {
-    if (!_sheetOpen) return;
-    _sheetOpen = false;
-    sheetEl.classList.add('leaving');
-    const done = () => {
-      // Move focus out BEFORE hiding, so it never strands on <body>.
-      if (restoreFocus) restorePopupFocus({ force: true });
-      sheetEl.hidden = true;
-      sheetEl.classList.remove('leaving');
-      sheetBodyEl.innerHTML = '';
-    };
-    if (MCO.reducedMotion()) done(); else setTimeout(done, 220);
-    document.body.classList.remove('sheet-open');
-    document.documentElement.style.setProperty('--sheet-h', '0px');
-  }
-
-  // Tap or keyboard on the header toggles peek ↔ full.
-  sheetExpandEl.addEventListener('click', () => {
-    setSheetState(sheetEl.dataset.state === 'full' ? 'peek' : 'full');
-  });
-
-  // max-height animates, so the height read inside setSheetState is a frame or
-  // two stale. Re-sync once it lands so --sheet-h (which lifts the legend and
-  // toast clear of the sheet) settles on the real value.
-  sheetEl.addEventListener('transitionend', (e) => {
-    if (e.target === sheetEl && e.propertyName === 'max-height') syncOverlayMetrics();
-  });
-
-  // Drag the header to dismiss (down) or expand (up). Bound to the head only,
-  // so the body keeps its own scrolling.
-  let _sheetDrag = null;
-  sheetHeadEl.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('.sheet-close')) return;
-    _sheetDrag = { y0: e.clientY, t0: performance.now(), h: sheetEl.offsetHeight, moved: false };
-    sheetHeadEl.setPointerCapture(e.pointerId);
-    sheetEl.style.transition = 'none';
-  });
-  sheetHeadEl.addEventListener('pointermove', (e) => {
-    if (!_sheetDrag) return;
-    const dy = e.clientY - _sheetDrag.y0;
-    if (Math.abs(dy) > 3) _sheetDrag.moved = true;
-    if (dy < -24 && sheetEl.dataset.state === 'peek') setSheetState('full');
-    sheetEl.style.transform = `translateY(${Math.max(0, dy)}px)`;
-  });
-  for (const ev of ['pointerup', 'pointercancel']) {
-    sheetHeadEl.addEventListener(ev, (e) => {
-      if (!_sheetDrag) return;
-      const { y0, t0, h, moved } = _sheetDrag;
-      _sheetDrag = null;
-      const dy = e.clientY - y0;
-      const v  = dy / Math.max(1, performance.now() - t0);   // px/ms
-      sheetEl.style.transition = '';
-      sheetEl.style.transform = '';
-      if (!moved) return;                                    // a tap — let click handle it
-      if (dy > Math.min(96, h * 0.3) || v > 0.6) closeDetail();
-    });
-  }
-
-  // Crossing the breakpoint swaps which edge the panel is docked to (CSS, via
-  // .is-compact). Only the peek state is dock-specific, so re-derive that.
-  onViewportChange(() => {
-    syncOverlayMetrics();
-    if (!_sheetOpen) return;
-    if (!MCO.viewport.isCompact()) setSheetState('full', { focus: false });
-    else if (sheetEl.dataset.state === 'peek') syncSheetPeekHeight();
-  });
-
-  // ── Spider fan-out lifecycle (ported from mesonet-status) ────────────────
-  function openSpider(key, anchorLngLat) {
-    _spiderBucket = key;
-    rebuildSpider(anchorLngLat);
-  }
-  function closeSpider() {
-    if (_spiderBucket == null) return;
-    _spiderBucket = null;
-    map.getSource('spider')?.setData(emptyFC());
-    map.getSource('spider-lines')?.setData(emptyFC());
-  }
-  function rebuildSpider(anchorLngLatHint) {
-    if (_spiderBucket == null || !map.getSource('spider')) return;
-    const members = bucketMembers.get(_spiderBucket) || [];
-    if (members.length <= 1) { closeSpider(); return; }
-
-    const anchorId   = bucketAnchor.get(_spiderBucket);
-    const anchorMeta = stationById.get(anchorId);
-    const anchorLngLat = anchorLngLatHint || [anchorMeta.longitude, anchorMeta.latitude];
-    const anchorPx = map.project(anchorLngLat);
-    const others = members.filter(m => m.station !== anchorId).map(m => m.station);
-    const stroke = dotStrokeColor();
-
-    const feet = [];
-    const lines = [];
-    others.forEach((sid, i) => {
-      const theta = (i / others.length) * 2 * Math.PI - Math.PI / 2;   // start at top
-      const ll = map.unproject({
-        x: anchorPx.x + SPIDER_RADIUS_PX * Math.cos(theta),
-        y: anchorPx.y + SPIDER_RADIUS_PX * Math.sin(theta),
-      });
-      const base = _propsById.get(sid);
-      if (!base) return;
-      feet.push({
-        type: 'Feature',
-        geometry: { type: 'Point', coordinates: [ll.lng, ll.lat] },
-        properties: { ...base, colocationCount: 1, colocationIndex: 0 },
-      });
-      lines.push({
-        type: 'Feature',
-        geometry: { type: 'LineString', coordinates: [anchorLngLat, [ll.lng, ll.lat]] },
-        properties: { _strokeColor: stroke },
-      });
-    });
-    map.getSource('spider').setData({ type: 'FeatureCollection', features: feet });
-    map.getSource('spider-lines').setData({ type: 'FeatureCollection', features: lines });
-  }
-
-  // Grace period so the cursor can travel from the anchor to a foot.
-  let _spiderCloseTimer = null;
-  function scheduleSpiderClose() {
-    if (_spiderCloseTimer) clearTimeout(_spiderCloseTimer);
-    _spiderCloseTimer = setTimeout(() => { _spiderCloseTimer = null; closeSpider(); }, SPIDER_CLOSE_GRACE_MS);
-  }
-  function cancelSpiderClose() {
-    if (_spiderCloseTimer) { clearTimeout(_spiderCloseTimer); _spiderCloseTimer = null; }
-  }
-
-  // Keep spider feet at constant pixel offset while the camera moves.
-  let _spiderMoveRaf = 0;
-  map.on('move', () => {
-    if (!_spiderBucket || _spiderMoveRaf) return;
-    _spiderMoveRaf = requestAnimationFrame(() => { _spiderMoveRaf = 0; rebuildSpider(); });
-  });
 
   // ── Click & hover ────────────────────────────────────────────────────────
+  // Colocated stations are the kit's MCO.map.colocation (0.21.0, extracted
+  // from mesonet-status and cross-checked against this file's copy): one
+  // marker with a count badge per site, fanned out as a spider on hover, or on
+  // the first tap, which also opens the anchor's detail. It owns the click
+  // dispatch and the spider's hover grace and Esc. includeHidden keeps every
+  // station in the source (hidden ones as singles), because this app hides
+  // networks and categories by layer filter, so a chip flips at once.
   const DOT_LAYERS    = ['dots-value', 'dots-stale', 'dots-nodata', 'dots-label'];
-  const ANCHOR_LAYERS = [...DOT_LAYERS, 'stations-badge'];
-  const HOVER_LAYERS  = ['spider-layer', 'spider-label', ...ANCHOR_LAYERS];
-  const ANCHOR_LAYER_IDS = new Set(ANCHOR_LAYERS);
+  const ANCHOR_LAYERS = [...DOT_LAYERS, 'stations-badge-disc', 'stations-badge'];
+  const SPIDER_LAYERS = ['spider-layer', 'spider-label'];
+  const HOVER_LAYERS  = [...SPIDER_LAYERS, ...ANCHOR_LAYERS];
+  const coloc = MCO.map.colocation(map, {
+    source: 'stations',
+    rank: (s) => netRank(s.sub_network),
+    visible: (s) => activeNetworks.has(s.sub_network) && catVisible(_catById.get(s.station)),
+    includeHidden: true,
+    properties: (s) => ({ ..._propsById.get(s.station) }),
+    anchorLayers: ANCHOR_LAYERS,
+    spiderLayers: SPIDER_LAYERS,
+    onSelect: (id, info) => openPopupFor(id, info.lngLat),
+    onEmpty: (e) => nearMiss(e),
+  });
 
-  // Single dispatcher: foot click opens its popup; anchor click opens the
-  // spider AND the anchor's popup (mobile-friendly); empty click closes both.
   // A fingertip is much bigger than a dot; a mouse pointer is precise but the
   // dots are only ~10px across, so a few px of slop stops near-misses from
   // reading as "click did nothing" (they'd hit empty map and close the panel).
+  // The kit picks direct hits exactly as the tooltip does; only a click that
+  // hit nothing comes here. A box query returns features in layer order, NOT
+  // by distance, so they are sorted by distance before the layer preference.
   const TOUCH_SLOP_PX = 10;
   const MOUSE_SLOP_PX = 6;
-  map.on('click', (e) => {
+  function nearMiss(e) {
     const layers = HOVER_LAYERS.filter(lid => map.getLayer(lid));
-    if (!layers.length) { closeSpider(); closePopup(); return; }
-    // A direct hit wins, picked exactly as the mousemove tooltip picks it, so a
-    // click always opens the station the tooltip just named. The slop box used
-    // to be queried first and preferred any dot in it, so clicking a station's
-    // value label opened a neighbouring dot within 6px instead.
-    let f = map.queryRenderedFeatures(e.point, { layers })[0];
-    if (!f) {
-      // Near-miss: widen to the slop box. A box query returns features in layer
-      // order, NOT by distance, so sort by distance from the click before the
-      // layer-priority pass below.
-      const slop = MCO.viewport.isTouch() ? TOUCH_SLOP_PX : MOUSE_SLOP_PX;
-      const query = [[e.point.x - slop, e.point.y - slop],
-                     [e.point.x + slop, e.point.y + slop]];
-      let feats = map.queryRenderedFeatures(query, { layers });
-      if (feats.length === 0) {
-        closeSpider();
-        closePopup();
-        return;
-      }
-      if (feats.length > 1) {
-        const d2 = (ft) => {
-          const p = map.project(ft.geometry.coordinates);
-          return (p.x - e.point.x) ** 2 + (p.y - e.point.y) ** 2;
-        };
-        feats = [...feats].sort((a, b) => d2(a) - d2(b));
-      }
-      f = feats.find(x => x.layer.id === 'spider-layer' || x.layer.id === 'spider-label') ||
-          feats.find(x => x.layer.id === 'dots-value') ||
-          feats[0];
-    }
-    const props  = f.properties;
-    const lngLat = f.geometry.coordinates.slice();
-    if (f.layer.id === 'spider-layer' || f.layer.id === 'spider-label') {
-      openPopupFor(props.station, lngLat);
-      return;
-    }
-    if (props.colocationCount > 1) {
-      cancelSpiderClose();
-      if (_spiderBucket !== props.bucket) openSpider(props.bucket, lngLat);
-      openPopupFor(props.station, lngLat);
-      return;
-    }
-    if (_spiderBucket) closeSpider();
-    openPopupFor(props.station, lngLat);
-  });
+    const slop = MCO.viewport.isTouch() ? TOUCH_SLOP_PX : MOUSE_SLOP_PX;
+    let feats = layers.length ? map.queryRenderedFeatures(
+      [[e.point.x - slop, e.point.y - slop], [e.point.x + slop, e.point.y + slop]], { layers }) : [];
+    if (!feats.length) { closePopup(); return; }
+    const d2 = (ft) => {
+      const p = map.project(ft.geometry.coordinates);
+      return (p.x - e.point.x) ** 2 + (p.y - e.point.y) ** 2;
+    };
+    feats = [...feats].sort((a, b) => d2(a) - d2(b));
+    const f = feats.find(x => SPIDER_LAYERS.includes(x.layer.id)) ||
+              feats.find(x => x.layer.id === 'dots-value') || feats[0];
+    const p = f.properties;
+    if (!SPIDER_LAYERS.includes(f.layer.id) && p.colocationCount > 1) coloc.open(p.bucket);
+    openPopupFor(p.station, f.geometry.coordinates.slice());
+  }
 
   // The hover readout is the kit's MCO.map.initCursorTooltip (0.8.0): the
   // queryRenderedFeatures dispatcher, textContent lines, cursor+14 placement
@@ -3451,93 +3209,56 @@
     },
   });
 
-  // Hovering an anchor of co-located stations fans them out (the tooltip above
-  // is separate). Same touch exclusion, for the same reason.
-  let _hovered = false;
-  map.on('mousemove', (e) => {
-    if (MCO.viewport.isTouch()) return;
-    const layers = HOVER_LAYERS.filter(lid => map.getLayer(lid));
-    const f = (layers.length ? map.queryRenderedFeatures(e.point, { layers }) : [])[0] || null;
-    if (f) {
-      cancelSpiderClose();
-      _hovered = true;
-      if (ANCHOR_LAYER_IDS.has(f.layer.id)
-          && f.properties.colocationCount > 1
-          && _spiderBucket !== f.properties.bucket) {
-        openSpider(f.properties.bucket, f.geometry.coordinates.slice());
-      }
-    } else if (_hovered) {
-      scheduleSpiderClose();
-      _hovered = false;
-    }
-  });
-  map.getCanvas().addEventListener('mouseleave', () => {
-    scheduleSpiderClose();
-    _hovered = false;
-  });
 
   // ── Control sidebar ──────────────────────────────────────────────────────
   // Controls live in ONE place in the DOM and get moved between the sidebar and
-  // the top control bar as the breakpoint changes. Moving (rather than cloning)
-  // keeps every listener, aria-pressed sync and label association intact.
+  // the compact nav drawer as the breakpoint changes. Moving (rather than
+  // cloning) keeps every listener, aria-pressed sync and label association.
   let _sidebarReady = false;
   const sidebarEl     = document.getElementById('sidebar');
+  const sidebarScroll = sidebarEl.querySelector('.sidebar-scroll');
   const sidebarToggle = document.getElementById('sidebar-toggle');
-  const sidebarScrim  = document.getElementById('sidebar-scrim');
-  const btnDrawer     = document.getElementById('btn-drawer');
-  const navMetaEl     = document.getElementById('nav-tools');
-  const brandEl       = document.querySelector('.brand');
-  const searchWrapEl  = document.querySelector('.search-wrap');
   const navControlsEl = document.querySelector('#navbar .controls');
-  const modeGroupEl   = document.getElementById('mode-group');
+  const navRailEl     = document.querySelector('#navbar .mco-rail');
+  const navRailToggle = document.getElementById('btn-rail');
+  const searchToggle  = document.getElementById('btn-search-toggle');
   const variableGroupEl = document.getElementById('variable-group');
+  // The sidebar's sections, in their desktop order.
+  const SECTION_IDS = ['sb-search', 'sb-networks', 'sb-time', 'sb-variable', 'sb-agg', 'sb-legend'];
+  const sections = SECTION_IDS.map(id => document.getElementById(id));
+  const variableSection = document.getElementById('sb-variable');
 
-  // Desktop: remembered open/closed. Compact: always starts closed (it is a
-  // drawer there, not a fixture) — a drawer that opens by itself over the map
-  // would be worse than useless on a phone.
+  // Desktop: remembered open/closed. On compact the column is gone and its
+  // sections are in the nav drawer, which always starts closed.
   let sidebarOpen = (() => {
     const u = getLower('sidebar');
     if (u === 'open' || u === 'closed') return u === 'open';
     return MCO.lsGet('mco-explorer-sidebar') !== 'closed';
   })();
 
-  // Which container each control belongs to at the current breakpoint.
-  // On compact viewports Time and Variable stay inline in the top bar: they are
-  // the two controls people change constantly, and burying them behind the
-  // drawer would make every change cost two taps.
+  // Where the variable picker sits: in the bar itself on a portrait phone
+  // (the one hot control, MCO.initNavRail's compact bar), else in its section.
+  let _pickerInBar = false;
+  // Which container each control belongs to at the current breakpoint. Compact
+  // (the kit's compact bar on a portrait phone, its rail on a landscape one):
+  // every section goes into #nav-drawer, the right-hand drawer under the bar,
+  // or beside the rail. Desktop: back to the sidebar column.
   function layoutControls() {
-    const place = (el, parent) => { if (el && el.parentElement !== parent) parent.appendChild(el); };
-    const sb = (id) => document.getElementById(id);
-    place(subnetFiltersEl, sb('sb-networks'));
-    place(legendEl, sb('sb-legend'));
-    place(aggGroup, sb('sb-agg'));
-    if (MCO.viewport.isCompact()) {
-      // Header row 1 = menu + time mode + variable, the two controls people
-      // change constantly. Row 2 (the control bar) is left free for the date and
-      // hour steppers, which only exist in Hourly/Daily. Everything else —
-      // search, networks, aggregation, legend, the title and the global actions —
-      // is behind the one menu button.
-      place(modeGroupEl, navControlsEl);
-      place(variableGroupEl, navControlsEl);
-      // On the landscape rail the date and hour join them in the rail drawer,
-      // so no control row is left above the map; otherwise they are row 2.
-      const timeHome = MCO.viewport.isRail() ? navControlsEl : controlBarEl;
-      place(dateGroup, timeHome);
-      place(hourGroup, timeHome);
-      place(searchWrapEl, sb('sb-search'));
-      place(brandEl, sb('sb-brand'));
-      place(navMetaEl, sb('sb-actions'));
-    } else {
-      place(brandEl, navbarEl);
-      place(navMetaEl, navbarEl);
-      place(searchWrapEl, sb('sb-search'));
-      place(modeGroupEl, sb('sb-time'));
-      place(dateGroup, sb('sb-time'));
-      place(hourGroup, sb('sb-time'));
-      place(variableGroupEl, sb('sb-variable'));
+    const place = (el, parent, before = null) => {
+      if (el && (el.parentElement !== parent || (before && el.nextElementSibling !== before))) {
+        parent.insertBefore(el, before);
+      }
+    };
+    const home = MCO.viewport.isCompact() ? navControlsEl : sidebarScroll;
+    for (const sec of sections) place(sec, home);
+    const inBar = navRail.isDrawerMode();
+    if (inBar) place(variableGroupEl, navRailEl, searchToggle);
+    else place(variableGroupEl, variableSection);
+    if (inBar !== _pickerInBar) {
+      _pickerInBar = inBar;
+      populateVariableSelect();   // short labels in the bar
     }
     syncSidebarSections();
-    syncOverlayMetrics();
   }
 
   // A section showing nothing but its own heading is noise — and which groups are
@@ -3548,25 +3269,19 @@
     // below has initialised its const bindings. layoutControls() calls this again
     // once they exist, so bailing here loses nothing.
     if (!_sidebarReady) return;
-    for (const sec of sidebarEl.querySelectorAll('.sb-section')) {
+    for (const sec of sections) {
       sec.hidden = !sec.querySelector(':scope > *:not(.sb-title):not([hidden])');
     }
-    controlBarEl.hidden = !controlBarEl.querySelector(':scope > *:not([hidden])');
     // And .controls, whose children all move to the sidebar on desktop. CSS
     // :empty can't do this: moving the children out leaves whitespace text nodes
     // behind, so the selector never matches and the empty div still takes part in
     // the navbar's flex layout.
-    if (navControlsEl) navControlsEl.hidden = !navControlsEl.querySelector(':scope > *:not([hidden])');
+    navControlsEl.hidden = !navControlsEl.querySelector(':scope > *:not([hidden])');
   }
 
-  // Two jobs, two owners. Above compact the sidebar is a column you can
-  // collapse (this function: remembered, ?sidebar=, resizes the map). On
-  // compact it is an off-canvas drawer, and that is the kit's MCO.initDrawer
-  // (0.9.0, below): focus moves in and back, the rest of the page goes inert so
-  // Tab stays inside, Esc / the scrim / its × close it, and it is [hidden] when
-  // closed, so its controls leave the tab order and the accessibility tree
-  // (before, a closed drawer was only translated off-screen, every control in
-  // it still tabbable).
+  // Above compact the sidebar is a column you can collapse (this function:
+  // remembered, ?sidebar=, resizes the map). On compact its sections are in
+  // the nav drawer instead (MCO.initNavRail, below).
   function setSidebarOpen(open, { persist = true, refit = true } = {}) {
     if (MCO.viewport.isCompact()) return;
     sidebarOpen = !!open;
@@ -3576,7 +3291,6 @@
     sidebarToggle.setAttribute('aria-label', label);
     sidebarToggle.title = label;
     if (persist) MCO.lsSet('mco-explorer-sidebar', sidebarOpen ? 'open' : 'closed');
-    syncOverlayMetrics();
     if (refit) {
       // The map container just changed width. MapLibre needs telling, and the
       // resize handler then re-fits if the user was at full extent.
@@ -3587,55 +3301,52 @@
   }
 
   sidebarToggle.addEventListener('click', () => setSidebarOpen(!sidebarOpen));
-  // The landscape-phone rail (kit 0.10.0): the bar is a left column there and
-  // this opens its drawer (time + variable) beside it, with the same
-  // focus-in / inert / Esc-back-to-the-toggle contract as the sidebar drawer.
-  // Idle at every other size, where the drawer is display:contents.
+  // The nav drawer (kit 0.21.0 compact bar, 0.10.0 rail): ☰ at the bar's right
+  // edge, or atop the landscape rail, opens #nav-drawer with the drawer
+  // contract (focus in, the rest of the page and bar inert, Esc / the scrim /
+  // ☰ close it, focus back to the opener). The bar's search button opens it
+  // on the search field. Idle above compact, where the drawer is
+  // display:contents.
   const navRail = MCO.initNavRail({
-    toggle: document.getElementById('btn-rail'),
+    toggle: navRailToggle,
     drawer: document.getElementById('nav-drawer'),
     scrim: document.getElementById('rail-scrim'),
+    search: { toggle: searchToggle, input: searchInput },
   });
-
-  const sidebarDrawer = MCO.initDrawer({
-    drawer: sidebarEl, toggle: btnDrawer, scrim: sidebarScrim, modal: 'compact',
-    onChange: () => syncOverlayMetrics(),
-  });
+  // A drawer button that opens a dialog closes the drawer first: its inert
+  // page would otherwise include the dialog.
+  function closeNavDrawer() { if (navRail.isOpen()) navRail.close(); }
 
   _sidebarReady = true;
   layoutControls();
   setSidebarOpen(sidebarOpen, { persist: false, refit: false });   // no-op on compact
   // Releases the compact first-paint hold in index.html ("First paint"): every
-  // control is now where it belongs, so the header and drawer can show.
+  // control is now where it belongs.
   document.documentElement.classList.add('layout-ready');
 
   onViewportChange(() => {
     layoutControls();
-    // Crossing into compact the drawer takes over (closed); crossing back out
-    // restores the saved column preference.
+    // Crossing back out of compact restores the saved column preference.
     if (!MCO.viewport.isCompact()) setSidebarOpen(MCO.lsGet('mco-explorer-sidebar') !== 'closed',
                         { persist: false });
   });
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
   // ?kbd=off disables the single-character shortcut (WCAG 2.1.4 — speech-input
-  // users can misfire it); Escape handling is unaffected.
+  // users can misfire it). Escape is the kit's MCO.escStack: the sheet, the
+  // spider and the nav drawer each take one press, newest first.
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      if (infoModal.open || scaleModal.open) return;   // native dialogs own their Escape
-      closeSpider(); closePopup(); return;
-    }
     if (kbdShortcuts && e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey) {
       const t = e.target;
       const inField =
         t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
       if (inField) return;
       e.preventDefault();
-      // On desktop the box lives in the sidebar; on a phone it's in the top bar
-      // but the drawer may be what the user expects to open. Reveal it either way
-      // before focusing, so the shortcut can't focus something invisible.
-      if (!MCO.viewport.isCompact() && !sidebarOpen) setSidebarOpen(true);
-      if (MCO.viewport.isCompact() && !sidebarDrawer.isOpen()) sidebarDrawer.open();
+      // The box lives in the sidebar on desktop and in the nav drawer on
+      // compact. Reveal it either way before focusing, so the shortcut can't
+      // focus something invisible.
+      if (navRail.isRail() || navRail.isDrawerMode()) { navRail.open(searchInput); return; }
+      if (!sidebarOpen) setSidebarOpen(true);
       searchInput.focus();
       searchInput.select();
     }
@@ -3977,7 +3688,6 @@
     addCustomLayers();
     zoomFloor.refresh();
     _mapReady = true;
-    syncOverlayMetrics();
     // The constructor fit used flat padding (the sidebar's width isn't known
     // that early), so re-fit now that the panels are laid out — unless the URL
     // pinned an explicit camera.
@@ -4011,7 +3721,6 @@
       const chromeOnly = _lastMapSize && w === _lastMapSize.w && Math.abs(h - _lastMapSize.h) < 120;
       _lastMapSize = { w, h };
       zoomFloor.refresh();
-      syncOverlayMetrics();
       if (chromeOnly && !fromSidebar) return;
       // Never yank the camera out from under an open detail on an incidental
       // resize — but a sidebar toggle is the user asking for exactly that.
@@ -4060,7 +3769,6 @@
       elementDesc = new Map(els.map(e => [e.element, e.description_short]));
     } catch (err) {
       console.error(err);
-      setSyncStamp('error');
       hideLoading();
       showErrorCard('Couldn’t reach the Mesonet API. Check your connection.', () => boot());
       window.addEventListener('online',
@@ -4073,9 +3781,6 @@
     stations = stations.filter(s =>
       typeof s.latitude === 'number' && typeof s.longitude === 'number');
     stationById = new Map(stations.map(s => [s.station, s]));
-
-    // Static co-location buckets; per-render membership computed in render().
-    for (const s of stations) bucketById.set(s.station, bucketKey(s.latitude, s.longitude));
 
     // Date bounds from the network's history.
     const installs = stations.map(s => s.date_installed).filter(t => typeof t === 'number');
@@ -4107,7 +3812,7 @@
     if (_initStation && stationById.has(_initStation)) {
       const s = stationById.get(_initStation);
       // A deep link opens in place: no history entry for a station the page
-      // was loaded with.
+      // was loaded with. With a camera in the URL it opens where it is.
       if (_hasInitPos) openPopupFor(_initStation, [s.longitude, s.latitude], { replace: true });
       else             flyToAndOpen(_initStation, { replace: true });
     } else {
