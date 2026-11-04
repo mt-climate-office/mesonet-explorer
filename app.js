@@ -13,7 +13,8 @@
   // padding of 24 — its framing is deliberately independent of the window.
   const FIT_OPTS      = { padding: 24, animate: false };
 
-  const STALE_MS          = 3 * 60 * 60 * 1000;   // latest mode: hide obs older than 3 h
+  // Stale is >= 2 h family-wide (HOUSE-STYLE, 0.21.0): mesonet-status's rule.
+  const STALE_MS          = 2 * 60 * 60 * 1000;   // latest mode: hide obs 2 h old or older
   const REFRESH_MS        = 5 * 60 * 1000;        // latest-mode auto-refresh cadence
   const SEARCH_FLY_ZOOM   = 11;
   const SEARCH_FLY_SPEED  = 1.4;
@@ -1617,7 +1618,7 @@
     // treated as current — e.g. precip windows).
     const now = Date.now();
     const isStale = (dt) =>
-      activeMode === 'latest' && typeof dt === 'number' && (now - dt) > STALE_MS;
+      activeMode === 'latest' && typeof dt === 'number' && (now - dt) >= STALE_MS;
 
     // Scale domain from displayable values (stale included only when shown).
     const domainValues = [];
@@ -1895,7 +1896,7 @@
     });
     if (activeMode === 'latest') {
       addLegendRow(legendRowsEl, {
-        label: `Stale > 3 h (${counts.stale})`,
+        label: `Stale ≥ 2 h (${counts.stale})`,
         swatchClass: 'stale',
         pressed: staleShown,
         onToggle: () => {
@@ -1913,7 +1914,7 @@
         ? `Data current as of ${MCO.formatStampMT(maxDt)}`
         : 'Current accumulations';
       if (!staleShown && counts.stale > 0) {
-        meta += ` · ${counts.stale} station${counts.stale === 1 ? '' : 's'} hidden (no report in 3 h)`;
+        meta += ` · ${counts.stale} station${counts.stale === 1 ? '' : 's'} hidden (no report in 2 h)`;
       }
       legendMetaEl.textContent = meta;
     } else if (activeMode === 'hourly') {
