@@ -212,6 +212,21 @@ export async function run({ browser, origin }) {
     await ctx.close();
   }
 
+  // More is the sidebar's last group at 1440; with the sidebar hidden its
+  // controls return to the bar, on screen and clickable.
+  for (const [query, wantBar] of [['', false], ['?sidebar=closed', true]]) {
+    const { ctx, page, errors } = await open(browser, origin, { query, width: 1440, height: 900 });
+    const r = await page.evaluate(() => [...document.querySelectorAll('#more-body button')].map(b => {
+      const x = b.getBoundingClientRect(); const hit = document.elementFromPoint(x.x + x.width / 2, x.y + x.height / 2);
+      return { id: b.id || b.dataset.units, inBar: !!b.closest('#navbar'), onScreen: x.left >= 0 && x.right <= innerWidth && x.width > 0, hit: !!hit && (hit === b || b.contains(hit)) };
+    }));
+    const where = wantBar ? 'in the bar' : 'in the sidebar';
+    t.check(`1440 ${query || '(sidebar open)'}: More's controls ${where}, on screen and hittable`,
+      r.length === 7 && r.every(b => b.inBar === wantBar && b.onScreen && b.hit), JSON.stringify(r.filter(b => !(b.inBar === wantBar && b.onScreen && b.hit))));
+    t.check(`1440 ${query || '(sidebar open)'}: More placement no errors`, errors.length === 0, errors.join(' | ') || 'none');
+    await ctx.close();
+  }
+
   // Mobile header: ONE row in every mode, down to 320px (kit 0.21.0 compact
   // bar: badge · variable · search · ☰, ≤ 64px; the date and hour steppers
   // moved into the drawer with the rest of the Time section).

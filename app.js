@@ -3343,16 +3343,7 @@
     const home = MCO.viewport.isCompact() ? navControlsEl : sidebarScroll;
     for (const sec of sections) place(sec, home);
     place(sidebarFooter, MCO.viewport.isCompact() ? navDrawerEl : sidebarScroll);
-    // More (units, labels, export, share, theme, help): the drawer's last
-    // group on compact, in .nav-meta; the sidebar's last group above it, after
-    // Overlays and before the note, so the sidebar carries the drawer's groups,
-    // headings and order (kit 1.0.0 consistency table).
-    if (MCO.viewport.isCompact()) {
-      if (moreBody.parentElement !== navToolsEl) navToolsEl.append(moreTitle, moreBody);
-    } else if (moreBody.parentElement !== sidebarScroll || moreBody.nextElementSibling !== sidebarFooter) {
-      sidebarScroll.insertBefore(moreTitle, sidebarFooter);
-      sidebarScroll.insertBefore(moreBody, sidebarFooter);
-    }
+    placeMore();
     const inBar = navRail.isDrawerMode();
     if (inBar) place(variableGroupEl, navRailEl, searchToggle);
     else place(variableGroupEl, variableSection, aggGroup);
@@ -3362,6 +3353,21 @@
     }
     applyGroups();
     syncSidebarSections();
+  }
+
+  // More (units, labels, export, share, theme, help): the drawer's last group
+  // on compact, in .nav-meta; above compact the sidebar's last group, after
+  // Overlays and before the note, so the sidebar carries the drawer's groups,
+  // headings and order (kit 1.0.0 consistency table). With the sidebar hidden
+  // its controls go back to the bar (in .nav-meta, where the heading is not
+  // shown), so share, export, theme and help are never out of reach.
+  function placeMore() {
+    if (MCO.viewport.isCompact() || !sidebarOpen) {
+      if (moreBody.parentElement !== navToolsEl) navToolsEl.append(moreTitle, moreBody);
+    } else if (moreBody.parentElement !== sidebarScroll || moreBody.nextElementSibling !== sidebarFooter) {
+      sidebarScroll.insertBefore(moreTitle, sidebarFooter);
+      sidebarScroll.insertBefore(moreBody, sidebarFooter);
+    }
   }
 
   // A section showing nothing but its own heading is noise — and which groups are
@@ -3389,6 +3395,7 @@
     if (MCO.viewport.isCompact()) return;
     sidebarOpen = !!open;
     document.body.classList.toggle('sidebar-closed', !sidebarOpen);
+    placeMore();
     const label = sidebarOpen ? 'Hide controls' : 'Show controls';
     sidebarToggle.setAttribute('aria-expanded', sidebarOpen ? 'true' : 'false');
     sidebarToggle.setAttribute('aria-label', label);
