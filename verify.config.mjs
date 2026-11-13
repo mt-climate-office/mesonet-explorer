@@ -56,8 +56,12 @@ export default {
   scenarios: [
     { name: 'latest', query: '', ready: drawn },
     { name: 'daily', query: '?mode=daily&var=ppt', ready: drawn },
+    // Hourly: the bottom control bar (kit 1.0.0) carries the date and hour
+    // steppers at 390; at 1440 they are the sidebar's.
+    { name: 'hourly', query: '?mode=hourly', ready: drawn },
     // A deep-linked station opens the kit sheet (MCO.initSheet): end-docked at
-    // 1440, the bottom sheet at 390. Every scenario runs at both widths.
+    // 1440, the full-height panel under the bar at 390 (kit 1.0.0, state
+    // "full"). Every scenario runs at both widths.
     { name: 'station', query: '?station=acemocca', ready: () => {
       const s = document.querySelector('.mco-sheet');
       return document.querySelectorAll('#sr-station-table tbody tr').length > 50 && !!s && !s.hidden
@@ -91,6 +95,7 @@ export default {
   shortcuts: [
     // "/" focuses station search (WCAG 2.1.4: ?kbd=off disables it).
     { key: '/', effect: () => document.activeElement && document.activeElement.id === 'search-input' },
+
   ],
   probes: async ({ open, check }) => {
     {
@@ -133,6 +138,21 @@ export default {
     {
       const { page, close } = await open('?kbd=off', {});
       check('?kbd=off sticks in the URL', await page.evaluate(() => /kbd=off/.test(location.search)));
+      await close();
+    }
+    // ← / → step the time (kit 1.0.0 MCO.initStepper arrowKeys): the day in
+    // Daily, the hour in Hourly; ?kbd=off turns them off with "/".
+    for (const [q, want, label] of [
+      ['?mode=daily&date=2026-09-15', (s) => s.date === '2026-09-16', '→ steps the day in Daily'],
+      ['?mode=hourly&date=2026-09-15&hour=12', (s) => s.date === '2026-09-15' && s.hour === '13:00', '→ steps the hour in Hourly'],
+      ['?mode=daily&date=2026-09-15&kbd=off', (s) => s.date === '2026-09-15', '→ does nothing under ?kbd=off'],
+    ]) {
+      const { page, close } = await open(q, {});
+      await page.evaluate(() => { document.activeElement && document.activeElement.blur(); });
+      await page.keyboard.press('ArrowRight');
+      await page.waitForTimeout(400);
+      const s = await page.evaluate(() => ({ date: document.getElementById('date-input').value, hour: document.getElementById('hour-readout').textContent }));
+      check(label, want(s), JSON.stringify(s));
       await close();
     }
   },

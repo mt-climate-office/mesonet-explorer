@@ -195,13 +195,9 @@ export async function run({ browser, origin }) {
     await ctx.close();
   }
 
-  // Phone: the frame sits inside the sheet once expanded.
+  // Phone: the frame sits inside the station panel (full height, kit 1.0.0).
   {
     const { ctx, page, errors } = await open(browser, origin, { query: `?station=${STATION}`, width: 390, height: 844, touch: true });
-    await page.evaluate(() => {
-      const s = document.getElementById('station-sheet');
-      if (s && s.dataset.state === 'peek') document.getElementById('sheet-expand').click();
-    });
     await page.waitForTimeout(600);
     const c = await carousel(page);
     t.check('phone: carousel settles with a photo', c.present && c.state === 'ok' && c.loaded, JSON.stringify(c));

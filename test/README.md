@@ -35,6 +35,14 @@ collapse control, `?legend=collapsed|open` wins over a saved state at 390 and
 1440, and the note is the sidebar's last block at 1440, visible with Legend
 closed. Plus header height against `mesonet-status` (54px with the
 map flush beneath) and mobile header compactness in all three time modes.
+Kit 1.0.0: the rail at the right edge at 750×342 and 844×390 in every time mode
+(order badge › ☰ › search › time controls, every button ≥ 44px and hittable,
+zoom beside it and clear of the attribution, ☰ opening the drawer beside it with
+focus on the drawer); the bottom control bar at 320×568 and 390×844 (hidden in
+Latest; one row at the bottom, `--tabbar-h` its height, the Time group's
+steppers by name and order, the attribution above it, hidden under a simulated
+keyboard); and ← / → stepping the hour in Hourly and the day in Daily at 1440
+and 390, not from a field, and not at all with `?kbd=off`.
 
 **`url`** — a default load leaves the URL bare; each control adds exactly its own
 parameter and clears it again; every parameter still works as input and
@@ -47,8 +55,10 @@ the sharer's view rather than their own defaults.
 through the URL, where the camera parameters vanish at the default extent);
 the camera is still when idle; clicking a dot opens *that* station; the docked
 panel covers no clickable dots; selecting a station does not move or resize the
-map while collapsing the sidebar does; and on a phone the sheet takes half the
-map and dismisses cleanly.
+map while collapsing the sidebar does; and on a phone (390×844, also in Hourly
+with the control bar, and 844×390 beside the rail) the station panel fills the
+area under the bar with the bar and control bar live, its 44px close button is
+hittable, and closing clears the station.
 
 **`export`** — the PNG export: downloads fire for both themes, valid PNG at
 2800×1400, filename carries variable and timestamp, the map, branding card and

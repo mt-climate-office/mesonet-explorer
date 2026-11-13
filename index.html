@@ -625,10 +625,8 @@
        a column at the foot of the right rail (html.is-rail, kit 1.0.0). The
        date readout is two lines, "Nov 13" over the year. */
     .cb-stepper { display: flex; align-items: center; gap: 2px; }
-    .cb-stepper .mco-controlbar-readout { margin: 0; line-height: 1.15; }
-    .cb-md, .cb-y { display: block; }
+    .cb-md, .cb-y { display: block; line-height: 1.15; }
     .cb-y { font-size: var(--fs-xs); color: var(--text-secondary); }
-    .cb-stepper .nav-btn { justify-content: center; }
     html.is-rail .cb-stepper { flex-direction: column; gap: 0.35rem; }
     /* In Hourly the rail cannot hold the badge, ☰, search and both steppers
        at 750x342 (measured: 357px needed without the readouts, 386px with
@@ -914,7 +912,7 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
-    <p class="mco-controlbar-readout" id="cb-date-readout" role="status"></p>
+    <span class="mco-controlbar-readout" id="cb-date-readout" role="status"></span>
     <button type="button" class="nav-btn mco-step" id="btn-cb-date-next" aria-label="Next day">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
@@ -925,7 +923,7 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
-    <p class="mco-controlbar-readout" id="cb-hour-readout" role="status"></p>
+    <span class="mco-controlbar-readout" id="cb-hour-readout" role="status"></span>
     <button type="button" class="nav-btn mco-step" id="btn-cb-hour-next" aria-label="Next hour">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>

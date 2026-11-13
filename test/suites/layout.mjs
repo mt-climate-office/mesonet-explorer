@@ -25,9 +25,9 @@ const REACHABILITY = `(() => {
   // One bar since kit 0.21.0's compact bar: the phone's second row is gone.
   const nb = q('#navbar'), map = q('#map');
   const mr = map.getBoundingClientRect();
-  // On a landscape phone the navbar is the kit's left rail (0.10.0), beside the
-  // map rather than above it, so it only counts as chrome above when it spans
-  // the width.
+  // On a landscape phone the navbar is the kit's rail at the right edge (kit
+  // 1.0.0), beside the map rather than above it, so it only counts as chrome
+  // above when it spans the width.
   const navAbove = nb.getBoundingClientRect().width >= innerWidth - 1;
   const chrome = navAbove ? Math.round(nb.getBoundingClientRect().height) : 0;
   const panel = sheet && sheet.getBoundingClientRect();
@@ -64,11 +64,6 @@ export async function run({ browser, origin }) {
   for (const [label, width, height, touch] of VIEWPORTS) {
     const { ctx, page, errors } = await open(browser, origin, {
       query: '?station=acemocca', width, height, touch,
-    });
-    // Expand the peek sheet so its links are in play.
-    await page.evaluate(() => {
-      const s = document.getElementById('station-sheet');
-      if (s && !s.hidden && s.dataset.state === 'peek') document.getElementById('sheet-expand').click();
     });
     await page.waitForTimeout(1400);
     const r = await page.evaluate(REACHABILITY);
@@ -231,6 +226,153 @@ export async function run({ browser, origin }) {
       const expected = 64;   // the family's phone-bar ceiling
       t.check(`${width}px ${mode}: header stays compact`,
         r.chrome <= expected && r.overflow === 0, `${r.chrome}px, overflow ${r.overflow}`);
+      await ctx.close();
+    }
+  }
+
+  // The rail at the right edge (kit 1.0.0) on a landscape phone: badge, ☰,
+  // search, then the control bar at its foot, every button ≥ 44px and on top
+  // at its centre; ☰ opens the drawer beside it with focus on the drawer, not
+  // a field; the zoom group stays on the map, top right, clear of the
+  // attribution. In Hourly the rail shows the date readout over the hour
+  // stepper (no room for both steppers at 750x342); Daily the date stepper.
+  for (const [w, h] of [[750, 342], [844, 390]]) {
+    for (const mode of ['latest', 'hourly', 'daily']) {
+      const label = `${w}x${h} ${mode}`;
+      const { ctx, page, errors } = await open(browser, origin, { query: mode === 'latest' ? '' : `?mode=${mode}`, width: w, height: h, touch: true });
+      const r = await page.evaluate(() => {
+        const R = el => { const b = el.getBoundingClientRect(); return [Math.round(b.x), Math.round(b.y), Math.round(b.width), Math.round(b.height)]; };
+        const nav = document.getElementById('navbar');
+        const items = [...document.querySelectorAll('#navbar .logo-link, #navbar .mco-rail > *, #time-bar button, #time-bar .mco-controlbar-readout')]
+          .filter(el => el.getClientRects().length > 0);
+        const ordered = items.slice().sort((a, b) => a.getBoundingClientRect().y - b.getBoundingClientRect().y);
+        const buttons = items.filter(el => el.tagName === 'BUTTON').map(el => {
+          const b = el.getBoundingClientRect();
+          const hit = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2);
+          return { id: el.id, w: Math.round(b.width), h: Math.round(b.height), hit: !!hit && (hit === el || el.contains(hit)),
+                   inRail: b.left >= nav.getBoundingClientRect().left - 1 };
+        });
+        const z = document.querySelector('.maplibregl-ctrl-top-right .maplibregl-ctrl-group').getBoundingClientRect();
+        const at = document.querySelector('.maplibregl-ctrl-bottom-right').getBoundingClientRect();
+        return { nav: R(nav), vw: innerWidth, vh: innerHeight,
+          order: ordered.map(el => el.id || el.className.split(' ')[0]),
+          buttons, bar: R(document.getElementById('time-bar')),
+          zoomRight: Math.round(z.right), zoomBottom: Math.round(z.bottom), attribTop: Math.round(at.top),
+          attribOverlapsZoom: at.top < z.bottom && at.right > z.left && at.left < z.right && at.bottom > z.top };
+      });
+      const atRight = r.nav[0] + r.nav[2] === r.vw && r.nav[0] > r.vw / 2;
+      t.check(`${label}: the rail is at the right edge`, atRight, `navbar ${r.nav}`);
+      const want = ['logo-link', 'btn-rail', 'btn-search-toggle',
+        ...(mode === 'hourly' ? ['cb-date-readout', 'btn-cb-hour-prev', 'cb-hour-readout', 'btn-cb-hour-next']
+          : mode === 'daily' ? ['btn-cb-date-prev', 'cb-date-readout', 'btn-cb-date-next'] : [])];
+      t.check(`${label}: rail order badge, ☰, search, time controls`, JSON.stringify(r.order) === JSON.stringify(want), r.order.join(' › '));
+      const small = r.buttons.filter(b => b.w < 44 || b.h < 44 || !b.hit || !b.inRail);
+      t.check(`${label}: every rail button ≥ 44px, in the rail and hittable`, r.buttons.length >= 2 && small.length === 0,
+        small.map(b => `${b.id} ${b.w}x${b.h} hit=${b.hit}`).join(', ') || `${r.buttons.length} buttons`);
+      t.check(`${label}: zoom on the map, top right beside the rail, clear of the attribution`,
+        Math.abs(r.zoomRight - r.nav[0]) <= 12 && !r.attribOverlapsZoom, `zoom right ${r.zoomRight}, rail ${r.nav[0]}, zoom bottom ${r.zoomBottom}, attribution top ${r.attribTop}`);
+      if (mode === 'latest') {
+        await page.tap('#btn-rail');
+        await page.waitForTimeout(500);
+        const d = await page.evaluate(() => {
+          const dr = document.getElementById('nav-drawer').getBoundingClientRect();
+          const a = document.activeElement;
+          return { open: document.getElementById('nav-drawer').classList.contains('is-open'), right: Math.round(dr.right),
+            railLeft: Math.round(document.getElementById('navbar').getBoundingClientRect().left),
+            focus: a && (a.id || a.tagName), field: !!a && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName) };
+        });
+        t.check(`${label}: ☰ opens the drawer beside the rail, focus on the drawer`, d.open && Math.abs(d.right - d.railLeft) <= 1 && d.focus === 'nav-drawer' && !d.field, JSON.stringify(d));
+      }
+      t.check(`${label}: no errors`, errors.length === 0, errors.join(' | ') || 'none');
+      await ctx.close();
+    }
+  }
+
+  // The bottom control bar (kit 1.0.0) on a portrait phone: in Hourly the
+  // date and hour steppers, in Daily the date stepper, in Latest nothing.
+  // Docked at the bottom, one row, --tabbar-h its height, the same names as
+  // the Time group's steppers; the map's attribution clears it; it hides
+  // under a (simulated) keyboard.
+  for (const [w, h] of [[320, 568], [390, 844]]) {
+    for (const mode of ['latest', 'hourly', 'daily']) {
+      const label = `${w}x${h} ${mode} control bar`;
+      const { ctx, page, errors } = await open(browser, origin, { query: mode === 'latest' ? '' : `?mode=${mode}`, width: w, height: h, touch: true });
+      const r = await page.evaluate(() => {
+        const bar = document.getElementById('time-bar');
+        const b = bar.getBoundingClientRect();
+        const names = [...bar.querySelectorAll('button')].filter(el => el.getClientRects().length).map(el => el.getAttribute('aria-label'));
+        const sideNames = [...document.querySelectorAll('#sb-time button[aria-label]')].filter(el => !el.closest('[hidden]')).map(el => el.getAttribute('aria-label'));
+        const rows = new Set([...bar.querySelectorAll('button')].filter(el => el.getClientRects().length).map(el => Math.round(el.getBoundingClientRect().top)));
+        const at = document.querySelector('.maplibregl-ctrl-bottom-right').getBoundingClientRect();
+        return { shown: bar.getClientRects().length > 0, top: Math.round(b.top), bottom: Math.round(b.bottom), height: Math.round(b.height),
+          vh: innerHeight, tab: getComputedStyle(document.documentElement).getPropertyValue('--tabbar-h').trim(),
+          names, sideNames, rows: rows.size, overflow: bar.scrollWidth - bar.clientWidth,
+          date: document.getElementById('cb-date-readout').textContent, hour: document.getElementById('cb-hour-readout').textContent,
+          sideHour: document.getElementById('hour-readout').textContent, attribBottom: Math.round(at.bottom) };
+      });
+      if (mode === 'latest') {
+        t.check(`${label}: hidden in Latest, --tabbar-h 0`, !r.shown && r.tab === '0px', JSON.stringify({ shown: r.shown, tab: r.tab }));
+      } else {
+        t.check(`${label}: docked at the bottom, one row, --tabbar-h = its height`,
+          r.shown && r.bottom === r.vh && r.tab === r.height + 'px' && r.rows === 1 && r.overflow <= 0, JSON.stringify(r));
+        const want = mode === 'hourly' ? ['Previous day', 'Next day', 'Previous hour', 'Next hour'] : ['Previous day', 'Next day'];
+        t.check(`${label}: the Time group's steppers, same names and order`,
+          JSON.stringify(r.names) === JSON.stringify(want) && JSON.stringify(r.sideNames) === JSON.stringify(want), `${r.names.join(', ')} | drawer: ${r.sideNames.join(', ')}`);
+        t.check(`${label}: readouts show the selected time`, /\d{4}/.test(r.date) && (mode !== 'hourly' || r.hour === r.sideHour), `${r.date} ${r.hour}`);
+        t.check(`${label}: the attribution clears it`, r.attribBottom <= r.top, `attribution bottom ${r.attribBottom}, bar top ${r.top}`);
+        const k = await page.evaluate(() => new Promise((res) => {
+          const vv = window.visualViewport; if (!vv) { res(null); return; }
+          const hh = document.documentElement.clientHeight - 300;
+          Object.defineProperty(vv, 'height', { configurable: true, get: () => hh });
+          vv.dispatchEvent(new Event('resize'));
+          setTimeout(() => {
+            const bar = document.getElementById('time-bar');
+            res({ kb: document.documentElement.classList.contains('kb-open'), shown: bar.getClientRects().length > 0,
+              tab: getComputedStyle(document.documentElement).getPropertyValue('--tabbar-h').trim() });
+            delete vv.height; vv.dispatchEvent(new Event('resize'));
+          }, 300);
+        }));
+        t.check(`${label}: hides under a keyboard`, !!k && k.kb && !k.shown && k.tab === '0px', JSON.stringify(k));
+      }
+      t.check(`${label}: no errors`, errors.length === 0, errors.join(' | ') || 'none');
+      await ctx.close();
+    }
+  }
+
+  // ← / → step the time (kit MCO.initStepper arrowKeys): the hour in Hourly,
+  // the day in Daily, at 1440 (the sidebar's steppers) and 390 (the control
+  // bar's). Not from a field, and not at all with ?kbd=off.
+  for (const [w, h, touch] of [[1440, 900, false], [390, 844, true]]) {
+    for (const [mode, kbd] of [['hourly', ''], ['daily', ''], ['daily', '&kbd=off']]) {
+      const label = `${w} ${mode}${kbd ? ' ?kbd=off' : ''}: ← / →`;
+      const { ctx, page, errors } = await open(browser, origin, { query: `?mode=${mode}&date=2026-09-15${mode === 'hourly' ? '&hour=12' : ''}${kbd}`, width: w, height: h, touch });
+      const state = () => page.evaluate(() => ({ date: document.getElementById('date-input').value, hour: document.getElementById('hour-readout').textContent,
+        cbDate: document.getElementById('cb-date-readout').textContent }));
+      const before = await state();
+      await page.evaluate(() => { document.activeElement && document.activeElement.blur && document.activeElement.blur(); document.body.focus(); });
+      await page.keyboard.press('ArrowRight');
+      await page.waitForTimeout(400);
+      const after = await state();
+      if (kbd) {
+        t.check(`${label} does nothing`, JSON.stringify(after) === JSON.stringify(before), `${JSON.stringify(before)} -> ${JSON.stringify(after)}`);
+        const ks = await page.evaluate(() => document.getElementById('btn-date-next').getAttribute('aria-keyshortcuts'));
+        t.check(`${label} no aria-keyshortcuts`, ks == null, String(ks));
+      } else if (mode === 'hourly') {
+        t.check(`${label} steps the hour`, after.hour === '13:00' && after.date === before.date, `${JSON.stringify(before)} -> ${JSON.stringify(after)}`);
+      } else {
+        t.check(`${label} steps the day`, after.date === '2026-09-16' && /Sep 16/.test(after.cbDate), `${JSON.stringify(before)} -> ${JSON.stringify(after)}`);
+        // A field keeps its arrows.
+        await page.evaluate(() => { const i = document.getElementById('search-input'); if (i.getClientRects().length) i.focus(); });
+        const focused = await page.evaluate(() => document.activeElement && document.activeElement.id);
+        if (focused === 'search-input') {
+          await page.keyboard.press('ArrowLeft');
+          await page.waitForTimeout(300);
+          t.check(`${label} in the search field does not step`, (await state()).date === '2026-09-16', JSON.stringify(await state()));
+        }
+        const ks = await page.evaluate(() => [...document.querySelectorAll('#btn-date-prev, #btn-date-next, #btn-cb-date-prev, #btn-cb-date-next')].map(b => b.getAttribute('aria-keyshortcuts')));
+        t.check(`${label} buttons carry aria-keyshortcuts`, ks.join() === 'ArrowLeft,ArrowRight,ArrowLeft,ArrowRight', ks.join());
+      }
+      t.check(`${label} no errors`, errors.length === 0, errors.join(' | ') || 'none');
       await ctx.close();
     }
   }
