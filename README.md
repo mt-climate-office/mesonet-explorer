@@ -21,8 +21,8 @@ Interactive map explorer for [Montana Mesonet](https://climate.umt.edu/mesonet/)
 - **US / metric units** (°F/°C toggle) applied to values, legend, and the detail panel.
 - **PNG export** — one click downloads a branded 2800×1400 map of the current view (fixed Montana framing independent of your window, MCO logo, timestamp, and color scale), emulating the Mesonet Photo Explorer's export.
 - **Shareable URLs** — every choice lives in the query string; light/dark theme.
-- **Left control sidebar** — search, networks, time, variable, aggregation and the legend in one column, collapsible via the tab on its outer edge. It takes a real column, so toggling it resizes the map and re-fits Montana. The detail panel is deliberately the opposite: it floats, so selecting a station never moves the camera. Zoom and fit-to-extent sit at the map's **top-left**, clear of the panel.
-- **Built for phones as well as desks** — below 640 px the bar is one row (the kit's compact bar): the logo, the variable picker, search, and a **☰** at the right edge that opens a right-hand drawer with everything else (search, networks, time, aggregation, legend, units, labels, export, share, theme, help). On a landscape phone the bar is the kit's left rail with the same drawer. Nothing hides behind a horizontal scroll. Touch gets a 10 px tap tolerance, 40–44 px targets, and the peek sheet in place of hover.
+- **Left control sidebar** — collapsible groups in one column: Search, Networks, Time, Variable (with aggregation), Legend and Overlays, all open by default; the column itself collapses via the tab on its outer edge. It takes a real column, so toggling it resizes the map and re-fits Montana. The detail panel is deliberately the opposite: it floats, so selecting a station never moves the camera. Zoom and fit-to-extent sit at the map's **top-left**, clear of the panel.
+- **Built for phones as well as desks** — below 640 px the bar is one row (the kit's compact bar): the logo, the variable picker, search, and a **☰** at the right edge that opens a right-hand drawer with everything else, in the sidebar's groups and order plus a last group, More (units, labels, export, share, theme, help). Search, Networks, Time and Variable start open there; Legend, Overlays and More start closed, so the drawer fits a phone screen without scrolling. Each group remembers its state, separately for phone and desktop widths (`mco-explorer-groups-compact` / `-wide`). On a landscape phone the bar is the kit's left rail with the same drawer. Nothing hides behind a horizontal scroll. Touch gets a 10 px tap tolerance, 40–44 px targets, and the peek sheet in place of hover.
 
 ## URL parameters
 
@@ -65,7 +65,7 @@ part of the view.) The address bar stays minimal either way.
 | `stale` | `show` | hide | Show stale (≥ 2 h) stations (Latest only) |
 | `counties` | `on` | off | County-boundary overlay |
 | `watersheds` | `on` | off | HUC6 watershed overlay |
-| `legend` | `collapsed` \| `open` | open | Legend state (it lives in the sidebar, so collapsing it no longer buys map back) |
+| `legend` | `collapsed` \| `open` | open on desktop, collapsed in the phone drawer | The Legend group (its heading is the legend's one collapse control). Wins over the group state saved for that width; written to the address bar only when it differs from that width's default. Overlays are their own group since the control groups, so `legend=collapsed` no longer hides the overlay chips, and the note ("Data current as of …") is the sidebar's footer, visible either way |
 | `sidebar` | `open` \| `closed` | open | Left control sidebar. Desktop only — on compact viewports its sections live in the ☰ drawer, which always starts closed |
 | `theme` | `light` \| `dark` | OS preference | Color theme; emitted only when it differs from the OS preference |
 | `kbd` | `off` | on | Disable the `/` search shortcut (WCAG 2.1.4). Round-trips, so it survives a reload |
@@ -130,7 +130,7 @@ Deliberately zero-build, matching the MCO pattern ([mesonet-status](https://gith
 
 ## Security
 
-- **CSP** — a `<meta http-equiv="Content-Security-Policy">` tag in `index.html` restricts scripts to `'self'`, the two pinned CDN hosts, and a sha256 hash of the inline theme-flash script, and enumerates every origin the app talks to (`connect-src`/`img-src`/`font-src`/`style-src`). GitHub Pages can't set headers, so the meta form is used; `frame-ancestors` is not enforceable there.
+- **CSP** — a `<meta http-equiv="Content-Security-Policy">` tag in `index.html` restricts scripts to `'self'`, the two pinned CDN hosts, and sha256 hashes of the two inline scripts (the theme-flash script in `<head>`, and the one after `#sidebar` that applies the saved group states before first paint), and enumerates every origin the app talks to (`connect-src`/`img-src`/`font-src`/`style-src`). GitHub Pages can't set headers, so the meta form is used; `frame-ancestors` is not enforceable there.
 - **SRI** — the MapLibre JS/CSS and flatgeobuf `<script>`/`<link>` tags are version-pinned and carry `integrity` hashes; a tampered CDN response fails to load instead of executing.
 - **If you edit the inline theme-flash script** (the small `<script>` block in `<head>`), recompute its CSP hash and update the `sha256-…` token in the CSP meta tag:
 
@@ -138,6 +138,8 @@ Deliberately zero-build, matching the MCO pattern ([mesonet-status](https://gith
   perl -0777 -ne 'print $1 if /<script>(.*?)<\/script>/s' index.html \
     | openssl dgst -sha256 -binary | openssl base64 -A
   ```
+
+  For the group-state script after `#sidebar`, hash the second `<script>` block the same way (its bytes between the tags, whitespace included); a stale hash only costs the first-paint state, and app.js applies the same state a moment later.
 
   A stale hash blocks the script and the page loads without a theme set (everything else still works). Editing `app.js` needs no hash changes — it's covered by `script-src 'self'`.
 

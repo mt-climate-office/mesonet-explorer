@@ -31,7 +31,8 @@ const STATE = `(() => ({
   units: document.querySelector('[data-units="si"]').getAttribute('aria-pressed') === 'true' ? 'si' : 'us',
   labels: document.getElementById('btn-labels').getAttribute('aria-pressed'),
   theme: document.documentElement.dataset.theme,
-  legendCollapsed: document.getElementById('legend').classList.contains('collapsed'),
+  // The Legend group's heading is the legend's one collapse control.
+  legendCollapsed: !document.getElementById('sb-legend').open,
   sidebarOpen: !document.body.classList.contains('sidebar-closed'),
   station: new URLSearchParams(location.search).get('station'),
   camera: location.search.match(/lng=([-0-9.]+)&lat=([-0-9.]+)&zoom=([0-9.]+)/)?.slice(1).join(','),

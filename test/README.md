@@ -25,7 +25,15 @@ detail panel opens and sits inside the viewport, every control in it is actually
 on top at its own centre (`elementFromPoint`), nothing is hidden behind a
 horizontal scroll, there is no invisible chrome above the map, the variable
 picker is on screen, the legend is in the sidebar, and the screen-reader station
-table is populated. Plus header height against `mesonet-status` (54px with the
+table is populated. The control groups: the same headings in the same order in
+the sidebar and the ☰ drawer, their default open states (phone: Search,
+Networks, Time, Variable open; desktop: all open), headings at `--control-h`,
+no empty group shown, and the default drawer fitting a 390×664 and 390×844
+phone without scrolling (at 320×568 every heading and control fits; only the
+note, the drawer's last line, may not). The Legend group has exactly one
+collapse control, `?legend=collapsed|open` wins over a saved state at 390 and
+1440, and the note is the sidebar's last block at 1440, visible with Legend
+closed. Plus header height against `mesonet-status` (54px with the
 map flush beneath) and mobile header compactness in all three time modes.
 
 **`url`** — a default load leaves the URL bare; each control adds exactly its own

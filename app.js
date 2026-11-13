@@ -402,6 +402,109 @@
   const getLower = (key) => MCO.getParamLower(key, urlParams);
   const splitTokens = MCO.splitTokens;
 
+  // ── Collapsible control groups ───────────────────────────────────────────
+  // Same groups, headings and order at every width; only their default
+  // state differs. In the ☰ drawer (compact) Search, Networks, Time and
+  // Variable start open and Legend, Overlays and More closed, so the drawer
+  // fits a phone; in the desktop sidebar all start open. Each width class
+  // remembers its own choices (mco-explorer-groups-compact / -wide),
+  // re-validated on read like a URL parameter. The Legend group's heading is
+  // the legend's one collapse control, so ?legend= sets it at load and wins
+  // over the saved state.
+  //
+  // Applied here, before the module waits for MapLibre, rather than with the
+  // rest of the sidebar below: the markup ships every group open, and the
+  // later the saved state lands, the longer a closed group shows open.
+  const SECTION_IDS = ['sb-search', 'sb-networks', 'sb-time', 'sb-variable', 'sb-legend', 'sb-overlays'];
+  const sections = SECTION_IDS.map(id => document.getElementById(id));
+  const legendSection = document.getElementById('sb-legend');
+  const moreHead = document.getElementById('more-head');
+  const moreBody = document.getElementById('more-body');
+  const GROUP_NAMES = ['search', 'networks', 'time', 'variable', 'legend', 'overlays', 'more'];
+  const GROUP_DEFAULTS = {
+    compact: { search: true, networks: true, time: true, variable: true, legend: false, overlays: false, more: false },
+    wide:    { search: true, networks: true, time: true, variable: true, legend: true,  overlays: true,  more: true },
+  };
+  const groupClass = () => (MCO.viewport.isCompact() ? 'compact' : 'wide');
+  const groupKey = (cls) => `mco-explorer-groups-${cls}`;
+  const _legendUrlChoice = getLower('legend');
+  const LEGEND_URL_OPEN = _legendUrlChoice === 'open' ? true : _legendUrlChoice === 'collapsed' ? false : null;
+  function readGroups(cls) {
+    const out = { ...GROUP_DEFAULTS[cls] };
+    let saved = null;
+    try { saved = JSON.parse(MCO.lsGet(groupKey(cls)) || 'null'); } catch { saved = null; }
+    if (!(saved && typeof saved === 'object' && !Array.isArray(saved))) saved = {};
+    for (const g of GROUP_NAMES) if (typeof saved[g] === 'boolean') out[g] = saved[g];
+    // The legend's collapse was one key for every width before the groups
+    // (mco-explorer-legend); it still counts until this width has its own.
+    if (typeof saved.legend !== 'boolean') {
+      const legacy = MCO.lsGet('mco-explorer-legend');
+      if (legacy === 'collapsed' || legacy === 'expanded') out.legend = legacy === 'expanded';
+    }
+    return out;
+  }
+  let _groupCls = null;
+  let _appReady = false;   // set once the rest of the module (writeUrl) is live
+  let legendCollapsed = false;
+  function groupEl(name) {
+    return name === 'more' ? null : sections.find(sec => sec.dataset.group === name);
+  }
+  function isGroupOpen(name) {
+    return name === 'more' ? moreHead.getAttribute('aria-expanded') === 'true' : groupEl(name).open;
+  }
+  function setMoreOpen(open) {
+    moreHead.setAttribute('aria-expanded', open ? 'true' : 'false');
+    moreBody.toggleAttribute('data-collapsed', !open);
+  }
+  function saveGroups() {
+    if (!_groupCls) return;
+    const state = {};
+    for (const g of GROUP_NAMES) state[g] = isGroupOpen(g);
+    MCO.lsSet(groupKey(_groupCls), JSON.stringify(state));
+  }
+  // A programmatic open/close is marked so its (asynchronous) 'toggle' event
+  // isn't saved as the visitor's choice.
+  function setGroupOpen(sec, open) {
+    if (sec.open === !!open) return;
+    sec._programmatic = !!open;
+    sec.open = !!open;
+  }
+  // Restores the width class's states when the class changes (and at boot,
+  // where ?legend= wins for the Legend group).
+  function applyGroups() {
+    const cls = groupClass();
+    if (cls === _groupCls) return;
+    const boot = _groupCls === null;
+    _groupCls = cls;
+    const state = readGroups(cls);
+    if (boot && LEGEND_URL_OPEN !== null) state.legend = LEGEND_URL_OPEN;
+    for (const sec of sections) setGroupOpen(sec, state[sec.dataset.group]);
+    setMoreOpen(state.more);
+    legendCollapsed = !legendSection.open;
+  }
+  for (const sec of sections) {
+    sec.addEventListener('toggle', () => {
+      const programmatic = sec._programmatic === sec.open;
+      delete sec._programmatic;
+      if (sec === legendSection) {
+        legendCollapsed = !sec.open;
+        if (_appReady) writeUrl();
+      }
+      if (!programmatic) saveGroups();
+    });
+  }
+  moreHead.addEventListener('click', () => {
+    setMoreOpen(!isGroupOpen('more'));
+    saveGroups();
+  });
+  // Opens a group so a control inside it can take focus (the / shortcut, the
+  // bar's search button). Remembered, like a click on its heading.
+  function openGroup(name) {
+    const sec = groupEl(name);
+    if (sec && !sec.open) sec.open = true;
+  }
+  applyGroups();
+
   const KNOWN_NETWORKS = ['HydroMet', 'AgriMet'];
   const networkByLowerName = new Map(KNOWN_NETWORKS.map(n => [n.toLowerCase(), n]));
 
@@ -1884,16 +1987,12 @@
 
   function updateLegendTitle() {
     if (!_lastRender) return;
-    const { entry, unit, counts } = _lastRender;
+    const { entry, unit } = _lastRender;
     const aggSuffix = (activeMode !== 'latest' && aggSupported(entry))
       ? ` · ${AGG_LABEL[activeAgg || defaultAggFor(entry)]}` : '';
-    let title = (unit ? `${entry.label} [${unit}]` : entry.label) + aggSuffix;
-    // Collapsed (the mobile default) hides the stale toggle — surface the
-    // count where it stays visible.
-    if (legendCollapsed && activeMode === 'latest' && !staleShown && counts.stale > 0) {
-      title += ` · ${counts.stale} hidden`;
-    }
-    legendTitleEl.textContent = title;
+    // The hidden-stale count is in the note (#legend-meta), the sidebar's
+    // footer, which stays visible when the Legend group is closed.
+    legendTitleEl.textContent = (unit ? `${entry.label} [${unit}]` : entry.label) + aggSuffix;
   }
 
   function addLegendRow(parent, { label, swatchClass, pressed, onToggle }) {
@@ -2257,41 +2356,9 @@
   });
 
   // ── Legend collapse ──────────────────────────────────────────────────────
-  const legendEl        = document.getElementById('legend');
-  const legendToggleBtn = document.getElementById('legend-toggle-btn');
-  const _legendUrlChoice = getLower('legend');
-  const _legendSaved = MCO.lsGet('mco-explorer-legend');
-  let legendCollapsed =
-    _legendUrlChoice === 'collapsed' ? true :
-    _legendUrlChoice === 'open'      ? false :
-    _legendSaved === 'collapsed'     ? true :
-    _legendSaved === 'expanded'      ? false :
-    // Expanded by default everywhere: the legend sits in the sidebar (a drawer on
-    // compact viewports) rather than over the map, so collapsing it no longer
-    // buys any map back.
-    false;
-  function setLegendCollapsed(collapsed, { persist = true } = {}) {
-    legendCollapsed = !!collapsed;
-    legendEl.classList.toggle('collapsed', legendCollapsed);
-    legendToggleBtn.setAttribute('aria-expanded', legendCollapsed ? 'false' : 'true');
-    legendToggleBtn.setAttribute('aria-label', legendCollapsed ? 'Expand legend' : 'Collapse legend');
-    if (persist) MCO.lsSet('mco-explorer-legend', legendCollapsed ? 'collapsed' : 'expanded');
-    updateLegendTitle();   // the collapsed title carries the hidden-stale count
-  }
-  setLegendCollapsed(legendCollapsed, { persist: false });
-  function toggleLegend() {
-    setLegendCollapsed(!legendCollapsed);
-    writeUrl();
-  }
-  legendToggleBtn.addEventListener('click', (e) => {
-    e.stopPropagation();   // the header row toggles too — don't double-fire
-    toggleLegend();
-  });
-  // The whole header row is a natural click target, not just the 22px chevron.
-  document.getElementById('legend-header').addEventListener('click', toggleLegend);
-  // Rotating a phone re-applies the small-screen default — but never overrides a
-  // choice the user made. Was a one-shot matchMedia read, so landscape used to
-  // inherit portrait's decision and overflow the map.
+  // The Legend group's heading (#sb-legend, a <details>) is the one collapse
+  // control: see "Collapsible control groups" above, which keeps
+  // legendCollapsed in step with it and ?legend= in the address bar.
 
 
   // ── Scale editor (click the legend gradient) ─────────────────────────────
@@ -3223,11 +3290,12 @@
   const navRailToggle = document.getElementById('btn-rail');
   const searchToggle  = document.getElementById('btn-search-toggle');
   const variableGroupEl = document.getElementById('variable-group');
-  // The sidebar's sections, in their desktop order.
-  const SECTION_IDS = ['sb-search', 'sb-networks', 'sb-time', 'sb-variable', 'sb-agg', 'sb-legend'];
-  const sections = SECTION_IDS.map(id => document.getElementById(id));
   const variableSection = document.getElementById('sb-variable');
-
+  // The note under the groups ("Data current as of …"): the sidebar's footer,
+  // after Overlays; in the drawer, its footer, after More and the freshness
+  // stamp, so status text never pushes a group heading below a phone's fold.
+  const sidebarFooter = document.getElementById('sb-footer');
+  const navDrawerEl   = document.getElementById('nav-drawer');
   // Desktop: remembered open/closed. On compact the column is gone and its
   // sections are in the nav drawer, which always starts closed.
   let sidebarOpen = (() => {
@@ -3251,13 +3319,15 @@
     };
     const home = MCO.viewport.isCompact() ? navControlsEl : sidebarScroll;
     for (const sec of sections) place(sec, home);
+    place(sidebarFooter, MCO.viewport.isCompact() ? navDrawerEl : sidebarScroll);
     const inBar = navRail.isDrawerMode();
     if (inBar) place(variableGroupEl, navRailEl, searchToggle);
-    else place(variableGroupEl, variableSection);
+    else place(variableGroupEl, variableSection, aggGroup);
     if (inBar !== _pickerInBar) {
       _pickerInBar = inBar;
       populateVariableSelect();   // short labels in the bar
     }
+    applyGroups();
     syncSidebarSections();
   }
 
@@ -3270,7 +3340,7 @@
     // once they exist, so bailing here loses nothing.
     if (!_sidebarReady) return;
     for (const sec of sections) {
-      sec.hidden = !sec.querySelector(':scope > *:not(.sb-title):not([hidden])');
+      sec.hidden = !sec.querySelector(':scope > *:not(summary):not([hidden])');
     }
     // And .controls, whose children all move to the sidebar on desktop. CSS
     // :empty can't do this: moving the children out leaves whitespace text nodes
@@ -3307,6 +3377,9 @@
   // ☰ close it, focus back to the opener). The bar's search button opens it
   // on the search field. Idle above compact, where the drawer is
   // display:contents.
+  // Registered before initNavRail's own listener, so the Search group is open
+  // by the time the kit focuses the field inside it.
+  searchToggle.addEventListener('click', () => openGroup('search'));
   const navRail = MCO.initNavRail({
     toggle: navRailToggle,
     drawer: document.getElementById('nav-drawer'),
@@ -3318,6 +3391,7 @@
   function closeNavDrawer() { if (navRail.isOpen()) navRail.close(); }
 
   _sidebarReady = true;
+  _appReady = true;
   layoutControls();
   setSidebarOpen(sidebarOpen, { persist: false, refit: false });   // no-op on compact
   // Releases the compact first-paint hold in index.html ("First paint"): every
@@ -3345,6 +3419,7 @@
       // The box lives in the sidebar on desktop and in the nav drawer on
       // compact. Reveal it either way before focusing, so the shortcut can't
       // focus something invisible.
+      openGroup('search');
       if (navRail.isRail() || navRail.isDrawerMode()) { navRail.open(searchInput); return; }
       if (!sidebarOpen) setSidebarOpen(true);
       searchInput.focus();
@@ -3644,7 +3719,8 @@
     put('stale', staleShown ? 'show' : 'hide', !staleShown);
     put('counties', overlayCounties ? 'on' : 'off', !overlayCounties);
     put('watersheds', overlayWatersheds ? 'on' : 'off', !overlayWatersheds);
-    put('legend', legendCollapsed ? 'collapsed' : 'open', !legendCollapsed);
+    // The default is this width's: open on desktop, closed in the phone drawer.
+    put('legend', legendCollapsed ? 'collapsed' : 'open', legendCollapsed === !GROUP_DEFAULTS[groupClass()].legend);
     // Only meaningful on desktop, where the sidebar is a fixture rather than a
     // transient drawer — so a share from a phone shouldn't force it on a desktop.
     if (!MCO.viewport.isCompact()) put('sidebar', sidebarOpen ? 'open' : 'closed', sidebarOpen);
