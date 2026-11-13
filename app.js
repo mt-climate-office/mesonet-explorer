@@ -1280,24 +1280,33 @@
     coloc.refresh();   // re-fans an open spider into the new style's sources
   });
 
-  // Top-LEFT on purpose: the station detail panel docks to the right edge, and
-  // anything in a right-hand corner ends up underneath it.
-  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left');
-
-  (function addFitToExtentButton() {
-    const navGroup = document.querySelector('.maplibregl-ctrl-top-left .maplibregl-ctrl-group');
-    if (!navGroup) return;
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'maplibregl-ctrl-fit';
-    btn.title = 'Zoom to full extent';
-    btn.setAttribute('aria-label', 'Zoom to full extent');
-    btn.innerHTML = `<span class="maplibregl-ctrl-icon" aria-hidden="true"></span>`;
-    btn.addEventListener('click', () => {
-      coloc.close();
-      map.fitBounds(MT_FIT_BOUNDS, { ...fitOpts(), animate: !MCO.reducedMotion() });
-    });
-    navGroup.appendChild(btn);
+  // Top-right, like every other map in the family (MCO.map.addNavigation's
+  // default): zoom in, zoom out, then fit-to-extent fused into the same group.
+  // The kit (0.21.1) steps MapLibre's right corners clear of the end-docked
+  // station sheet by --sheet-end, so they stay reachable while it is open.
+  MCO.map.addNavigation(map);
+  MCO.map.addFitControl(map, {
+    bounds: MT_FIT_BOUNDS,
+    fitOpts: () => fitOpts(),
+    onBeforeFit: () => coloc.close(),
+  });
+  // The attribution (bottom-right) lifts above the compact sheet and the zoom
+  // group now sits above it in the same column. On a short landscape phone
+  // there is not room for both, so the lift stops 8px under the group (see
+  // the kit-override in index.html). offsetTop/offsetHeight are resting
+  // positions, which the lift's transform does not move.
+  (function capAttributionLift() {
+    const box = map.getContainer();
+    const top = box.querySelector('.maplibregl-ctrl-top-right');
+    const bottom = box.querySelector('.maplibregl-ctrl-bottom-right');
+    if (!top || !bottom || typeof ResizeObserver === 'undefined') return;
+    const sync = () => {
+      const room = bottom.offsetTop - (top.offsetTop + top.offsetHeight) - 8;
+      box.style.setProperty('--attrib-lift-max', Math.max(0, Math.round(room)) + 'px');
+    };
+    const ro = new ResizeObserver(sync);
+    [box, top, bottom].forEach((el) => ro.observe(el));
+    sync();
   })();
 
   // Zoom floor: the kit's MCO.map.installZoomFloor (0.8.0, hardened from this

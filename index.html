@@ -133,6 +133,15 @@
        attribution) clear of the compact station sheet is html.mco-autolift
        now (kit 0.9.0), driven by --sheet-h, which app.js publishes only while
        the sheet is bottom-docked. */
+    /* kit-override: the kit caps the lift at the map's top edge only, so on a
+       short landscape phone the attribution rose into the zoom group, which
+       shares its right-hand column. app.js publishes --attrib-lift-max (the
+       room between the two) and the lift stops there; when that is not enough
+       the attribution tucks under the sheet, as it always does in status and
+       maintenance. Without the property the kit's lift applies unchanged. */
+    html.mco-autolift #map .maplibregl-ctrl-bottom-right {
+      transform: translateY(calc(-1 * min(var(--lift, var(--overlay-bottom)), var(--attrib-lift-max, 100vh))));
+    }
 
     /* ── App shell ───────────────────────────────────────────────────────
        The reset, reduced-motion clamp, [hidden] priority fix, .sr-only and the
