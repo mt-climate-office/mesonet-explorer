@@ -1290,25 +1290,6 @@
     fitOpts: () => fitOpts(),
     onBeforeFit: () => coloc.close(),
   });
-  // The attribution (bottom-right) lifts above the compact sheet and the zoom
-  // group now sits above it in the same column. On a short landscape phone
-  // there is not room for both, so the lift stops 8px under the group (see
-  // the kit-override in index.html). offsetTop/offsetHeight are resting
-  // positions, which the lift's transform does not move.
-  (function capAttributionLift() {
-    const box = map.getContainer();
-    const top = box.querySelector('.maplibregl-ctrl-top-right');
-    const bottom = box.querySelector('.maplibregl-ctrl-bottom-right');
-    if (!top || !bottom || typeof ResizeObserver === 'undefined') return;
-    const sync = () => {
-      const room = bottom.offsetTop - (top.offsetTop + top.offsetHeight) - 8;
-      box.style.setProperty('--attrib-lift-max', Math.max(0, Math.round(room)) + 'px');
-    };
-    const ro = new ResizeObserver(sync);
-    [box, top, bottom].forEach((el) => ro.observe(el));
-    sync();
-  })();
-
   // Zoom floor: the kit's MCO.map.installZoomFloor (0.8.0, hardened from this
   // file's own guards: the re-entrancy latch and the 0.01 tolerance). Zooming
   // out past the whole state springs back to the Montana extent; a setMinZoom
