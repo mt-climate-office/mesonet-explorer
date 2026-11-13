@@ -114,7 +114,7 @@ export async function run({ browser, origin }) {
   const ORDER = ['Search', 'Networks', 'Time', 'Variable', 'Legend', 'Overlays', 'More'];
   const GROUP_VIEWS = [
     // label, w, h, touch, expected visible headings, expected open, drawer must fit
-    ['320x568 phone', 320, 568, true, ['Search', 'Networks', 'Time', 'Legend', 'Overlays', 'More'], ['Search', 'Networks', 'Time'], true],
+    ['320x568 phone', 320, 568, true, ['Search', 'Networks', 'Time', 'Legend', 'Overlays', 'More'], ['Search', 'Networks', 'Time'], 'controls'],
     ['390x664 phone (browser chrome showing)', 390, 664, true, ['Search', 'Networks', 'Time', 'Legend', 'Overlays', 'More'], ['Search', 'Networks', 'Time'], true],
     ['390x844 phone', 390, 844, true, ['Search', 'Networks', 'Time', 'Legend', 'Overlays', 'More'], ['Search', 'Networks', 'Time'], true],
     ['844x390 phone landscape', 844, 390, true, ['Search', 'Networks', 'Time', 'Variable', 'Legend', 'Overlays', 'More'], ['Search', 'Networks', 'Time', 'Variable'], false],
@@ -142,6 +142,11 @@ export async function run({ browser, origin }) {
         open: heads.filter(isOpen).map(name),
         minH: Math.min(...heads.map(el => Math.round(el.getBoundingClientRect().height))),
         client: panel.clientHeight, scroll: panel.scrollHeight,
+        // How far the lowest visible heading or control sits below the panel's
+        // bottom edge (≤ 0: all of them on screen without scrolling).
+        ctrlOverhang: Math.round(Math.max(...[...panel.querySelectorAll('summary, button, select, input')]
+          .filter(el => el.checkVisibility ? el.checkVisibility() : el.getBoundingClientRect().height > 0)
+          .map(el => el.getBoundingClientRect().bottom)) - panel.getBoundingClientRect().bottom),
         moreInBar: !inDrawer && moreInBar,
         // Every visible group shows at least one control of its own.
         empty: [...panel.querySelectorAll('details.sb-section')].filter(d => !d.hidden &&
@@ -154,10 +159,59 @@ export async function run({ browser, origin }) {
     t.check(`${label}: group headings at --control-h`, r.minH >= (touch ? 40 : 34), `${r.minH}px`);
     t.check(`${label}: no empty group shown`, r.empty.length === 0, r.empty.join(', ') || 'none');
     if (!r.inDrawer) t.check(`${label}: More stays the bar's own controls`, !r.moreInBar && r.heads.indexOf('More') < 0);
-    if (mustFit) t.check(`${label}: ${r.inDrawer ? 'drawer' : 'sidebar'} fits without scrolling`, r.scroll <= r.client,
+    // At 320x568 the note (status text, the drawer's last line) may sit just
+    // below the fold; every heading and control must not.
+    if (mustFit === 'controls') t.check(`${label}: every heading and control on screen without scrolling`,
+      r.ctrlOverhang <= 0, `${r.scroll}px content in ${r.client}px; lowest control ${r.ctrlOverhang}px past the edge`);
+    else if (mustFit) t.check(`${label}: ${r.inDrawer ? 'drawer' : 'sidebar'} fits without scrolling`, r.scroll <= r.client,
       `${r.scroll}px content in ${r.client}px`);
     else t.check(`${label}: ${r.inDrawer ? 'drawer' : 'sidebar'} measured`, r.scroll > 0, `${r.scroll}px content in ${r.client}px`);
     t.check(`${label}: no errors with groups`, errors.length === 0, errors.join(' | ') || 'none');
+    await ctx.close();
+  }
+
+  // The Legend group's heading is the legend's ONE collapse control, and
+  // ?legend= drives it at every width (the URL wins over a saved state).
+  for (const [label, width, height, touch] of [['390x844 phone', 390, 844, true], ['1440x900 desktop', 1440, 900, false]]) {
+    for (const [query, wantOpen] of [['', !touch], ['?legend=collapsed', false], ['?legend=open', true]]) {
+      // A saved state that disagrees with the URL, to prove the URL wins.
+      const cls = touch ? 'compact' : 'wide';
+      const saved = query ? JSON.stringify({ legend: query.endsWith('collapsed') }) : null;
+      const { ctx, page, errors } = await open(browser, origin, { query, width, height, touch,
+        storage: saved ? { [`mco-explorer-groups-${cls}`]: saved } : undefined });
+      const r = await page.evaluate(() => {
+        const sec = document.getElementById('sb-legend');
+        // Disclosure controls inside the Legend group: its summary, plus any
+        // button that says it expands or collapses something.
+        const toggles = [...sec.querySelectorAll('summary, [aria-expanded], [aria-controls]')]
+          .filter(el => el.closest('#sb-legend') === sec);
+        return { open: sec.open, toggles: toggles.map(el => el.tagName.toLowerCase() + (el.id ? '#' + el.id : '')),
+                 url: location.search };
+      });
+      t.check(`${label} ${query || '(no query)'}: Legend ${wantOpen ? 'open' : 'collapsed'}`, r.open === wantOpen,
+        `open=${r.open} url=${r.url}`);
+      if (!query) t.check(`${label}: exactly one collapse control in the Legend group`, r.toggles.length === 1 &&
+        r.toggles[0] === 'summary', r.toggles.join(', '));
+      t.check(`${label} ${query || '(no query)'}: no errors`, errors.length === 0, errors.join(' | ') || 'none');
+      await ctx.close();
+    }
+  }
+
+  // The note ("Data current as of …") is the sidebar's last block, after
+  // Overlays, and stays visible with the Legend group closed.
+  {
+    const { ctx, page, errors } = await open(browser, origin, { query: '?legend=collapsed', width: 1440, height: 900 });
+    const r = await page.evaluate(() => {
+      const blocks = [...document.querySelector('#sidebar .sidebar-scroll').children]
+        .filter(el => el.getBoundingClientRect().height > 0);
+      const note = document.getElementById('legend-meta');
+      return { last: blocks.at(-1)?.id, beforeIt: blocks.at(-2)?.id, text: note.textContent.trim(),
+               visible: note.getBoundingClientRect().height > 0 };
+    });
+    t.check('1440: the note is the last block in the sidebar, after Overlays',
+      r.last === 'sb-footer' && r.beforeIt === 'sb-overlays', `${r.beforeIt} › ${r.last}`);
+    t.check('1440: the note stays visible with the Legend group closed', r.visible && r.text.length > 0, r.text);
+    t.check('1440 note: no errors', errors.length === 0, errors.join(' | ') || 'none');
     await ctx.close();
   }
 

@@ -11,7 +11,7 @@
        and without the host the basemap draws but no GeoJSON layer ever does. -->
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'none';
-    script-src 'self' 'sha256-v3il6Uh82ESNrvf3ERc536SXE1pi2Le5vlV0TpFWJyU=' 'sha256-NgHBdw+Nl6S2kTHNyvv5uFwHfytmfDJR39Y9qVPt/UI=' https://unpkg.com https://cdn.jsdelivr.net;
+    script-src 'self' 'sha256-v3il6Uh82ESNrvf3ERc536SXE1pi2Le5vlV0TpFWJyU=' 'sha256-NgHBdw+Nl6S2kTHNyvv5uFwHfytmfDJR39Y9qVPt/UI=' 'sha256-BY7msjTng8Rpb/+27/nGI7Us+hpXebo+VFXvkpW/axg=' https://unpkg.com https://cdn.jsdelivr.net;
     worker-src blob: https://unpkg.com;
     style-src 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net;
     font-src https://cdn.jsdelivr.net;
@@ -363,8 +363,6 @@
        .is-folded for a moment to measure the unfolded bar, and these rules go
        with it, so a collapsed More never changes that measurement. */
     .sb-more-title { display: none; margin: 0; }
-    /* kit-override: in the drawer More follows the last group, so keep the rule between them. */
-    #nav-drawer .controls > .sb-section:last-child { border-bottom: 1px solid var(--border-glass); }
     #more-body { display: contents; }
     /* kit-override: keyed on the kit's .is-folded so fold-to-fit measures the bar unfolded. */
     #navbar.is-folded .sb-more-title { display: block; flex: 1 1 100%; }
@@ -434,14 +432,9 @@
        It used to be an absolutely-positioned card in the bottom-left corner with
        its own glass background, a z-index, and a height capped to the map — all
        of that is gone with the sidebar, along with the overrides that used to
-       undo it. Collapsing is kept because ?legend= is a documented parameter. */
-    #legend {
-      display: flex; flex-direction: column;
-      transition: padding 0.2s cubic-bezier(0.4,0,0.2,1);
-    }
-    /* Collapsed hides the body but keeps the header AND the color key. */
-    #legend.collapsed { padding: 6px 10px; }
-    #legend.collapsed #legend-body { max-height: 0; opacity: 0; margin-top: 0; overflow: hidden; }
+       undo it. Its one collapse control is the Legend group's heading (the
+       <details> around it), which ?legend= drives. */
+    #legend { display: flex; flex-direction: column; }
     #legend-key { margin-top: 6px; }
     #legend-gradient-btn {
       display: block; width: 100%;
@@ -461,31 +454,14 @@
     #legend-pin-btn[hidden] { display: none; }
     .legend-header {
       display: flex; align-items: center; justify-content: space-between;
-      gap: 8px; user-select: none; cursor: pointer;
+      gap: 8px;
     }
     #legend-title {
       flex: 1; min-width: 0;
       font-size: 0.8rem; font-weight: 600; color: var(--text-primary); margin: 0;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    #legend-toggle-btn {
-      background: none; border: none; padding: 0; flex-shrink: 0;
-      width: 22px; height: 22px;
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer; color: var(--text-dim);
-      transition: color var(--transition), transform var(--transition);
-    }
-    #legend-toggle-btn:hover { color: var(--accent-light); }
-    #legend.collapsed #legend-toggle-btn { transform: rotate(180deg); }
-    #legend-body {
-      /* A px endpoint keeps the collapse transition interpolating (it animates
-         max-height 0 -> N); the sidebar itself provides the scrolling. */
-      max-height: 420px;
-      min-height: 0;
-      opacity: 1; margin-top: 6px;
-      overflow-y: auto; overscroll-behavior: contain;
-      transition: max-height 0.25s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease, margin-top 0.2s ease;
-    }
+    #legend-body { margin-top: 6px; }
     .legend-desc {
       font-size: 0.68rem; color: var(--text-muted); line-height: 1.45;
       padding: 0 2px; margin-bottom: 5px;
@@ -516,14 +492,16 @@
     #legend-rows .mco-legend-row { font-size: 0.72rem; padding: 3px 6px; gap: 7px; }
     #legend-rows .mco-legend-swatch { width: 12px; height: 12px; border-width: 1.6px; }
     #legend-rows .mco-legend-swatch.stale { border-style: dashed; }
-    .legend-divider {
-      border: 0; border-top: 1px solid var(--border-glass);
-      margin: 6px 2px;
-    }
+    /* The note ("Data current as of …", or the hour / day shown, and how many
+       stale stations are hidden): the sidebar's footer, after Overlays, so it
+       stays visible whichever groups are closed. In the drawer it is the
+       last line, under the freshness stamp. */
+    .sb-footer { padding: 8px 0 2px; }
+    #nav-drawer .sb-footer { padding: 0; }
     .legend-meta {
       font-family: var(--font-mono);
       font-size: 0.62rem; color: var(--text-muted);
-      padding: 2px 4px 0; line-height: 1.5;
+      padding: 0 4px; line-height: 1.5;
     }
     /* ── Station detail body ─────────────────────────────────────────────────
        Inside the kit sheet (#station-sheet), at both dock edges. This used to style a MapLibre
@@ -784,7 +762,7 @@
       .nav-btn.date-step { min-height: 40px; height: 40px; min-width: 40px; }
       /* 40px, not 32/36: kit 0.9.0's verify gate audits every pointer target
          at 390px (HOUSE-STYLE §5.5), and these were the app's stragglers. */
-      #legend-toggle-btn, #legend-pin-btn { width: 40px; height: 40px; }
+      #legend-pin-btn { width: 40px; height: 40px; }
       /* The colour strip is 12px tall; pad its button, not the strip. */
       #legend-gradient-btn { padding: 12px 0; }
       .pop-carousel-btn { width: 40px; height: 40px; }
@@ -1037,17 +1015,7 @@
                 <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
               </svg>
             </button>
-            <button id="legend-toggle-btn" aria-controls="legend-body" aria-expanded="true"
-                    aria-label="Collapse legend">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-                   stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
-                   stroke="currentColor" aria-hidden="true">
-                <polyline points="6 9 12 15 18 9"/>
-              </svg>
-            </button>
           </div>
-          <!-- Outside #legend-body so the color key stays visible when collapsed
-               (the mobile default). -->
           <div id="legend-key">
             <button id="legend-gradient-btn" type="button" aria-label="Edit color scale">
               <div id="legend-gradient" aria-hidden="true"></div>
@@ -1057,8 +1025,6 @@
           <div id="legend-body">
             <div id="legend-desc" class="legend-desc" hidden></div>
             <div id="legend-rows"></div>
-            <hr class="legend-divider">
-            <div class="legend-meta" id="legend-meta"></div>
           </div>
         </aside>
       </details>
@@ -1066,8 +1032,36 @@
         <summary class="sb-head"><h2 class="sb-title">Overlays</h2><span class="sb-chev" aria-hidden="true"></span></summary>
         <div class="mco-chips" id="legend-overlays" role="group" aria-label="Overlays"></div>
       </details>
+      <div class="sb-footer" id="sb-footer">
+        <div class="legend-meta" id="legend-meta"></div>
+      </div>
     </div>
   </aside>
+  <!-- Desktop first paint: the sidebar's groups in their saved state (the
+       markup ships them all open, the desktop default), so a group the
+       visitor closed never shows open while app.js loads. Mirrors readGroups()
+       and the ?legend= rule in app.js; app.js re-applies the same state.
+       Compact needs nothing here: the drawer is closed at first paint. The
+       second sha256 in the CSP covers these exact bytes (README § CSP). -->
+  <script>
+    (function () {
+      if (document.documentElement.classList.contains('is-compact')) return;
+      var saved = null, legacy = null;
+      try {
+        saved = JSON.parse(localStorage.getItem('mco-explorer-groups-wide') || 'null');
+        legacy = localStorage.getItem('mco-explorer-legend');
+      } catch (e) {}
+      if (!saved || typeof saved !== 'object' || Array.isArray(saved)) saved = {};
+      if (typeof saved.legend !== 'boolean' && (legacy === 'collapsed' || legacy === 'expanded')) saved.legend = legacy === 'expanded';
+      var url = (new URLSearchParams(location.search).get('legend') || '').toLowerCase();
+      if (url === 'open' || url === 'collapsed') saved.legend = url === 'open';
+      var groups = document.querySelectorAll('#sidebar details[data-group]');
+      for (var i = 0; i < groups.length; i++) {
+        var want = saved[groups[i].getAttribute('data-group')];
+        if (typeof want === 'boolean' && groups[i].open !== want) { groups[i]._programmatic = want; groups[i].open = want; }
+      }
+    })();
+  </script>
   <button id="sidebar-toggle" type="button" aria-controls="sidebar" aria-expanded="true"
           title="Hide controls" aria-label="Hide controls">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"

@@ -68,7 +68,7 @@ export function clockNow() {
  */
 export async function open(browser, origin, {
   query = '', width = 1440, height = 900, touch = false,
-  colorScheme = 'light', wait = 1500, downloads = false, seenIntro = true,
+  colorScheme = 'light', wait = 1500, downloads = false, seenIntro = true, storage = null,
   waitForData = true,
 } = {}) {
   const ctx = await browser.newContext({
@@ -80,6 +80,12 @@ export async function open(browser, origin, {
     await ctx.addInitScript(() => {
       try { localStorage.setItem('mco-explorer-seen-intro', '1'); } catch {}
     });
+  }
+  // Seeded localStorage ({key: value}), e.g. a saved state a test must override.
+  if (storage) {
+    await ctx.addInitScript((items) => {
+      try { for (const [k, v] of Object.entries(items)) localStorage.setItem(k, v); } catch {}
+    }, storage);
   }
   const page = await ctx.newPage();
   // Date only (timers still run, so the map and the polling behave normally).
