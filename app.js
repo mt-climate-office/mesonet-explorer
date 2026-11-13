@@ -1288,10 +1288,11 @@
     coloc.refresh();   // re-fans an open spider into the new style's sources
   });
 
-  // Top-right, like every other map in the family (MCO.map.addNavigation's
-  // default): zoom in, zoom out, then fit-to-extent fused into the same group.
-  // The kit (0.21.1) steps MapLibre's right corners clear of the end-docked
-  // station sheet by --sheet-end, so they stay reachable while it is open.
+  // Top-left, the kit's default from 1.0.0 (Kyle, 2026-11-13) and the same in
+  // every map in the family: zoom in, zoom out, then fit-to-extent fused into
+  // the same group. The map starts right of the desktop sidebar, so the group
+  // sits beside it, clear of the sidebar's edge toggle (vertically centred);
+  // the end-docked station panel and the rail are on the other side.
   MCO.map.addNavigation(map);
   MCO.map.addFitControl(map, {
     bounds: MT_FIT_BOUNDS,

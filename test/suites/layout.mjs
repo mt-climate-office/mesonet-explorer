@@ -250,7 +250,7 @@ export async function run({ browser, origin }) {
   // The rail at the right edge (kit 1.0.0) on a landscape phone: badge, ☰,
   // search, then the control bar at its foot, every button ≥ 44px and on top
   // at its centre; ☰ opens the drawer beside it with focus on the drawer, not
-  // a field; the zoom group stays on the map, top right, clear of the
+  // a field; the zoom group stays on the map, top left, clear of the
   // attribution. Hourly: both steppers (date, then hour); Daily: the date
   // stepper. Short of room the kit hides the readouts first (.is-tight, still
   // read) and then scrolls the bar (.is-scroll), never over the top group, so
@@ -279,13 +279,13 @@ export async function run({ browser, origin }) {
           return { id: el.id, w: Math.round(b.width), h: Math.round(b.height), hit: !!hit && (hit === el || el.contains(hit)),
                    inRail: b.left >= nav.getBoundingClientRect().left - 1 };
         });
-        const z = document.querySelector('.maplibregl-ctrl-top-right .maplibregl-ctrl-group').getBoundingClientRect();
+        const z = document.querySelector('.maplibregl-ctrl-top-left .maplibregl-ctrl-group').getBoundingClientRect();
         const at = document.querySelector('.maplibregl-ctrl-bottom-right').getBoundingClientRect();
         return { nav: R(nav), vw: innerWidth, vh: innerHeight, topGroup,
           readouts: [...document.querySelectorAll('#time-bar .mco-controlbar-readout')].filter(el => el.getClientRects().length > 0 && el.textContent.trim()).length,
           order: ordered.map(el => el.id || el.className.split(' ')[0]),
           buttons, bar: R(document.getElementById('time-bar')),
-          zoomRight: Math.round(z.right), zoomBottom: Math.round(z.bottom), attribTop: Math.round(at.top),
+          zoomLeft: Math.round(z.left), zoomBottom: Math.round(z.bottom), attribTop: Math.round(at.top),
           attribOverlapsZoom: at.top < z.bottom && at.right > z.left && at.left < z.right && at.bottom > z.top };
       });
       const atRight = r.nav[0] + r.nav[2] === r.vw && r.nav[0] > r.vw / 2;
@@ -299,8 +299,8 @@ export async function run({ browser, origin }) {
       const small = r.buttons.filter(b => b.w < 44 || b.h < 44 || !b.hit || !b.inRail);
       t.check(`${label}: every rail button ≥ 44px, in the rail and hittable`, r.buttons.length >= 2 && small.length === 0,
         small.map(b => `${b.id} ${b.w}x${b.h} hit=${b.hit}`).join(', ') || `${r.buttons.length} buttons`);
-      t.check(`${label}: zoom on the map, top right beside the rail, clear of the attribution`,
-        Math.abs(r.zoomRight - r.nav[0]) <= 12 && !r.attribOverlapsZoom, `zoom right ${r.zoomRight}, rail ${r.nav[0]}, zoom bottom ${r.zoomBottom}, attribution top ${r.attribTop}`);
+      t.check(`${label}: zoom on the map, top left, clear of the attribution`,
+        r.zoomLeft >= 0 && r.zoomLeft <= 12 && !r.attribOverlapsZoom, `zoom left ${r.zoomLeft}, zoom bottom ${r.zoomBottom}, attribution top ${r.attribTop}`);
       if (mode === 'latest') {
         await page.tap('#btn-rail');
         await page.waitForTimeout(500);
