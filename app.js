@@ -1832,9 +1832,6 @@
     sheetBodyEl.scrollTop = keepScroll;
     initPhotoCarousel(() => sheetEl, _selectedStation);
     wireSiblingLinks(sheetEl);
-    // The value block's height varies by variable, so peek has to re-measure:
-    // re-applying the state makes the kit measure [data-peek] again.
-    if (sheet.state() === 'peek') sheet.setState('peek');
     if (hadFocus && !sheetBodyEl.contains(document.activeElement)) sheetTitleEl.focus({ preventScroll: true });
   }
 
@@ -2592,8 +2589,8 @@
 
   // The detail body, built with DOM APIs and textContent (HOUSE-STYLE §7, kit
   // 0.8.0): no API value is ever parsed as HTML, escaped or not. Same markup
-  // and classes as the string builder it replaces, so .pop-* styling, the peek
-  // measurement and the carousel wiring are unchanged. Not MCO.map.popupContent:
+  // and classes as the string builder it replaces, so .pop-* styling and the
+  // carousel wiring are unchanged. Not MCO.map.popupContent:
   // that is a title/facts/actions popup shell, and this panel carries a value
   // block, sibling stations and a photo carousel.
   function h_(tag, cls, text) {
@@ -2639,9 +2636,6 @@
         }
       }
       block.style.setProperty('--pop-accent', accent);
-      // Peek on a phone shows the sheet head down to this block (the kit
-      // measures [data-peek]): the lightweight readout hover gives a mouse.
-      block.dataset.peek = '';
       block.append(h_('div', 'pop-value-var', lr.entry.label), num);
       if (timeLine) block.appendChild(h_('div', 'pop-value-time', timeLine));
       frag.appendChild(block);
@@ -2977,7 +2971,7 @@
   }
 
   // `host` is a thunk returning the element that contains .pop-carousel, so the
-  // anchored popup and the bottom sheet can share this verbatim. Each call
+  // anchored popup and the station panel can share this verbatim. Each call
   // supersedes the previous one: refreshOpenPopup() rebuilds the body every
   // five minutes, and an older init still awaiting its listings must not wire
   // a second set of handlers onto the new frame.
@@ -3062,9 +3056,12 @@
   //
   // panBy([dx,dy]) moves the CAMERA, so content moves by (-dx,-dy): to push the
   // dot left, clear of a right-docked panel, dx must be positive.
+  // Compact (kit 1.0.0): the panel is full height under the bar and the map is
+  // hidden behind it, so there is nothing to reveal; nudging would only leave
+  // the camera somewhere else when the panel closes.
   const REVEAL_MARGIN_PX = 44;
   function revealSelectedDot(ll) {
-    if (!_sheetOpen || !ll) return;
+    if (!_sheetOpen || !ll || MCO.viewport.isCompact()) return;
     requestAnimationFrame(() => {
       if (!_sheetOpen) return;
       const panel = sheetEl.getBoundingClientRect();
@@ -3076,9 +3073,9 @@
       const nearPanel = x > panel.left - M && x < panel.right + M &&
                         y > panel.top - M && y < panel.bottom + M;
       if (!nearPanel) return;
-      // Push along whichever edge the panel is docked to.
-      const dx = MCO.viewport.isCompact() ? 0 : x - (panel.left - M);
-      const dy = MCO.viewport.isCompact() ? y - (panel.top - M) : 0;
+      // Push the dot left, clear of the end-docked panel.
+      const dx = x - (panel.left - M);
+      const dy = 0;
       if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
       map.panBy([dx, dy], { animate: !MCO.reducedMotion(), duration: 260 });
     });
@@ -3089,13 +3086,14 @@
     map.setFilter('dots-selected', ['==', ['get', 'station'], _selectedStation || '__none__']);
   }
 
-  // One docked panel, two dock edges — bottom on compact viewports, right on
-  // desktop: the kit's MCO.initSheet (0.21.0 adoption; the kit's sheet was
-  // lifted from this app's own panel in 0.9.0). This replaced a MapLibre Popup
-  // anchored to the dot, which sat on top of the map: with one open, 38% of
-  // the surrounding dots were underneath it and simply unclickable. A docked
-  // panel covers no dots at all, so any station can be selected while another
-  // is showing, and the content swaps in place.
+  // One docked panel: the kit's MCO.initSheet (0.21.0 adoption; the kit's
+  // sheet was lifted from this app's own panel in 0.9.0). Above compact it
+  // docks at the right edge; on compact (kit 1.0.0) it fills the screen under
+  // the bar. This replaced a MapLibre Popup anchored to the dot, which sat on
+  // top of the map: with one open, 38% of the surrounding dots were underneath
+  // it and simply unclickable. Docked beside the map it covers no dots, so any
+  // station can be selected while another is showing, and the content swaps in
+  // place; on a phone, picking another dot takes the close button first.
   // `fromHistory`: Back/Forward is re-applying a URL, so write nothing.
   // `replace`: open without a history entry (a deep link at boot).
   function openPopupFor(stationId, lngLat, { fromHistory = false, replace = false } = {}) {
@@ -3142,8 +3140,7 @@
     MCO.announce(`${s.name} (${s.station}), ${s.sub_network || 'station'}, ${valPart}.`);
   }
 
-  // Closing goes through the kit sheet (its ×, Esc, a drag below peek, or
-  // this), which then calls onSheetClosed below. Closing a panel that opened
+  // Closing goes through the kit sheet (its ×, Esc, or this), which then calls onSheetClosed below. Closing a panel that opened
   // with its own history entry goes BACK to the entry before it, rather than
   // leaving a dead "station open" entry behind for Back to land on. The
   // popstate that follows only re-syncs the URL.
@@ -3186,13 +3183,12 @@
   const closePopup = closeDetail;   // keep the existing call sites honest
 
   // ── Station sheet ────────────────────────────────────────────────────────
-  // MCO.initSheet owns the detents, the drag and its keyboard twin (the grip),
-  // focus (in to the title, back to the opener or the map), Esc through
-  // MCO.escStack, inertness in the full detent on compact, and --sheet-h for
-  // the kit's auto-lift of the toast and the bottom map controls.
+  // MCO.initSheet owns the panel (one state from kit 1.0.0: end-docked above
+  // compact, full height under the bar on compact), focus (in to the title,
+  // back to the opener or the map), Esc through MCO.escStack, and inertness on
+  // compact, where the bar and the control bar stay live.
   const sheet = MCO.initSheet({
     sheet: sheetEl,
-    peekHeight: 'auto',
     fallbackFocus: map.getCanvas(),
     onState: (state) => { if (state === 'closed' && _sheetOpen) onSheetClosed(); },
   });
@@ -3201,9 +3197,8 @@
     if (!s) return;
     sheetTitleEl.textContent = s.name;
     sheetBodyEl.replaceChildren(popupDOM(stationId));
-    // Touch gets the peek readout first — the analogue of hovering a dot.
     const opener = _popupFocusReturn && _popupFocusReturn.isConnected ? _popupFocusReturn : undefined;
-    sheet.open(MCO.viewport.isTouch() ? 'peek' : 'full', { opener });
+    sheet.open({ opener });
     _sheetOpen = true;
     initPhotoCarousel(() => sheetEl, stationId);
     wireSiblingLinks(sheetEl);
@@ -3263,7 +3258,7 @@
   // queryRenderedFeatures dispatcher, textContent lines, cursor+14 placement
   // flipped at the viewport edge, cursor: pointer, mouseout cleanup. Touch gets
   // nothing here: browsers synthesize a mousemove on tap, which would show it
-  // under the finger, and the tap opens the sheet, whose peek IS the readout.
+  // under the finger, and the tap opens the station panel, which carries the readout.
   const tooltipEl = document.getElementById('tooltip');
   MCO.map.initCursorTooltip(map, {
     element: tooltipEl,

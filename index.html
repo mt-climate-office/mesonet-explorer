@@ -614,14 +614,12 @@
     }
 
     /* ── Station detail panel ────────────────────────────────────────────────
-       The kit's .mco-sheet (MCO.initSheet): end-docked above compact, bottom
-       sheet with peek/full detents on compact. What is left is this app's.
-       kit-override: the full detent takes HALF the map on a phone, not the
-       kit's 85% (at 390x844 that was 81% of the map, and the dots you came
-       for were gone). */
-    .is-compact #station-sheet:not([data-state="peek"]) { max-height: calc((100dvh - var(--chrome-h, 0px)) * 0.5); }
-    /* The sheet is as wide as the screen; cap the photo frame and keep text
-       lines readable. */
+       The kit's .mco-sheet (MCO.initSheet, one state from kit 1.0.0):
+       end-docked above compact, and on compact the full height under the bar
+       (beside the rail in landscape), down to the bottom control bar. Its size
+       is the kit's; what is left here is this app's content.
+       On compact the sheet is as wide as the screen; cap the photo frame and
+       keep text lines readable. */
     #sheet-body .pop-carousel-frame { max-width: min(100%, 360px); }
     #sheet-body .pop-value,
     #sheet-body .pop-meta,
@@ -748,25 +746,6 @@
       #scale-ramp-list { grid-template-columns: 1fr; }
     }
 
-    /* SHORT VIEWPORTS — height only (landscape phones, stubby desktop windows).
-       These get the bottom sheet from COMPACT_MQ, so the squeeze is vertical.
-       kit-override: half of an already-short map is unreadable, so allow more
-       and let the body scroll. */
-    @media (max-height: 560px) {
-      .is-compact #station-sheet:not([data-state="peek"]) {
-        max-height: min(62dvh, calc(100dvh - var(--chrome-h, 0px) - 8px));
-      }
-    }
-    /* Short AND wide (a landscape phone): the sheet has ~800px of width and
-       almost no height, so lay the peek row out horizontally — network, value
-       side by side — instead of stacking it. The kit measures the [data-peek]
-       block, so the sheet shrinks to match automatically. */
-    @media (max-height: 560px) and (min-width: 700px) {
-      .is-compact #station-sheet[data-state="peek"] #sheet-body {
-        display: flex; align-items: center; gap: 16px;
-      }
-      .is-compact #station-sheet[data-state="peek"] #sheet-body > * { margin-top: 0; flex-shrink: 0; }
-    }
     @media (hover: none) {
       .nav-btn.date-step { min-height: 40px; height: 40px; min-width: 40px; }
       /* 40px, not 32/36: kit 0.9.0's verify gate audits every pointer target
@@ -1094,14 +1073,14 @@
 
 <div id="tooltip" class="mco-tooltip" aria-hidden="true"></div>
 
-<!-- Station detail: the kit's MCO.initSheet (0.9.0), end-docked above compact
-     and a bottom sheet with peek/full detents on compact. Not a <dialog>: it is
-     non-modal at peek and on desktop, so the map stays usable beside it.
-     Body-level so #map's overflow:hidden can't clip it. app.js fills the title
-     and the body (the [data-peek] block is what peek shows). -->
+<!-- Station detail: the kit's MCO.initSheet (0.9.0; one state from 1.0.0).
+     End-docked above compact, with the map live beside it; on compact the full
+     height under the bar, modal except for the bar and the control bar. Not a
+     <dialog>, so the map stays usable beside it on desktop. The header is the
+     same at every width: the title and the 44px close button. Body-level so
+     #map's overflow:hidden can't clip it. app.js fills the title and body. -->
 <section class="mco-sheet" id="station-sheet" aria-labelledby="sheet-title" data-state="closed" hidden>
   <div class="mco-sheet-head">
-    <button type="button" class="mco-sheet-grip" id="sheet-expand" aria-label="Expand details" aria-expanded="false"></button>
     <h2 class="mco-sheet-title" id="sheet-title" tabindex="-1"></h2>
     <button type="button" class="modal-close sheet-close" data-close-sheet aria-label="Close station details">&times;</button>
   </div>
@@ -1168,7 +1147,7 @@
           <li><strong>Variable</strong> — the list adapts to the time mode: precipitation accumulations and soil-moisture change appear in Latest, reference ET in Hourly/Daily, and growing degree days in Daily.</li>
           <li><strong>Search</strong> — press <kbd>/</kbd> to jump there; <kbd>↑</kbd>/<kbd>↓</kbd> + <kbd>Enter</kbd> to pick a station. (Add <code>?kbd=off</code> to the URL to disable the <kbd>/</kbd> shortcut.)</li>
           <li><strong>Networks</strong> — chips toggle HydroMet / AgriMet stations.</li>
-          <li><strong>Hover</strong> a dot for the station's value; <strong>click</strong> for details, a photo, and a dashboard link. On a phone the details open as a sheet you can drag up for more or swipe down to dismiss.</li>
+          <li><strong>Hover</strong> a dot for the station's value; <strong>click</strong> for details, a photo, and a dashboard link. On a phone the details fill the screen under the bar; close them with <strong>×</strong> (or Back) to pick another station on the map.</li>
           <li><strong>Stacked stations</strong> — a small count badge marks sites with more than one station; hovering or clicking fans them out, and the details panel lists the others under "Also at this site".</li>
           <li><strong>Units</strong> — °F/°C toggles between U.S. and metric units.</li>
           <li><strong>Legend</strong> — click the No-data / Stale rows to show or hide those stations; the Overlays chips add counties, watersheds, or live radar.</li>
