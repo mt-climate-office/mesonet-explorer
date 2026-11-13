@@ -104,6 +104,63 @@ export async function run({ browser, origin }) {
     await ctx.close();
   }
 
+  // Control groups: one set of collapsible groups, the same headings in the
+  // same order wherever the controls are (the desktop sidebar, the ☰ drawer
+  // on a phone, the drawer beside the landscape rail). On a phone Search,
+  // Networks, Time and Variable start open and Legend, Overlays and More
+  // closed; on desktop all start open, and More is the bar's own controls
+  // rather than a group. A group with nothing to show (Variable on a portrait
+  // phone in Latest, its picker being the bar's hot control) is hidden.
+  const ORDER = ['Search', 'Networks', 'Time', 'Variable', 'Legend', 'Overlays', 'More'];
+  const GROUP_VIEWS = [
+    // label, w, h, touch, expected visible headings, expected open, drawer must fit
+    ['320x568 phone', 320, 568, true, ['Search', 'Networks', 'Time', 'Legend', 'Overlays', 'More'], ['Search', 'Networks', 'Time'], true],
+    ['390x664 phone (browser chrome showing)', 390, 664, true, ['Search', 'Networks', 'Time', 'Legend', 'Overlays', 'More'], ['Search', 'Networks', 'Time'], true],
+    ['390x844 phone', 390, 844, true, ['Search', 'Networks', 'Time', 'Legend', 'Overlays', 'More'], ['Search', 'Networks', 'Time'], true],
+    ['844x390 phone landscape', 844, 390, true, ['Search', 'Networks', 'Time', 'Variable', 'Legend', 'Overlays', 'More'], ['Search', 'Networks', 'Time', 'Variable'], false],
+    ['1440x900 desktop', 1440, 900, false, ['Search', 'Networks', 'Time', 'Variable', 'Legend', 'Overlays'], ['Search', 'Networks', 'Time', 'Variable', 'Legend', 'Overlays'], true],
+  ];
+  for (const [label, width, height, touch, wantHeads, wantOpen, mustFit] of GROUP_VIEWS) {
+    const { ctx, page, errors } = await open(browser, origin, { width, height, touch });
+    await page.evaluate(() => {
+      const b = document.getElementById('btn-rail');
+      if (b.getBoundingClientRect().width > 0) b.click();
+    });
+    await page.waitForTimeout(500);
+    const r = await page.evaluate(() => {
+      const drawer = document.getElementById('nav-drawer');
+      const inDrawer = drawer.classList.contains('is-open');
+      const panel = inDrawer ? drawer : document.querySelector('#sidebar .sidebar-scroll');
+      const heads = [...panel.querySelectorAll('summary.sb-head, #more-head')]
+        .filter(el => el.getBoundingClientRect().height > 0);
+      const name = el => el.textContent.trim();
+      const isOpen = el => el.tagName === 'SUMMARY' ? el.parentElement.open : el.getAttribute('aria-expanded') === 'true';
+      const moreInBar = (() => { const m = document.getElementById('more-head'); return m.getBoundingClientRect().height > 0; })();
+      return {
+        inDrawer,
+        heads: heads.map(name),
+        open: heads.filter(isOpen).map(name),
+        minH: Math.min(...heads.map(el => Math.round(el.getBoundingClientRect().height))),
+        client: panel.clientHeight, scroll: panel.scrollHeight,
+        moreInBar: !inDrawer && moreInBar,
+        // Every visible group shows at least one control of its own.
+        empty: [...panel.querySelectorAll('details.sb-section')].filter(d => !d.hidden &&
+          !d.querySelector(':scope > :not(summary):not([hidden])')).map(d => d.id),
+      };
+    });
+    t.check(`${label}: groups in the one order`, JSON.stringify(r.heads) === JSON.stringify(wantHeads) &&
+      r.heads.every((h, i, a) => i === 0 || ORDER.indexOf(a[i - 1]) < ORDER.indexOf(h)), r.heads.join(' › '));
+    t.check(`${label}: default open groups`, JSON.stringify(r.open) === JSON.stringify(wantOpen), r.open.join(', '));
+    t.check(`${label}: group headings at --control-h`, r.minH >= (touch ? 40 : 34), `${r.minH}px`);
+    t.check(`${label}: no empty group shown`, r.empty.length === 0, r.empty.join(', ') || 'none');
+    if (!r.inDrawer) t.check(`${label}: More stays the bar's own controls`, !r.moreInBar && r.heads.indexOf('More') < 0);
+    if (mustFit) t.check(`${label}: ${r.inDrawer ? 'drawer' : 'sidebar'} fits without scrolling`, r.scroll <= r.client,
+      `${r.scroll}px content in ${r.client}px`);
+    else t.check(`${label}: ${r.inDrawer ? 'drawer' : 'sidebar'} measured`, r.scroll > 0, `${r.scroll}px content in ${r.client}px`);
+    t.check(`${label}: no errors with groups`, errors.length === 0, errors.join(' | ') || 'none');
+    await ctx.close();
+  }
+
   // Mobile header: ONE row in every mode, down to 320px (kit 0.21.0 compact
   // bar: badge · variable · search · ☰, ≤ 64px; the date and hour steppers
   // moved into the drawer with the rest of the Time section).

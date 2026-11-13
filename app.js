@@ -3223,10 +3223,79 @@
   const navRailToggle = document.getElementById('btn-rail');
   const searchToggle  = document.getElementById('btn-search-toggle');
   const variableGroupEl = document.getElementById('variable-group');
-  // The sidebar's sections, in their desktop order.
-  const SECTION_IDS = ['sb-search', 'sb-networks', 'sb-time', 'sb-variable', 'sb-agg', 'sb-legend'];
+  // The sidebar's groups (<details>), in their one order at every width. More
+  // (units … help) follows them in the drawer; on desktop it is the bar's.
+  const SECTION_IDS = ['sb-search', 'sb-networks', 'sb-time', 'sb-variable', 'sb-legend', 'sb-overlays'];
   const sections = SECTION_IDS.map(id => document.getElementById(id));
   const variableSection = document.getElementById('sb-variable');
+  const moreHead = document.getElementById('more-head');
+  const moreBody = document.getElementById('more-body');
+
+  // ── Collapsible groups ──
+  // Same groups, headings and order at every width; only their default
+  // state differs. In the ☰ drawer (compact) Search, Networks, Time and
+  // Variable start open and Legend, Overlays and More closed, so the drawer
+  // fits a phone; in the desktop sidebar all start open. Each width class
+  // remembers its own choices (mco-explorer-groups-compact / -wide),
+  // re-validated on read like a URL parameter.
+  const GROUP_NAMES = ['search', 'networks', 'time', 'variable', 'legend', 'overlays', 'more'];
+  const GROUP_DEFAULTS = {
+    compact: { search: true, networks: true, time: true, variable: true, legend: false, overlays: false, more: false },
+    wide:    { search: true, networks: true, time: true, variable: true, legend: true,  overlays: true,  more: true },
+  };
+  const groupClass = () => (MCO.viewport.isCompact() ? 'compact' : 'wide');
+  const groupKey = (cls) => `mco-explorer-groups-${cls}`;
+  function readGroups(cls) {
+    const out = { ...GROUP_DEFAULTS[cls] };
+    let saved = null;
+    try { saved = JSON.parse(MCO.lsGet(groupKey(cls)) || 'null'); } catch { saved = null; }
+    if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
+      for (const g of GROUP_NAMES) if (typeof saved[g] === 'boolean') out[g] = saved[g];
+    }
+    return out;
+  }
+  let _groupCls = null;
+  let _applyingGroups = false;
+  function groupEl(name) {
+    return name === 'more' ? null : sections.find(sec => sec.dataset.group === name);
+  }
+  function isGroupOpen(name) {
+    return name === 'more' ? moreHead.getAttribute('aria-expanded') === 'true' : groupEl(name).open;
+  }
+  function setMoreOpen(open) {
+    moreHead.setAttribute('aria-expanded', open ? 'true' : 'false');
+    moreBody.toggleAttribute('data-collapsed', !open);
+  }
+  function saveGroups() {
+    if (_applyingGroups || !_groupCls) return;
+    const state = {};
+    for (const g of GROUP_NAMES) state[g] = isGroupOpen(g);
+    MCO.lsSet(groupKey(_groupCls), JSON.stringify(state));
+  }
+  // Called from layoutControls(): restores the width class's states when the
+  // class changes (and once at boot).
+  function applyGroups() {
+    const cls = groupClass();
+    if (cls === _groupCls) return;
+    _groupCls = cls;
+    const state = readGroups(cls);
+    _applyingGroups = true;
+    for (const sec of sections) sec.open = state[sec.dataset.group];
+    setMoreOpen(state.more);
+    // <details> fires 'toggle' asynchronously; let those pass before saving again.
+    setTimeout(() => { _applyingGroups = false; }, 0);
+  }
+  for (const sec of sections) sec.addEventListener('toggle', saveGroups);
+  moreHead.addEventListener('click', () => {
+    setMoreOpen(!isGroupOpen('more'));
+    saveGroups();
+  });
+  // Opens a group so a control inside it can take focus (the / shortcut, the
+  // bar's search button). Remembered, like a click on its heading.
+  function openGroup(name) {
+    const sec = groupEl(name);
+    if (sec && !sec.open) sec.open = true;
+  }
 
   // Desktop: remembered open/closed. On compact the column is gone and its
   // sections are in the nav drawer, which always starts closed.
@@ -3253,11 +3322,12 @@
     for (const sec of sections) place(sec, home);
     const inBar = navRail.isDrawerMode();
     if (inBar) place(variableGroupEl, navRailEl, searchToggle);
-    else place(variableGroupEl, variableSection);
+    else place(variableGroupEl, variableSection, aggGroup);
     if (inBar !== _pickerInBar) {
       _pickerInBar = inBar;
       populateVariableSelect();   // short labels in the bar
     }
+    applyGroups();
     syncSidebarSections();
   }
 
@@ -3270,7 +3340,7 @@
     // once they exist, so bailing here loses nothing.
     if (!_sidebarReady) return;
     for (const sec of sections) {
-      sec.hidden = !sec.querySelector(':scope > *:not(.sb-title):not([hidden])');
+      sec.hidden = !sec.querySelector(':scope > *:not(summary):not([hidden])');
     }
     // And .controls, whose children all move to the sidebar on desktop. CSS
     // :empty can't do this: moving the children out leaves whitespace text nodes
@@ -3307,6 +3377,9 @@
   // ☰ close it, focus back to the opener). The bar's search button opens it
   // on the search field. Idle above compact, where the drawer is
   // display:contents.
+  // Registered before initNavRail's own listener, so the Search group is open
+  // by the time the kit focuses the field inside it.
+  searchToggle.addEventListener('click', () => openGroup('search'));
   const navRail = MCO.initNavRail({
     toggle: navRailToggle,
     drawer: document.getElementById('nav-drawer'),
@@ -3345,6 +3418,7 @@
       // The box lives in the sidebar on desktop and in the nav drawer on
       // compact. Reveal it either way before focusing, so the shortcut can't
       // focus something invisible.
+      openGroup('search');
       if (navRail.isRail() || navRail.isDrawerMode()) { navRail.open(searchInput); return; }
       if (!sidebarOpen) setSidebarOpen(true);
       searchInput.focus();

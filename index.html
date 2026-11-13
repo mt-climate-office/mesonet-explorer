@@ -319,12 +319,67 @@
       padding: 10px 12px 16px;
       display: flex; flex-direction: column; gap: 2px;
     }
-    .sb-section { padding: 8px 0; border-bottom: 1px solid var(--border-glass); }
+    /* ── Control groups ──────────────────────────────────────────────────
+       One set of collapsible groups, with the same headings in the same
+       order wherever the controls are: Search, Networks, Time, Variable
+       (with Aggregation), Legend and Overlays, in the desktop sidebar and in
+       the ☰ drawer alike, then More (units, labels, export, share, theme,
+       help), which is a group only in the drawer, because on desktop those
+       controls belong to the bar. Native <details>/<summary>, so Enter and
+       Space, the expanded state and the tab order come from the browser.
+       app.js (applyGroups) remembers each group's state per width class. The
+       chevron's direction, not a colour, says open or closed. */
+    .sb-section { padding: 2px 0 8px; border-bottom: 1px solid var(--border-glass); }
+    .sb-section:not([open]) { padding-bottom: 2px; }
     .sb-section:last-child { border-bottom: 0; }
+    .sb-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      width: 100%; min-height: var(--control-h);
+      margin: 0; padding: 0 6px 0 2px;
+      background: none; border: 0; border-radius: var(--radius-sm);
+      color: var(--text-dim); font: inherit; text-align: left;
+      cursor: pointer; list-style: none; user-select: none;
+      transition: color var(--transition);
+    }
+    .sb-head::-webkit-details-marker { display: none; }
+    .sb-head:hover { color: var(--text-secondary); }
     .sb-title {
       font-size: 0.62rem; font-weight: 600; letter-spacing: 0.07em;
-      text-transform: uppercase; color: var(--text-dim);
-      margin: 0 0 6px;
+      text-transform: uppercase; color: inherit;
+      margin: 0;
+    }
+    /* Points down when open, right when closed. */
+    .sb-chev {
+      flex: 0 0 auto; width: 7px; height: 7px; margin-top: -3px;
+      border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+      transform: rotate(45deg);
+      transition: transform var(--transition);
+    }
+    details.sb-section:not([open]) .sb-chev,
+    #more-head[aria-expanded="false"] .sb-chev { transform: rotate(-45deg); margin-top: 0; }
+    /* The More group exists only in the drawer: where the bar is folded, or
+       beside the landscape rail. Elsewhere its heading is gone and its body is
+       display:contents, so the bar lays out exactly as it did. The kit drops
+       .is-folded for a moment to measure the unfolded bar, and these rules go
+       with it, so a collapsed More never changes that measurement. */
+    .sb-more-title { display: none; margin: 0; }
+    /* kit-override: in the drawer More follows the last group, so keep the rule between them. */
+    #nav-drawer .controls > .sb-section:last-child { border-bottom: 1px solid var(--border-glass); }
+    #more-body { display: contents; }
+    /* kit-override: keyed on the kit's .is-folded so fold-to-fit measures the bar unfolded. */
+    #navbar.is-folded .sb-more-title { display: block; flex: 1 1 100%; }
+    #navbar.is-folded #more-body { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; flex: 1 1 100%; }
+    #navbar.is-folded #more-body[data-collapsed] { display: none; }
+    /* kit-override: the kit's drawer shows .refresh-status first in .nav-meta.
+       The freshness stamp is status, not a control, so here it is the
+       drawer's footer, below More, rather than hidden inside it. */
+    #navbar.is-folded .nav-meta > .refresh-status { order: 1; flex: 1 1 100%; }
+    @media (max-height: 560px) and (orientation: landscape) {   /* = MCO.viewport.RAIL_MQ */
+      #navbar[data-rail] .sb-more-title { display: block; flex: 1 1 100%; }
+      #navbar[data-rail] #more-body { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; flex: 1 1 100%; }
+      #navbar[data-rail] #more-body[data-collapsed] { display: none; }
+      /* kit-override: as above, the stamp is the drawer's footer. */
+      #navbar[data-rail] .nav-meta > .refresh-status { order: 1; flex: 1 1 100%; }
     }
     /* The control groups were built for a horizontal bar; stack them here, in
        the sidebar and in the compact nav drawer alike. */
@@ -334,9 +389,10 @@
     :is(#sidebar, #nav-drawer) .control-group[hidden] { display: none; }
     :is(#sidebar, #nav-drawer) .control-group:last-child { margin-bottom: 0; }
     :is(#sidebar, #nav-drawer) .control-label { flex: 1 1 100%; }
-    /* The section heading already says "Time"/"Variable" — the group's own label
-       would repeat it. Date, Hour and Aggregation keep theirs: those are distinct. */
-    :is(#sidebar, #nav-drawer) :is(#mode-group, #variable-group, #agg-group) .control-label { display: none; }
+    /* The group heading already says "Time"/"Variable" — the control's own label
+       would repeat it. Date, Hour and Aggregation keep theirs: those are distinct
+       (Aggregation now sits under the Variable heading). */
+    :is(#sidebar, #nav-drawer) :is(#mode-group, #variable-group) .control-label { display: none; }
     :is(#sidebar, #nav-drawer) .search-wrap { width: 100%; }
     /* kit-override: full sidebar / drawer width. */
     :is(#sidebar, #nav-drawer) .mco-search-input,
@@ -463,11 +519,6 @@
     .legend-divider {
       border: 0; border-top: 1px solid var(--border-glass);
       margin: 6px 2px;
-    }
-    .legend-section-title {
-      font-size: 0.6rem; font-weight: 600; letter-spacing: 0.07em;
-      text-transform: uppercase; color: var(--text-dim);
-      padding: 0 4px; margin-bottom: 2px;
     }
     .legend-meta {
       font-family: var(--font-mono);
@@ -791,9 +842,9 @@
       <span class="brand-subtitle">A service of the Montana Climate Office</span>
     </div>
 
-    <!-- Compact only: layoutControls() moves the sidebar's sections in here
-         (search, networks, time, variable on the rail, aggregation, legend).
-         Empty, and so hidden, above compact. -->
+    <!-- Compact only: layoutControls() moves the sidebar's groups in here
+         (Search, Networks, Time, Variable, Legend, Overlays; More follows in
+         .nav-meta). Empty, and so hidden, above compact. -->
     <div class="controls" hidden></div>
 
     <div class="nav-meta" id="nav-tools">
@@ -801,6 +852,16 @@
         <span class="dot" aria-hidden="true"></span>
         <span id="refresh-stamp">loading…</span>
       </span>
+      <!-- The More group: a heading and a disclosure button that exist only
+           where the bar is folded or the rail is up (the ☰ drawer). In the
+           desktop bar both are display:none / display:contents, so these
+           controls sit in the bar exactly as before. Not a <details>: the kit
+           measures the bar unfolded to decide whether to fold (fold-to-fit),
+           and a closed <details> would hide these controls from that
+           measurement. A class-keyed collapse cannot. -->
+      <h2 class="sb-more-title"><button type="button" class="sb-head" id="more-head"
+          aria-expanded="true" aria-controls="more-body"><span class="sb-title">More</span><span class="sb-chev" aria-hidden="true"></span></button></h2>
+      <div class="more-body" id="more-body">
       <div class="seg-btns" role="group" aria-label="Units">
         <button class="nav-btn seg-btn" data-units="us" aria-pressed="true"  title="U.S. units">°F</button>
         <button class="nav-btn seg-btn" data-units="si" aria-pressed="false" title="Metric units">°C</button>
@@ -851,6 +912,7 @@
         </svg>
       </button>
       <button type="button" class="nav-btn mco-btn-info" id="btn-info" aria-label="About this map">?</button>
+      </div>
     </div>
   </div>
 </header>
@@ -871,8 +933,8 @@
        the sidebar itself is display:none there. -->
   <aside id="sidebar" aria-label="Map controls">
     <div class="sidebar-scroll">
-      <div class="sb-section" id="sb-search">
-        <h2 class="sb-title" id="sb-search-title">Search</h2>
+      <details class="sb-section" id="sb-search" data-group="search" open>
+        <summary class="sb-head"><h2 class="sb-title" id="sb-search-title">Search</h2><span class="sb-chev" aria-hidden="true"></span></summary>
         <div class="search-wrap mco-search">
           <span class="mco-search-icon" aria-hidden="true"></span>
           <label for="search-input" class="sr-only">Search stations</label>
@@ -881,13 +943,13 @@
           <kbd class="search-kbd" aria-hidden="true">/</kbd>
           <div id="search-dropdown" class="mco-search-list" hidden></div>
         </div>
-      </div>
-      <div class="sb-section" id="sb-networks">
-        <h2 class="sb-title">Networks</h2>
+      </details>
+      <details class="sb-section" id="sb-networks" data-group="networks" open>
+        <summary class="sb-head"><h2 class="sb-title">Networks</h2><span class="sb-chev" aria-hidden="true"></span></summary>
         <div class="mco-chips" id="subnet-filters" role="group" aria-label="Sub-network filter"></div>
-      </div>
-      <div class="sb-section" id="sb-time">
-        <h2 class="sb-title">Time</h2>
+      </details>
+      <details class="sb-section" id="sb-time" data-group="time" open>
+        <summary class="sb-head"><h2 class="sb-title">Time</h2><span class="sb-chev" aria-hidden="true"></span></summary>
         <!-- No aria-label on the mode buttons (WCAG 2.5.3 label in name): the
              name is the caption displayed. The compact "Now"/"Hour"/"Day"
              captions went with the two-row phone bar (0.21.0); the mode
@@ -940,16 +1002,16 @@
             </div>
           </div>
         </div>
-      </div>
-      <div class="sb-section" id="sb-variable">
-        <h2 class="sb-title">Variable</h2>
+      </details>
+      <!-- Variable carries Aggregation (Daily and Hourly only). On a portrait
+           phone the variable picker is the bar's hot control, so this group can
+           hold Aggregation alone, or nothing (Latest), and then hides. -->
+      <details class="sb-section" id="sb-variable" data-group="variable" open>
+        <summary class="sb-head"><h2 class="sb-title">Variable</h2><span class="sb-chev" aria-hidden="true"></span></summary>
         <div class="control-group" id="variable-group">
           <label class="control-label" for="variable-select">Variable</label>
           <select id="variable-select" aria-label="Variable to display"></select>
         </div>
-      </div>
-      <div class="sb-section" id="sb-agg" hidden>
-        <h2 class="sb-title">Aggregation</h2>
         <div class="control-group" id="agg-group" hidden>
           <label class="control-label" for="agg-select">Aggregation</label>
           <select id="agg-select" aria-label="Aggregation function">
@@ -961,11 +1023,12 @@
             <option value="stddev">Std dev</option>
           </select>
         </div>
-      </div>
-      <div class="sb-section" id="sb-legend">
+      </details>
+      <details class="sb-section" id="sb-legend" data-group="legend" open>
+        <summary class="sb-head"><h2 class="sb-title">Legend</h2><span class="sb-chev" aria-hidden="true"></span></summary>
         <aside id="legend" aria-labelledby="legend-title">
           <div class="legend-header" id="legend-header">
-            <h2 id="legend-title">Legend</h2>
+            <h3 id="legend-title">Legend</h3>
             <button id="legend-pin-btn" aria-pressed="false" aria-label="Lock color scale"
                     title="Lock the color scale while stepping through time">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -995,13 +1058,14 @@
             <div id="legend-desc" class="legend-desc" hidden></div>
             <div id="legend-rows"></div>
             <hr class="legend-divider">
-            <div class="legend-section-title">Overlays</div>
-            <div class="mco-chips" id="legend-overlays" role="group" aria-label="Overlays"></div>
-            <hr class="legend-divider">
             <div class="legend-meta" id="legend-meta"></div>
           </div>
         </aside>
-      </div>
+      </details>
+      <details class="sb-section" id="sb-overlays" data-group="overlays" open>
+        <summary class="sb-head"><h2 class="sb-title">Overlays</h2><span class="sb-chev" aria-hidden="true"></span></summary>
+        <div class="mco-chips" id="legend-overlays" role="group" aria-label="Overlays"></div>
+      </details>
     </div>
   </aside>
   <button id="sidebar-toggle" type="button" aria-controls="sidebar" aria-expanded="true"
