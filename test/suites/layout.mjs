@@ -113,7 +113,7 @@ export async function run({ browser, origin }) {
     ['390x664 phone (browser chrome showing)', 390, 664, true, ['Search', 'Networks', 'Time', 'Legend', 'Overlays', 'More'], ['Search', 'Networks', 'Time'], true],
     ['390x844 phone', 390, 844, true, ['Search', 'Networks', 'Time', 'Legend', 'Overlays', 'More'], ['Search', 'Networks', 'Time'], true],
     ['844x390 phone landscape', 844, 390, true, ['Search', 'Networks', 'Time', 'Variable', 'Legend', 'Overlays', 'More'], ['Search', 'Networks', 'Time', 'Variable'], false],
-    ['1440x900 desktop', 1440, 900, false, ['Search', 'Networks', 'Time', 'Variable', 'Legend', 'Overlays'], ['Search', 'Networks', 'Time', 'Variable', 'Legend', 'Overlays'], true],
+    ['1440x900 desktop', 1440, 900, false, ['Search', 'Networks', 'Time', 'Variable', 'Legend', 'Overlays', 'More'], ['Search', 'Networks', 'Time', 'Variable', 'Legend', 'Overlays', 'More'], 'measure'],
   ];
   for (const [label, width, height, touch, wantHeads, wantOpen, mustFit] of GROUP_VIEWS) {
     const { ctx, page, errors } = await open(browser, origin, { width, height, touch });
@@ -130,7 +130,7 @@ export async function run({ browser, origin }) {
         .filter(el => el.getBoundingClientRect().height > 0);
       const name = el => el.textContent.trim();
       const isOpen = el => el.tagName === 'SUMMARY' ? el.parentElement.open : el.getAttribute('aria-expanded') === 'true';
-      const moreInBar = (() => { const m = document.getElementById('more-head'); return m.getBoundingClientRect().height > 0; })();
+      const moreInBar = (() => { const m = document.getElementById('btn-info'); return !!m.closest('#navbar') && m.getBoundingClientRect().height > 0; })();
       return {
         inDrawer,
         heads: heads.map(name),
@@ -153,11 +153,13 @@ export async function run({ browser, origin }) {
     t.check(`${label}: default open groups`, JSON.stringify(r.open) === JSON.stringify(wantOpen), r.open.join(', '));
     t.check(`${label}: group headings at --control-h`, r.minH >= (touch ? 40 : 34), `${r.minH}px`);
     t.check(`${label}: no empty group shown`, r.empty.length === 0, r.empty.join(', ') || 'none');
-    if (!r.inDrawer) t.check(`${label}: More stays the bar's own controls`, !r.moreInBar && r.heads.indexOf('More') < 0);
+    // Kit 1.0.0: the sidebar carries the drawer's groups, More included.
+    if (!r.inDrawer) t.check(`${label}: More is the sidebar's last group, not in the bar`, !r.moreInBar && r.heads.at(-1) === 'More');
     // At 320x568 the note (status text, the drawer's last line) may sit just
     // below the fold; every heading and control must not.
     if (mustFit === 'controls') t.check(`${label}: every heading and control on screen without scrolling`,
       r.ctrlOverhang <= 0, `${r.scroll}px content in ${r.client}px; lowest control ${r.ctrlOverhang}px past the edge`);
+    else if (mustFit === 'measure') t.check(`${label}: sidebar measured (it scrolls)`, r.scroll > 0, `${r.scroll}px content in ${r.client}px`);
     else if (mustFit) t.check(`${label}: ${r.inDrawer ? 'drawer' : 'sidebar'} fits without scrolling`, r.scroll <= r.client,
       `${r.scroll}px content in ${r.client}px`);
     else t.check(`${label}: ${r.inDrawer ? 'drawer' : 'sidebar'} measured`, r.scroll > 0, `${r.scroll}px content in ${r.client}px`);
@@ -193,7 +195,7 @@ export async function run({ browser, origin }) {
   }
 
   // The note ("Data current as of …") is the sidebar's last block, after
-  // Overlays, and stays visible with the Legend group closed.
+  // More, and stays visible with the Legend group closed.
   {
     const { ctx, page, errors } = await open(browser, origin, { query: '?legend=collapsed', width: 1440, height: 900 });
     const r = await page.evaluate(() => {
@@ -203,8 +205,8 @@ export async function run({ browser, origin }) {
       return { last: blocks.at(-1)?.id, beforeIt: blocks.at(-2)?.id, text: note.textContent.trim(),
                visible: note.getBoundingClientRect().height > 0 };
     });
-    t.check('1440: the note is the last block in the sidebar, after Overlays',
-      r.last === 'sb-footer' && r.beforeIt === 'sb-overlays', `${r.beforeIt} › ${r.last}`);
+    t.check('1440: the note is the last block in the sidebar, after More',
+      r.last === 'sb-footer' && r.beforeIt === 'more-body', `${r.beforeIt} › ${r.last}`);
     t.check('1440: the note stays visible with the Legend group closed', r.visible && r.text.length > 0, r.text);
     t.check('1440 note: no errors', errors.length === 0, errors.join(' | ') || 'none');
     await ctx.close();
@@ -234,19 +236,29 @@ export async function run({ browser, origin }) {
   // search, then the control bar at its foot, every button ≥ 44px and on top
   // at its centre; ☰ opens the drawer beside it with focus on the drawer, not
   // a field; the zoom group stays on the map, top right, clear of the
-  // attribution. In Hourly the rail shows the date readout over the hour
-  // stepper (no room for both steppers at 750x342); Daily the date stepper.
-  for (const [w, h] of [[750, 342], [844, 390]]) {
+  // attribution. Hourly: both steppers (date, then hour); Daily: the date
+  // stepper. Short of room the kit hides the readouts first (.is-tight, still
+  // read) and then scrolls the bar (.is-scroll), never over the top group, so
+  // each button is checked after scrolling it into view.
+  for (const [w, h] of [[568, 320], [750, 342], [844, 390]]) {
     for (const mode of ['latest', 'hourly', 'daily']) {
       const label = `${w}x${h} ${mode}`;
       const { ctx, page, errors } = await open(browser, origin, { query: mode === 'latest' ? '' : `?mode=${mode}`, width: w, height: h, touch: true });
       const r = await page.evaluate(() => {
         const R = el => { const b = el.getBoundingClientRect(); return [Math.round(b.x), Math.round(b.y), Math.round(b.width), Math.round(b.height)]; };
         const nav = document.getElementById('navbar');
-        const items = [...document.querySelectorAll('#navbar .logo-link, #navbar .mco-rail > *, #time-bar button, #time-bar .mco-controlbar-readout')]
+        const items = [...document.querySelectorAll('#navbar .logo-link, #navbar .mco-rail > *, #time-bar button')]
           .filter(el => el.getClientRects().length > 0);
-        const ordered = items.slice().sort((a, b) => a.getBoundingClientRect().y - b.getBoundingClientRect().y);
+        // DOM order is the column's order (the bar scrolls, so y may not be).
+        const ordered = items;
+        const tb = document.getElementById('time-bar');
+        const barTop = tb.getClientRects().length ? tb.getBoundingClientRect().top : Infinity;
+        const topGroup = items.slice(0, 3).map(el => {
+          const b = el.getBoundingClientRect(); const hit = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2);
+          return !!hit && (hit === el || el.contains(hit)) && b.bottom <= barTop + 0.5;
+        });
         const buttons = items.filter(el => el.tagName === 'BUTTON').map(el => {
+          el.scrollIntoView({ block: 'nearest' });
           const b = el.getBoundingClientRect();
           const hit = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2);
           return { id: el.id, w: Math.round(b.width), h: Math.round(b.height), hit: !!hit && (hit === el || el.contains(hit)),
@@ -254,7 +266,8 @@ export async function run({ browser, origin }) {
         });
         const z = document.querySelector('.maplibregl-ctrl-top-right .maplibregl-ctrl-group').getBoundingClientRect();
         const at = document.querySelector('.maplibregl-ctrl-bottom-right').getBoundingClientRect();
-        return { nav: R(nav), vw: innerWidth, vh: innerHeight,
+        return { nav: R(nav), vw: innerWidth, vh: innerHeight, topGroup,
+          readouts: [...document.querySelectorAll('#time-bar .mco-controlbar-readout')].filter(el => el.getClientRects().length > 0 && el.textContent.trim()).length,
           order: ordered.map(el => el.id || el.className.split(' ')[0]),
           buttons, bar: R(document.getElementById('time-bar')),
           zoomRight: Math.round(z.right), zoomBottom: Math.round(z.bottom), attribTop: Math.round(at.top),
@@ -263,9 +276,11 @@ export async function run({ browser, origin }) {
       const atRight = r.nav[0] + r.nav[2] === r.vw && r.nav[0] > r.vw / 2;
       t.check(`${label}: the rail is at the right edge`, atRight, `navbar ${r.nav}`);
       const want = ['logo-link', 'btn-rail', 'btn-search-toggle',
-        ...(mode === 'hourly' ? ['cb-date-readout', 'btn-cb-hour-prev', 'cb-hour-readout', 'btn-cb-hour-next']
-          : mode === 'daily' ? ['btn-cb-date-prev', 'cb-date-readout', 'btn-cb-date-next'] : [])];
+        ...(mode === 'hourly' ? ['btn-cb-date-prev', 'btn-cb-date-next', 'btn-cb-hour-prev', 'btn-cb-hour-next']
+          : mode === 'daily' ? ['btn-cb-date-prev', 'btn-cb-date-next'] : [])];
       t.check(`${label}: rail order badge, ☰, search, time controls`, JSON.stringify(r.order) === JSON.stringify(want), r.order.join(' › '));
+      t.check(`${label}: the top group (badge, ☰, search) whole, hittable, above the control bar`, r.topGroup.length === 3 && r.topGroup.every(Boolean), JSON.stringify(r.topGroup));
+      if (mode !== 'latest') t.check(`${label}: readouts in the accessibility tree`, r.readouts === (mode === 'hourly' ? 2 : 1), `${r.readouts}`);
       const small = r.buttons.filter(b => b.w < 44 || b.h < 44 || !b.hit || !b.inRail);
       t.check(`${label}: every rail button ≥ 44px, in the rail and hittable`, r.buttons.length >= 2 && small.length === 0,
         small.map(b => `${b.id} ${b.w}x${b.h} hit=${b.hit}`).join(', ') || `${r.buttons.length} buttons`);

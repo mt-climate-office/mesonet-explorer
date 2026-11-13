@@ -426,6 +426,8 @@
   const legendSection = document.getElementById('sb-legend');
   const moreHead = document.getElementById('more-head');
   const moreBody = document.getElementById('more-body');
+  const moreTitle = moreHead.closest('.sb-more-title');
+  const navToolsEl = document.getElementById('nav-tools');
   const GROUP_NAMES = ['search', 'networks', 'time', 'variable', 'legend', 'overlays', 'more'];
   const GROUP_DEFAULTS = {
     compact: { search: true, networks: true, time: true, variable: true, legend: false, overlays: false, more: false },
@@ -2261,19 +2263,17 @@
   MCO.initStepper({ prev: byId('btn-cb-date-prev'), next: byId('btn-cb-date-next'),
     onStep: stepDate, arrowKeys: true, unit: 'day' });
 
-  // The control bar's date readout: "Nov 13" over the year, so the date and
-  // hour steppers share one row at 320px. Its accessible text is the same
-  // two parts ("Nov 13 2026").
+  // The control bar's date readout in two parts, "Nov 13" and the year, as
+  // spans: the kit breaks a readout only between its parts, so the date and
+  // hour steppers share one row at 320px, and stacks them in the rail.
   function updateDateReadout() {
     const d = new Date(`${activeDate}T12:00:00`);
     if (Number.isNaN(d.getTime())) { cbDateReadout.textContent = ''; return; }
     const md = document.createElement('span');
-    md.className = 'cb-md';
     md.textContent = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     const y = document.createElement('span');
-    y.className = 'cb-y';
-    y.textContent = ` ${d.getFullYear()}`;
-    cbDateReadout.replaceChildren(md, y);
+    y.textContent = String(d.getFullYear());
+    cbDateReadout.replaceChildren(md, ' ', y);
   }
   function updateHourReadout() {
     hourReadout.textContent = `${MCO.pad2(activeHour)}:00`;
@@ -3315,7 +3315,7 @@
   const variableGroupEl = document.getElementById('variable-group');
   const variableSection = document.getElementById('sb-variable');
   // The note under the groups ("Data current as of …"): the sidebar's footer,
-  // after Overlays; in the drawer, its footer, after More and the freshness
+  // after More; in the drawer, its footer, after More and the freshness
   // stamp, so status text never pushes a group heading below a phone's fold.
   const sidebarFooter = document.getElementById('sb-footer');
   const navDrawerEl   = document.getElementById('nav-drawer');
@@ -3343,6 +3343,16 @@
     const home = MCO.viewport.isCompact() ? navControlsEl : sidebarScroll;
     for (const sec of sections) place(sec, home);
     place(sidebarFooter, MCO.viewport.isCompact() ? navDrawerEl : sidebarScroll);
+    // More (units, labels, export, share, theme, help): the drawer's last
+    // group on compact, in .nav-meta; the sidebar's last group above it, after
+    // Overlays and before the note, so the sidebar carries the drawer's groups,
+    // headings and order (kit 1.0.0 consistency table).
+    if (MCO.viewport.isCompact()) {
+      if (moreBody.parentElement !== navToolsEl) navToolsEl.append(moreTitle, moreBody);
+    } else if (moreBody.parentElement !== sidebarScroll || moreBody.nextElementSibling !== sidebarFooter) {
+      sidebarScroll.insertBefore(moreTitle, sidebarFooter);
+      sidebarScroll.insertBefore(moreBody, sidebarFooter);
+    }
     const inBar = navRail.isDrawerMode();
     if (inBar) place(variableGroupEl, navRailEl, searchToggle);
     else place(variableGroupEl, variableSection, aggGroup);

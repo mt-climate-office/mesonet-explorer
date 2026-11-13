@@ -116,7 +116,7 @@
        tooltip/modal shells, MapLibre control polish, and the high-contrast
        theme. What remains in <style> below is app-specific. -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.0.0/theme/mco-theme.css"
-        integrity="sha384-HjjLXx7sl8kCo5AGlJntIezB6zBy0d6tLrCo3ies6XMRNsnZTcXPMGRHbPXULsbR"
+        integrity="sha384-BXqc+uDId7rVls9Yd+C1DE4heDuFKEWjgZ+7Zuuy0rCI8RosEzpzTblWSHBFoQKf"
         crossorigin="anonymous">
 
   <style>
@@ -322,11 +322,11 @@
     /* ── Control groups ──────────────────────────────────────────────────
        One set of collapsible groups, with the same headings in the same
        order wherever the controls are: Search, Networks, Time, Variable
-       (with Aggregation), Legend and Overlays, in the desktop sidebar and in
-       the ☰ drawer alike, then More (units, labels, export, share, theme,
-       help), which is a group only in the drawer, because on desktop those
-       controls belong to the bar. Native <details>/<summary>, so Enter and
-       Space, the expanded state and the tab order come from the browser.
+       (with Aggregation), Legend, Overlays and More (units, labels, export,
+       share, theme, help), in the desktop sidebar and in the ☰ drawer alike
+       (kit 1.0.0 consistency table). Native <details>/<summary> (More is a
+       button disclosure, see below), so Enter and Space, the expanded state
+       and the tab order come from the browser.
        app.js (applyGroups) remembers each group's state per width class. The
        chevron's direction, not a colour, says open or closed. */
     .sb-section { padding: 2px 0 8px; border-bottom: 1px solid var(--border-glass); }
@@ -357,13 +357,17 @@
     }
     details.sb-section:not([open]) .sb-chev,
     #more-head[aria-expanded="false"] .sb-chev { transform: rotate(-45deg); margin-top: 0; }
-    /* The More group exists only in the drawer: where the bar is folded, or
-       beside the landscape rail. Elsewhere its heading is gone and its body is
-       display:contents, so the bar lays out exactly as it did. The kit drops
+    /* The More group: the sidebar's last group above compact, the ☰ drawer's
+       on compact (layoutControls moves it). In the bar outside the drawer
+       (a non-compact folded bar never holds it; this guards first paint) its
+       heading is gone and its body is display:contents. The kit drops
        .is-folded for a moment to measure the unfolded bar, and these rules go
        with it, so a collapsed More never changes that measurement. */
     .sb-more-title { display: none; margin: 0; }
     #more-body { display: contents; }
+    #sidebar .sb-more-title { display: block; border-top: 1px solid var(--border-glass); padding-top: 2px; }
+    #sidebar #more-body { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; padding: 2px 0 8px; }
+    #sidebar #more-body[data-collapsed] { display: none; }
     /* kit-override: keyed on the kit's .is-folded so fold-to-fit measures the bar unfolded. */
     #navbar.is-folded .sb-more-title { display: block; flex: 1 1 100%; }
     #navbar.is-folded #more-body { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; flex: 1 1 100%; }
@@ -619,23 +623,14 @@
 
 
     /* ── Bottom control bar ──────────────────────────────────────────────────
-       The kit's .mco-controlbar places, sizes and hides the bar and its
-       buttons. This file lays out its own two steppers inside it: each is
-       ‹ readout ›, held tight so both fit one row at 320px, and stacked into
-       a column at the foot of the right rail (html.is-rail, kit 1.0.0). The
-       date readout is two lines, "Nov 13" over the year. */
+       The kit's .mco-controlbar places, sizes and hides the bar, its buttons
+       and its readouts (a readout in parts breaks only between its spans; in
+       the rail the parts stack, and short of room the readouts are visually
+       hidden first, then the bar scrolls: kit 1.0.0). This file lays out its
+       own two steppers inside it: each is ‹ readout ›, held tight so both fit
+       one row at 320px, and stacked into a column in the rail. */
     .cb-stepper { display: flex; align-items: center; gap: 2px; }
-    .cb-md, .cb-y { display: block; line-height: 1.15; }
-    .cb-y { font-size: var(--fs-xs); color: var(--text-secondary); }
     html.is-rail .cb-stepper { flex-direction: column; gap: 0.35rem; }
-    /* In Hourly the rail cannot hold the badge, ☰, search and both steppers
-       at 750x342 (measured: 357px needed without the readouts, 386px with
-       them; 342px there), so in the rail Hourly shows the date as a readout
-       over the hour stepper, the one ← / → drive and which crosses midnight;
-       the date stepper's buttons are in the drawer's Time group. The same at
-       every rail height, so the rail always looks the same. Daily keeps the
-       date stepper. */
-    html.is-rail #time-bar:has(> #cb-hour:not([hidden])) :is(#btn-cb-date-prev, #btn-cb-date-next) { display: none; }
 
     /* ── Info modal ──────────────────────────────────────────────────────── */
     /* The dialog shell, .info-modal-title/-subtitle, .modal-close and the whole
@@ -828,67 +823,6 @@
         <span class="dot" aria-hidden="true"></span>
         <span id="refresh-stamp">loading…</span>
       </span>
-      <!-- The More group: a heading and a disclosure button that exist only
-           where the bar is folded or the rail is up (the ☰ drawer). In the
-           desktop bar both are display:none / display:contents, so these
-           controls sit in the bar exactly as before. Not a <details>: the kit
-           measures the bar unfolded to decide whether to fold (fold-to-fit),
-           and a closed <details> would hide these controls from that
-           measurement. A class-keyed collapse cannot. -->
-      <h2 class="sb-more-title"><button type="button" class="sb-head" id="more-head"
-          aria-expanded="true" aria-controls="more-body"><span class="sb-title">More</span><span class="sb-chev" aria-hidden="true"></span></button></h2>
-      <div class="more-body" id="more-body">
-      <div class="seg-btns" role="group" aria-label="Units">
-        <button class="nav-btn seg-btn" data-units="us" aria-pressed="true"  title="U.S. units">°F</button>
-        <button class="nav-btn seg-btn" data-units="si" aria-pressed="false" title="Metric units">°C</button>
-      </div>
-      <button class="nav-btn icon-only" id="btn-labels" aria-pressed="false"
-              title="Toggle value labels" aria-label="Toggle value labels">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
-          <line x1="7" y1="7" x2="7.01" y2="7"/>
-        </svg>
-      </button>
-      <button class="nav-btn icon-only" id="btn-export" title="Export map as PNG" aria-label="Export map as PNG">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-          <polyline points="7 10 12 15 17 10"/>
-          <line x1="12" y1="15" x2="12" y2="3"/>
-        </svg>
-      </button>
-      <button class="nav-btn icon-only" id="btn-share" title="Copy shareable link" aria-label="Copy shareable link">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-        </svg>
-      </button>
-      <button class="nav-btn icon-only" id="btn-theme" title="Toggle theme" aria-label="Toggle theme">
-        <svg id="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-        </svg>
-        <svg id="icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none">
-          <circle cx="12" cy="12" r="5"/>
-          <line x1="12" y1="1"  x2="12" y2="3"/>  <line x1="12" y1="21" x2="12" y2="23"/>
-          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-          <line x1="1" y1="12" x2="3" y2="12"/>   <line x1="21" y1="12" x2="23" y2="12"/>
-          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-        </svg>
-        <svg id="icon-contrast" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none">
-          <circle cx="12" cy="12" r="9"/>
-          <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/>
-        </svg>
-      </button>
-      <button type="button" class="nav-btn mco-btn-info" id="btn-info" aria-label="About this map">?</button>
-      </div>
     </div>
   </div>
 </header>
@@ -1064,6 +998,67 @@
         <summary class="sb-head"><h2 class="sb-title">Overlays</h2><span class="sb-chev" aria-hidden="true"></span></summary>
         <div class="mco-chips" id="legend-overlays" role="group" aria-label="Overlays"></div>
       </details>
+      <!-- The More group: a heading with a disclosure button, and the controls
+           that are the bar's on other tools (units, labels, export, share,
+           theme, help). The sidebar's last group, after Overlays; on compact
+           layoutControls() moves both into #nav-tools, the ☰ drawer's last
+           group. Not a <details>: in the folded bar the kit measures the bar
+           unfolded (fold-to-fit), and a closed <details> would hide these
+           controls from that measurement. A class-keyed collapse cannot. -->
+      <h2 class="sb-more-title"><button type="button" class="sb-head" id="more-head"
+          aria-expanded="true" aria-controls="more-body"><span class="sb-title">More</span><span class="sb-chev" aria-hidden="true"></span></button></h2>
+      <div class="more-body" id="more-body">
+      <div class="seg-btns" role="group" aria-label="Units">
+        <button class="nav-btn seg-btn" data-units="us" aria-pressed="true"  title="U.S. units">°F</button>
+        <button class="nav-btn seg-btn" data-units="si" aria-pressed="false" title="Metric units">°C</button>
+      </div>
+      <button class="nav-btn icon-only" id="btn-labels" aria-pressed="false"
+              title="Toggle value labels" aria-label="Toggle value labels">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+          <line x1="7" y1="7" x2="7.01" y2="7"/>
+        </svg>
+      </button>
+      <button class="nav-btn icon-only" id="btn-export" title="Export map as PNG" aria-label="Export map as PNG">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+      </button>
+      <button class="nav-btn icon-only" id="btn-share" title="Copy shareable link" aria-label="Copy shareable link">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+        </svg>
+      </button>
+      <button class="nav-btn icon-only" id="btn-theme" title="Toggle theme" aria-label="Toggle theme">
+        <svg id="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+        <svg id="icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" y1="1"  x2="12" y2="3"/>  <line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/>   <line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <svg id="icon-contrast" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/>
+        </svg>
+      </button>
+      <button type="button" class="nav-btn mco-btn-info" id="btn-info" aria-label="About this map">?</button>
+      </div>
       <div class="sb-footer" id="sb-footer">
         <div class="legend-meta" id="legend-meta"></div>
       </div>
