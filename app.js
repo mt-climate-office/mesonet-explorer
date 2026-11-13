@@ -345,6 +345,12 @@
   const hourGroup      = document.getElementById('hour-group');
   const dateInput      = document.getElementById('date-input');
   const hourReadout    = document.getElementById('hour-readout');
+  // The bottom control bar (kit 1.0.0): the same date and hour steppers as the
+  // Time group, for a phone. Its readouts follow activeDate / activeHour.
+  const timeBarEl      = document.getElementById('time-bar');
+  const cbHourEl       = document.getElementById('cb-hour');
+  const cbDateReadout  = document.getElementById('cb-date-readout');
+  const cbHourReadout  = document.getElementById('cb-hour-readout');
   const emptyStateEl   = document.getElementById('empty-state');
   const navbarEl       = document.getElementById('navbar');
   const sheetEl        = document.getElementById('station-sheet');
@@ -2175,6 +2181,11 @@
     }
     dateGroup.hidden = activeMode === 'latest';
     hourGroup.hidden = activeMode !== 'hourly';
+    // Owner's ruling: the control bar carries the date/hour steppers in Hourly
+    // and Daily only; Latest has no time to step.
+    timeBarEl.hidden = activeMode === 'latest';
+    cbHourEl.hidden = activeMode !== 'hourly';
+    updateHourReadout();   // every readout, the control bar's date too
     if (activeMode !== 'latest' && radarOn) setRadar(false);
     // The pulsing dot signals live auto-refresh — stop it for historical modes.
     const rs = document.querySelector('.refresh-status');
@@ -2228,6 +2239,7 @@
     activeDate = d;
     dateInput.value = d;
     if (activeMode === 'hourly') clampHour();
+    else updateDateReadout();
     render();
     writeUrl();
   }
@@ -2237,12 +2249,36 @@
   // once, a held pointer repeats. No canStep: the bounds are enforced (with a
   // toast saying why) by setDate/stepHour, and a button disabled under the
   // keyboard focus would drop that focus on <body>.
+  // Each stepper has two copies, the Time group's and the control bar's, and
+  // all four take ← / → (kit 1.0.0 arrowKeys). The kit hands the keys to ONE:
+  // the finest unit among those showing, so the hour in Hourly and the day in
+  // Daily, from whichever copy is on screen. Fields, the map when reached by
+  // Tab, dialogs and ?kbd=off keep the arrows to themselves.
   const byId = (id) => document.getElementById(id);
+  const stepDate = (d) => setDate(MCO.shiftDate(activeDate, d));
   MCO.initStepper({ prev: byId('btn-date-prev'), next: byId('btn-date-next'),
-    onStep: (d) => setDate(MCO.shiftDate(activeDate, d)) });
+    onStep: stepDate, arrowKeys: true, unit: 'day' });
+  MCO.initStepper({ prev: byId('btn-cb-date-prev'), next: byId('btn-cb-date-next'),
+    onStep: stepDate, arrowKeys: true, unit: 'day' });
 
+  // The control bar's date readout: "Nov 13" over the year, so the date and
+  // hour steppers share one row at 320px. Its accessible text is the same
+  // two parts ("Nov 13 2026").
+  function updateDateReadout() {
+    const d = new Date(`${activeDate}T12:00:00`);
+    if (Number.isNaN(d.getTime())) { cbDateReadout.textContent = ''; return; }
+    const md = document.createElement('span');
+    md.className = 'cb-md';
+    md.textContent = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const y = document.createElement('span');
+    y.className = 'cb-y';
+    y.textContent = ` ${d.getFullYear()}`;
+    cbDateReadout.replaceChildren(md, y);
+  }
   function updateHourReadout() {
     hourReadout.textContent = `${MCO.pad2(activeHour)}:00`;
+    cbHourReadout.textContent = hourReadout.textContent;
+    updateDateReadout();
   }
   function clampHour() {
     const last = MCO.lastCompleteHourMT();
@@ -2268,7 +2304,9 @@
     writeUrl();
   }
   MCO.initStepper({ prev: byId('btn-hour-prev'), next: byId('btn-hour-next'),
-    onStep: (d) => stepHour(d) });
+    onStep: (d) => stepHour(d), arrowKeys: true, unit: 'hour' });
+  MCO.initStepper({ prev: byId('btn-cb-hour-prev'), next: byId('btn-cb-hour-next'),
+    onStep: (d) => stepHour(d), arrowKeys: true, unit: 'hour' });
 
   // ── Units toggle ─────────────────────────────────────────────────────────
   function syncUnitsUI() {
@@ -3854,6 +3892,7 @@
     if (activeDate > maxDateForMode()) activeDate = maxDateForMode();
     dateInput.value = activeDate;
     if (activeMode === 'hourly') clampHour();
+    else updateDateReadout();
 
     buildFilterUI();
     populateSearch();

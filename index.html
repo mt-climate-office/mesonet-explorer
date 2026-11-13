@@ -618,6 +618,27 @@
     #sheet-body .pop-links { max-width: 560px; }
 
 
+    /* ── Bottom control bar ──────────────────────────────────────────────────
+       The kit's .mco-controlbar places, sizes and hides the bar and its
+       buttons. This file lays out its own two steppers inside it: each is
+       ‹ readout ›, held tight so both fit one row at 320px, and stacked into
+       a column at the foot of the right rail (html.is-rail, kit 1.0.0). The
+       date readout is two lines, "Nov 13" over the year. */
+    .cb-stepper { display: flex; align-items: center; gap: 2px; }
+    .cb-stepper .mco-controlbar-readout { margin: 0; line-height: 1.15; }
+    .cb-md, .cb-y { display: block; }
+    .cb-y { font-size: var(--fs-xs); color: var(--text-secondary); }
+    .cb-stepper .nav-btn { justify-content: center; }
+    html.is-rail .cb-stepper { flex-direction: column; gap: 0.35rem; }
+    /* In Hourly the rail cannot hold the badge, ☰, search and both steppers
+       at 750x342 (measured: 357px needed without the readouts, 386px with
+       them; 342px there), so in the rail Hourly shows the date as a readout
+       over the hour stepper, the one ← / → drive and which crosses midnight;
+       the date stepper's buttons are in the drawer's Time group. The same at
+       every rail height, so the rail always looks the same. Daily keeps the
+       date stepper. */
+    html.is-rail #time-bar:has(> #cb-hour:not([hidden])) :is(#btn-cb-date-prev, #btn-cb-date-next) { display: none; }
+
     /* ── Info modal ──────────────────────────────────────────────────────── */
     /* The dialog shell, .info-modal-title/-subtitle, .modal-close and the whole
        .info-section family (including its UNDERLINED prose links — this file's
@@ -761,8 +782,8 @@
 <!-- data-rail="compact" (kit 0.21.0, MCO.initNavRail): on a phone the bar is
      ONE row, badge · variable picker (the hot control) · search · ☰, and
      everything else lives in #nav-drawer, a right-hand drawer under the bar.
-     On a landscape phone (short) it is the kit's left rail instead, with the
-     same drawer beside it. Above compact #nav-drawer is display:contents and
+     On a landscape phone (short) it is the kit's rail at the right edge
+     instead (kit 1.0.0), with the same drawer opening beside it. Above compact #nav-drawer is display:contents and
      the bar lays out as the desktop navbar. -->
 <header id="navbar" class="mco-navbar" data-rail="compact">
   <a href="https://climate.umt.edu" target="_blank" rel="noopener noreferrer"
@@ -877,6 +898,40 @@
 <!-- The nav drawer's scrim (kit .mco-scrim): dims the page beside the rail
      or under the compact bar while #nav-drawer is open. -->
 <div id="rail-scrim" class="mco-scrim" aria-hidden="true" hidden></div>
+
+<!-- The bottom control bar (kit 1.0.0, .mco-controlbar; core wires it): the
+     phone's time controls, the date and hour steppers, in Hourly and Daily
+     only (syncModeUI hides it in Latest, and the hour stepper outside Hourly).
+     The kit docks it at the bottom wherever the bar is folded, at the foot of
+     the right rail in short landscape, and hides it above compact (the
+     sidebar's Time group carries the same steppers there, in the same order
+     and with the same names) and while a keyboard is up. It stays live under
+     the station panel and beside the open drawer. app.js keeps the readouts
+     in step with the sidebar's. -->
+<div class="mco-controlbar" id="time-bar" role="group" aria-label="Time" hidden>
+  <div class="cb-stepper" role="group" aria-label="Date">
+    <button type="button" class="nav-btn mco-step" id="btn-cb-date-prev" aria-label="Previous day">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <p class="mco-controlbar-readout" id="cb-date-readout" role="status"></p>
+    <button type="button" class="nav-btn mco-step" id="btn-cb-date-next" aria-label="Next day">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+  </div>
+  <div class="cb-stepper" id="cb-hour" role="group" aria-label="Hour" hidden>
+    <button type="button" class="nav-btn mco-step" id="btn-cb-hour-prev" aria-label="Previous hour">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <p class="mco-controlbar-readout" id="cb-hour-readout" role="status"></p>
+    <button type="button" class="nav-btn mco-step" id="btn-cb-hour-next" aria-label="Next hour">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+  </div>
+</div>
 
 <!-- Flex row: the sidebar takes a real column and the map fills the rest, so
      opening or closing it genuinely resizes the map. The station detail panel is
@@ -1120,7 +1175,11 @@
         <li><strong>Variable</strong> — the dropdown picks what the dots show: air, wind,
           precipitation, soil, ET, and groundwater measurements.</li>
         <li><strong>Time</strong> — <strong>Latest</strong> is live and auto-refreshes;
-          <strong>Hourly</strong> and <strong>Daily</strong> let you pick any date.</li>
+          <strong>Hourly</strong> and <strong>Daily</strong> let you pick any date. Step one
+          day (in Hourly, one hour) at a time with ‹ and › or the <kbd>←</kbd> and
+          <kbd>→</kbd> keys. If you reach the map with Tab, the arrow keys pan it; after a
+          click, <kbd>←</kbd> and <kbd>→</kbd> change the time and <kbd>↑</kbd> and
+          <kbd>↓</kbd> pan.</li>
         <li><strong>A station</strong> — tap or click a dot for its value, details, a photo,
           and a link to its dashboard.</li>
       </ul>
@@ -1136,7 +1195,7 @@
         <summary>All controls &amp; shortcuts</summary>
         <ul>
           <li><strong>Variable</strong> — the list adapts to the time mode: precipitation accumulations and soil-moisture change appear in Latest, reference ET in Hourly/Daily, and growing degree days in Daily.</li>
-          <li><strong>Search</strong> — press <kbd>/</kbd> to jump there; <kbd>↑</kbd>/<kbd>↓</kbd> + <kbd>Enter</kbd> to pick a station. (Add <code>?kbd=off</code> to the URL to disable the <kbd>/</kbd> shortcut.)</li>
+          <li><strong>Search</strong> — press <kbd>/</kbd> to jump there; <kbd>↑</kbd>/<kbd>↓</kbd> + <kbd>Enter</kbd> to pick a station. (Add <code>?kbd=off</code> to the URL to turn off the <kbd>/</kbd> shortcut and the <kbd>←</kbd> / <kbd>→</kbd> time stepping.)</li>
           <li><strong>Networks</strong> — chips toggle HydroMet / AgriMet stations.</li>
           <li><strong>Hover</strong> a dot for the station's value; <strong>click</strong> for details, a photo, and a dashboard link. On a phone the details fill the screen under the bar; close them with <strong>×</strong> (or Back) to pick another station on the map.</li>
           <li><strong>Stacked stations</strong> — a small count badge marks sites with more than one station; hovering or clicking fans them out, and the details panel lists the others under "Also at this site".</li>
@@ -1144,7 +1203,7 @@
           <li><strong>Legend</strong> — click the No-data / Stale rows to show or hide those stations; the Overlays chips add counties, watersheds, or live radar.</li>
           <li><strong>Color scale</strong> — click the color strip to pick a different ramp or set a custom range; the pin locks the scale in place while you step through dates and hours. "≤"/"≥" on the ends means a few extreme values share the end colors.</li>
           <li><strong>Export</strong> — download a branded PNG of the current view (fixed Montana framing, color scale included).</li>
-          <li><strong>On a phone</strong> — the bar keeps the variable picker and search; the <strong>☰</strong> menu at its right edge holds the time controls, networks, legend, units, labels, export, share, theme, and this guide.</li>
+          <li><strong>On a phone</strong> — the bar keeps the variable picker and search; in Hourly and Daily the date and hour steppers sit in a bar along the bottom (at the foot of the side bar when the phone is turned sideways); the <strong>☰</strong> menu at the bar's right edge holds the time controls, networks, legend, units, labels, export, share, theme, and this guide.</li>
           <li><kbd>Esc</kbd> closes the station details, the stacked-station fan-out, and the menu, one at a time.</li>
         </ul>
       </details>
