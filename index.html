@@ -33,9 +33,9 @@
        decided 2026-10-08) so they version with the kit and can't drift. The
        navbar logo stays vendored (assets/mco-logo.png). img-src carries
        cdn.jsdelivr.net for them. -->
-  <link rel="icon" type="image/png" sizes="32x32" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.2/assets/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.2/assets/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.2/assets/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.0.0/assets/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.0.0/assets/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.0.0/assets/apple-touch-icon.png">
 
   <!-- Open Graph -->
   <meta property="og:type"             content="website">
@@ -44,8 +44,8 @@
   <meta property="og:description"      content="Explore Montana Mesonet weather and soil data on an interactive map — latest conditions plus hourly and daily history for every station.">
   <meta property="og:url"              content="https://mesonet.climate.umt.edu/explorer/">
   <meta property="og:locale"           content="en_US">
-  <meta property="og:image"            content="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.2/assets/og-card.png">
-  <meta property="og:image:secure_url" content="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.2/assets/og-card.png">
+  <meta property="og:image"            content="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.0.0/assets/og-card.png">
+  <meta property="og:image:secure_url" content="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.0.0/assets/og-card.png">
   <meta property="og:image:type"       content="image/png">
   <meta property="og:image:width"      content="1200">
   <meta property="og:image:height"     content="630">
@@ -55,7 +55,7 @@
   <meta name="twitter:card"        content="summary_large_image">
   <meta name="twitter:title"       content="Explorer · Montana Mesonet">
   <meta name="twitter:description" content="Explore Montana Mesonet weather and soil data on an interactive map — latest conditions plus hourly and daily history for every station.">
-  <meta name="twitter:image"       content="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.2/assets/og-card.png">
+  <meta name="twitter:image"       content="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.0.0/assets/og-card.png">
   <meta name="twitter:image:alt"   content="Map of Montana showing Mesonet station observations as colored dots across the state.">
 
   <!-- mco-web-style · anti-flash theme boot. Kept INLINE and ahead of every
@@ -92,8 +92,8 @@
   <!-- House fonts: kit-hosted (mco-web-style 0.7.0), declared in mco-theme.css.
        Preloaded so the first frame is already in Outfit — no system-font flash.
        Same @version as the theme CSS; crossorigin is required on font preloads. -->
-  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.2/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.2/fonts/space-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.0.0/fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.0.0/fonts/space-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
 
   <!-- MapLibre GL 6.x (kit 0.8.0). ES-modules only, so it is not a <script src>:
        mco-map.js imports it (MCO.map.loadMapLibre) and this ONE-LINE import map
@@ -112,11 +112,11 @@
         integrity="sha384-ntw3zEt6rcVML7jDK0ULmHa5hxLB23afsPqzqfY+gLgMfAkbFCnCgPpkZvV5mmZX"
         crossorigin="anonymous">
 
-  <!-- mco-web-style @0.21.2 — tokens, reset, a11y utilities, navbar/panel/toast/
+  <!-- mco-web-style @1.0.0 — tokens, reset, a11y utilities, navbar/panel/toast/
        tooltip/modal shells, MapLibre control polish, and the high-contrast
        theme. What remains in <style> below is app-specific. -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.2/theme/mco-theme.css"
-        integrity="sha384-6b+8YTXHtiLQOLwPSXvqmgnA4QlUZ87oGCr9kwLwAHCTV+oDPCkM0IK6mve/4BeY"
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.0.0/theme/mco-theme.css"
+        integrity="sha384-sYr4fDiezV2VCn92FyWqmM9kKbbJPMUCqf7xIkQqLyFlSbMmWCTGdAzNPlm6cJ65"
         crossorigin="anonymous">
 
   <style>
@@ -129,19 +129,10 @@
     :root { --sidebar-w: 272px; }
 
     /* ── MapLibre control polish ─────────────────────────────────────────
-       All the kit's. The lift that kept the bottom corner controls (and the
-       attribution) clear of the compact station sheet is html.mco-autolift
-       now (kit 0.9.0), driven by --sheet-h, which app.js publishes only while
-       the sheet is bottom-docked. */
-    /* kit-override: the kit caps the lift at the map's top edge only, so on a
-       short landscape phone the attribution rose into the zoom group, which
-       shares its right-hand column. app.js publishes --attrib-lift-max (the
-       room between the two) and the lift stops there; when that is not enough
-       the attribution tucks under the sheet, as it always does in status and
-       maintenance. Without the property the kit's lift applies unchanged. */
-    html.mco-autolift #map .maplibregl-ctrl-bottom-right {
-      transform: translateY(calc(-1 * min(var(--lift, var(--overlay-bottom)), var(--attrib-lift-max, 100vh))));
-    }
+       All the kit's, including html.mco-autolift: the bottom corners clear
+       the bottom control bar (--tabbar-h), and from kit 1.0.0 the lift stops
+       8px under the zoom group above, which retired this file's own
+       --attrib-lift-max cap. */
 
     /* ── App shell ───────────────────────────────────────────────────────
        The reset, reduced-motion clamp, [hidden] priority fix, .sr-only and the
@@ -331,11 +322,11 @@
     /* ── Control groups ──────────────────────────────────────────────────
        One set of collapsible groups, with the same headings in the same
        order wherever the controls are: Search, Networks, Time, Variable
-       (with Aggregation), Legend and Overlays, in the desktop sidebar and in
-       the ☰ drawer alike, then More (units, labels, export, share, theme,
-       help), which is a group only in the drawer, because on desktop those
-       controls belong to the bar. Native <details>/<summary>, so Enter and
-       Space, the expanded state and the tab order come from the browser.
+       (with Aggregation), Legend, Overlays and More (units, labels, export,
+       share, theme, help), in the desktop sidebar and in the ☰ drawer alike
+       (kit 1.0.0 consistency table). Native <details>/<summary> (More is a
+       button disclosure, see below), so Enter and Space, the expanded state
+       and the tab order come from the browser.
        app.js (applyGroups) remembers each group's state per width class. The
        chevron's direction, not a colour, says open or closed. */
     .sb-section { padding: 2px 0 8px; border-bottom: 1px solid var(--border-glass); }
@@ -366,13 +357,17 @@
     }
     details.sb-section:not([open]) .sb-chev,
     #more-head[aria-expanded="false"] .sb-chev { transform: rotate(-45deg); margin-top: 0; }
-    /* The More group exists only in the drawer: where the bar is folded, or
-       beside the landscape rail. Elsewhere its heading is gone and its body is
-       display:contents, so the bar lays out exactly as it did. The kit drops
+    /* The More group: the sidebar's last group above compact, the ☰ drawer's
+       on compact (layoutControls moves it). In the bar outside the drawer
+       (a non-compact folded bar never holds it; this guards first paint) its
+       heading is gone and its body is display:contents. The kit drops
        .is-folded for a moment to measure the unfolded bar, and these rules go
        with it, so a collapsed More never changes that measurement. */
     .sb-more-title { display: none; margin: 0; }
     #more-body { display: contents; }
+    #sidebar .sb-more-title { display: block; border-top: 1px solid var(--border-glass); padding-top: 2px; }
+    #sidebar #more-body { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; padding: 2px 0 8px; }
+    #sidebar #more-body[data-collapsed] { display: none; }
     /* kit-override: keyed on the kit's .is-folded so fold-to-fit measures the bar unfolded. */
     #navbar.is-folded .sb-more-title { display: block; flex: 1 1 100%; }
     #navbar.is-folded #more-body { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; flex: 1 1 100%; }
@@ -614,20 +609,28 @@
     }
 
     /* ── Station detail panel ────────────────────────────────────────────────
-       The kit's .mco-sheet (MCO.initSheet): end-docked above compact, bottom
-       sheet with peek/full detents on compact. What is left is this app's.
-       kit-override: the full detent takes HALF the map on a phone, not the
-       kit's 85% (at 390x844 that was 81% of the map, and the dots you came
-       for were gone). */
-    .is-compact #station-sheet:not([data-state="peek"]) { max-height: calc((100dvh - var(--chrome-h, 0px)) * 0.5); }
-    /* The sheet is as wide as the screen; cap the photo frame and keep text
-       lines readable. */
+       The kit's .mco-sheet (MCO.initSheet, one state from kit 1.0.0):
+       end-docked above compact, and on compact the full height under the bar
+       (beside the rail in landscape), down to the bottom control bar. Its size
+       is the kit's; what is left here is this app's content.
+       On compact the sheet is as wide as the screen; cap the photo frame and
+       keep text lines readable. */
     #sheet-body .pop-carousel-frame { max-width: min(100%, 360px); }
     #sheet-body .pop-value,
     #sheet-body .pop-meta,
     #sheet-body .pop-siblings,
     #sheet-body .pop-links { max-width: 560px; }
 
+
+    /* ── Bottom control bar ──────────────────────────────────────────────────
+       The kit's .mco-controlbar places, sizes and hides the bar, its buttons
+       and its readouts (a readout in parts breaks only between its spans; in
+       the rail the parts stack, and short of room the readouts are visually
+       hidden first, then the bar scrolls: kit 1.0.0). This file lays out its
+       own two steppers inside it: each is ‹ readout ›, held tight so both fit
+       one row at 320px, and stacked into a column in the rail. */
+    .cb-stepper { display: flex; align-items: center; gap: 2px; }
+    html.is-rail .cb-stepper { flex-direction: column; gap: 0.35rem; }
 
     /* ── Info modal ──────────────────────────────────────────────────────── */
     /* The dialog shell, .info-modal-title/-subtitle, .modal-close and the whole
@@ -748,25 +751,6 @@
       #scale-ramp-list { grid-template-columns: 1fr; }
     }
 
-    /* SHORT VIEWPORTS — height only (landscape phones, stubby desktop windows).
-       These get the bottom sheet from COMPACT_MQ, so the squeeze is vertical.
-       kit-override: half of an already-short map is unreadable, so allow more
-       and let the body scroll. */
-    @media (max-height: 560px) {
-      .is-compact #station-sheet:not([data-state="peek"]) {
-        max-height: min(62dvh, calc(100dvh - var(--chrome-h, 0px) - 8px));
-      }
-    }
-    /* Short AND wide (a landscape phone): the sheet has ~800px of width and
-       almost no height, so lay the peek row out horizontally — network, value
-       side by side — instead of stacking it. The kit measures the [data-peek]
-       block, so the sheet shrinks to match automatically. */
-    @media (max-height: 560px) and (min-width: 700px) {
-      .is-compact #station-sheet[data-state="peek"] #sheet-body {
-        display: flex; align-items: center; gap: 16px;
-      }
-      .is-compact #station-sheet[data-state="peek"] #sheet-body > * { margin-top: 0; flex-shrink: 0; }
-    }
     @media (hover: none) {
       .nav-btn.date-step { min-height: 40px; height: 40px; min-width: 40px; }
       /* 40px, not 32/36: kit 0.9.0's verify gate audits every pointer target
@@ -791,8 +775,8 @@
 <!-- data-rail="compact" (kit 0.21.0, MCO.initNavRail): on a phone the bar is
      ONE row, badge · variable picker (the hot control) · search · ☰, and
      everything else lives in #nav-drawer, a right-hand drawer under the bar.
-     On a landscape phone (short) it is the kit's left rail instead, with the
-     same drawer beside it. Above compact #nav-drawer is display:contents and
+     On a landscape phone (short) it is the kit's rail at the right edge
+     instead (kit 1.0.0), with the same drawer opening beside it. Above compact #nav-drawer is display:contents and
      the bar lays out as the desktop navbar. -->
 <header id="navbar" class="mco-navbar" data-rail="compact">
   <a href="https://climate.umt.edu" target="_blank" rel="noopener noreferrer"
@@ -839,67 +823,6 @@
         <span class="dot" aria-hidden="true"></span>
         <span id="refresh-stamp">loading…</span>
       </span>
-      <!-- The More group: a heading and a disclosure button that exist only
-           where the bar is folded or the rail is up (the ☰ drawer). In the
-           desktop bar both are display:none / display:contents, so these
-           controls sit in the bar exactly as before. Not a <details>: the kit
-           measures the bar unfolded to decide whether to fold (fold-to-fit),
-           and a closed <details> would hide these controls from that
-           measurement. A class-keyed collapse cannot. -->
-      <h2 class="sb-more-title"><button type="button" class="sb-head" id="more-head"
-          aria-expanded="true" aria-controls="more-body"><span class="sb-title">More</span><span class="sb-chev" aria-hidden="true"></span></button></h2>
-      <div class="more-body" id="more-body">
-      <div class="seg-btns" role="group" aria-label="Units">
-        <button class="nav-btn seg-btn" data-units="us" aria-pressed="true"  title="U.S. units">°F</button>
-        <button class="nav-btn seg-btn" data-units="si" aria-pressed="false" title="Metric units">°C</button>
-      </div>
-      <button class="nav-btn icon-only" id="btn-labels" aria-pressed="false"
-              title="Toggle value labels" aria-label="Toggle value labels">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
-          <line x1="7" y1="7" x2="7.01" y2="7"/>
-        </svg>
-      </button>
-      <button class="nav-btn icon-only" id="btn-export" title="Export map as PNG" aria-label="Export map as PNG">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-          <polyline points="7 10 12 15 17 10"/>
-          <line x1="12" y1="15" x2="12" y2="3"/>
-        </svg>
-      </button>
-      <button class="nav-btn icon-only" id="btn-share" title="Copy shareable link" aria-label="Copy shareable link">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-        </svg>
-      </button>
-      <button class="nav-btn icon-only" id="btn-theme" title="Toggle theme" aria-label="Toggle theme">
-        <svg id="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-        </svg>
-        <svg id="icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none">
-          <circle cx="12" cy="12" r="5"/>
-          <line x1="12" y1="1"  x2="12" y2="3"/>  <line x1="12" y1="21" x2="12" y2="23"/>
-          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-          <line x1="1" y1="12" x2="3" y2="12"/>   <line x1="21" y1="12" x2="23" y2="12"/>
-          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-        </svg>
-        <svg id="icon-contrast" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none">
-          <circle cx="12" cy="12" r="9"/>
-          <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/>
-        </svg>
-      </button>
-      <button type="button" class="nav-btn mco-btn-info" id="btn-info" aria-label="About this map">?</button>
-      </div>
     </div>
   </div>
 </header>
@@ -907,6 +830,40 @@
 <!-- The nav drawer's scrim (kit .mco-scrim): dims the page beside the rail
      or under the compact bar while #nav-drawer is open. -->
 <div id="rail-scrim" class="mco-scrim" aria-hidden="true" hidden></div>
+
+<!-- The bottom control bar (kit 1.0.0, .mco-controlbar; core wires it): the
+     phone's time controls, the date and hour steppers, in Hourly and Daily
+     only (syncModeUI hides it in Latest, and the hour stepper outside Hourly).
+     The kit docks it at the bottom wherever the bar is folded, at the foot of
+     the right rail in short landscape, and hides it above compact (the
+     sidebar's Time group carries the same steppers there, in the same order
+     and with the same names) and while a keyboard is up. It stays live under
+     the station panel and beside the open drawer. app.js keeps the readouts
+     in step with the sidebar's. -->
+<div class="mco-controlbar" id="time-bar" role="group" aria-label="Time" hidden>
+  <div class="cb-stepper" role="group" aria-label="Date">
+    <button type="button" class="nav-btn mco-step" id="btn-cb-date-prev" aria-label="Previous day">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <span class="mco-controlbar-readout" id="cb-date-readout" role="status"></span>
+    <button type="button" class="nav-btn mco-step" id="btn-cb-date-next" aria-label="Next day">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+  </div>
+  <div class="cb-stepper" id="cb-hour" role="group" aria-label="Hour" hidden>
+    <button type="button" class="nav-btn mco-step" id="btn-cb-hour-prev" aria-label="Previous hour">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <span class="mco-controlbar-readout" id="cb-hour-readout" role="status"></span>
+    <button type="button" class="nav-btn mco-step" id="btn-cb-hour-next" aria-label="Next hour">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+  </div>
+</div>
 
 <!-- Flex row: the sidebar takes a real column and the map fills the rest, so
      opening or closing it genuinely resizes the map. The station detail panel is
@@ -1041,6 +998,67 @@
         <summary class="sb-head"><h2 class="sb-title">Overlays</h2><span class="sb-chev" aria-hidden="true"></span></summary>
         <div class="mco-chips" id="legend-overlays" role="group" aria-label="Overlays"></div>
       </details>
+      <!-- The More group: a heading with a disclosure button, and the controls
+           that are the bar's on other tools (units, labels, export, share,
+           theme, help). The sidebar's last group, after Overlays; on compact
+           layoutControls() moves both into #nav-tools, the ☰ drawer's last
+           group. Not a <details>: in the folded bar the kit measures the bar
+           unfolded (fold-to-fit), and a closed <details> would hide these
+           controls from that measurement. A class-keyed collapse cannot. -->
+      <h2 class="sb-more-title"><button type="button" class="sb-head" id="more-head"
+          aria-expanded="true" aria-controls="more-body"><span class="sb-title">More</span><span class="sb-chev" aria-hidden="true"></span></button></h2>
+      <div class="more-body" id="more-body">
+      <div class="seg-btns" role="group" aria-label="Units">
+        <button class="nav-btn seg-btn" data-units="us" aria-pressed="true"  title="U.S. units">°F</button>
+        <button class="nav-btn seg-btn" data-units="si" aria-pressed="false" title="Metric units">°C</button>
+      </div>
+      <button class="nav-btn icon-only" id="btn-labels" aria-pressed="false"
+              title="Toggle value labels" aria-label="Toggle value labels">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+          <line x1="7" y1="7" x2="7.01" y2="7"/>
+        </svg>
+      </button>
+      <button class="nav-btn icon-only" id="btn-export" title="Export map as PNG" aria-label="Export map as PNG">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+      </button>
+      <button class="nav-btn icon-only" id="btn-share" title="Copy shareable link" aria-label="Copy shareable link">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+        </svg>
+      </button>
+      <button class="nav-btn icon-only" id="btn-theme" title="Toggle theme" aria-label="Toggle theme">
+        <svg id="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+        <svg id="icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" y1="1"  x2="12" y2="3"/>  <line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/>   <line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <svg id="icon-contrast" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/>
+        </svg>
+      </button>
+      <button type="button" class="nav-btn mco-btn-info" id="btn-info" aria-label="About this map">?</button>
+      </div>
       <div class="sb-footer" id="sb-footer">
         <div class="legend-meta" id="legend-meta"></div>
       </div>
@@ -1094,14 +1112,14 @@
 
 <div id="tooltip" class="mco-tooltip" aria-hidden="true"></div>
 
-<!-- Station detail: the kit's MCO.initSheet (0.9.0), end-docked above compact
-     and a bottom sheet with peek/full detents on compact. Not a <dialog>: it is
-     non-modal at peek and on desktop, so the map stays usable beside it.
-     Body-level so #map's overflow:hidden can't clip it. app.js fills the title
-     and the body (the [data-peek] block is what peek shows). -->
+<!-- Station detail: the kit's MCO.initSheet (0.9.0; one state from 1.0.0).
+     End-docked above compact, with the map live beside it; on compact the full
+     height under the bar, modal except for the bar and the control bar. Not a
+     <dialog>, so the map stays usable beside it on desktop. The header is the
+     same at every width: the title and the 44px close button. Body-level so
+     #map's overflow:hidden can't clip it. app.js fills the title and body. -->
 <section class="mco-sheet" id="station-sheet" aria-labelledby="sheet-title" data-state="closed" hidden>
   <div class="mco-sheet-head">
-    <button type="button" class="mco-sheet-grip" id="sheet-expand" aria-label="Expand details" aria-expanded="false"></button>
     <h2 class="mco-sheet-title" id="sheet-title" tabindex="-1"></h2>
     <button type="button" class="modal-close sheet-close" data-close-sheet aria-label="Close station details">&times;</button>
   </div>
@@ -1150,7 +1168,11 @@
         <li><strong>Variable</strong> — the dropdown picks what the dots show: air, wind,
           precipitation, soil, ET, and groundwater measurements.</li>
         <li><strong>Time</strong> — <strong>Latest</strong> is live and auto-refreshes;
-          <strong>Hourly</strong> and <strong>Daily</strong> let you pick any date.</li>
+          <strong>Hourly</strong> and <strong>Daily</strong> let you pick any date. Step one
+          day (in Hourly, one hour) at a time with ‹ and › or the <kbd>←</kbd> and
+          <kbd>→</kbd> keys. If you reach the map with Tab, the arrow keys pan it; after a
+          click, <kbd>←</kbd> and <kbd>→</kbd> change the time and <kbd>↑</kbd> and
+          <kbd>↓</kbd> pan.</li>
         <li><strong>A station</strong> — tap or click a dot for its value, details, a photo,
           and a link to its dashboard.</li>
       </ul>
@@ -1166,15 +1188,15 @@
         <summary>All controls &amp; shortcuts</summary>
         <ul>
           <li><strong>Variable</strong> — the list adapts to the time mode: precipitation accumulations and soil-moisture change appear in Latest, reference ET in Hourly/Daily, and growing degree days in Daily.</li>
-          <li><strong>Search</strong> — press <kbd>/</kbd> to jump there; <kbd>↑</kbd>/<kbd>↓</kbd> + <kbd>Enter</kbd> to pick a station. (Add <code>?kbd=off</code> to the URL to disable the <kbd>/</kbd> shortcut.)</li>
+          <li><strong>Search</strong> — press <kbd>/</kbd> to jump there; <kbd>↑</kbd>/<kbd>↓</kbd> + <kbd>Enter</kbd> to pick a station. (Add <code>?kbd=off</code> to the URL to turn off the <kbd>/</kbd> shortcut and the <kbd>←</kbd> / <kbd>→</kbd> time stepping.)</li>
           <li><strong>Networks</strong> — chips toggle HydroMet / AgriMet stations.</li>
-          <li><strong>Hover</strong> a dot for the station's value; <strong>click</strong> for details, a photo, and a dashboard link. On a phone the details open as a sheet you can drag up for more or swipe down to dismiss.</li>
+          <li><strong>Hover</strong> a dot for the station's value; <strong>click</strong> for details, a photo, and a dashboard link. On a phone the details fill the screen under the bar; close them with <strong>×</strong> (or Back) to pick another station on the map.</li>
           <li><strong>Stacked stations</strong> — a small count badge marks sites with more than one station; hovering or clicking fans them out, and the details panel lists the others under "Also at this site".</li>
           <li><strong>Units</strong> — °F/°C toggles between U.S. and metric units.</li>
           <li><strong>Legend</strong> — click the No-data / Stale rows to show or hide those stations; the Overlays chips add counties, watersheds, or live radar.</li>
           <li><strong>Color scale</strong> — click the color strip to pick a different ramp or set a custom range; the pin locks the scale in place while you step through dates and hours. "≤"/"≥" on the ends means a few extreme values share the end colors.</li>
           <li><strong>Export</strong> — download a branded PNG of the current view (fixed Montana framing, color scale included).</li>
-          <li><strong>On a phone</strong> — the bar keeps the variable picker and search; the <strong>☰</strong> menu at its right edge holds the time controls, networks, legend, units, labels, export, share, theme, and this guide.</li>
+          <li><strong>On a phone</strong> — the bar keeps the variable picker and search; in Hourly and Daily the date and hour steppers sit in a bar along the bottom (at the foot of the side bar when the phone is turned sideways); the <strong>☰</strong> menu at the bar's right edge holds the time controls, networks, legend, units, labels, export, share, theme, and this guide.</li>
           <li><kbd>Esc</kbd> closes the station details, the stacked-station fan-out, and the menu, one at a time.</li>
         </ul>
       </details>
@@ -1242,20 +1264,20 @@
         integrity="sha384-qaUb9sZ45HYxNQezOWPyOMTRR7yph9xtoAW8TyJGHen5BcUmaBIcDil9Yj48HGav"
         crossorigin="anonymous"></script>
 
-<!-- mco-web-style @0.21.2 — classic scripts, so they run before the deferred
+<!-- mco-web-style @1.0.0 — classic scripts, so they run before the deferred
      module below and MCO / MCO.map are already globals by the time it does.
      MapLibre is not among them: app.js awaits MCO.map.loadMapLibre(). The
      palette module loads before mco-map.js (its marker paints read it).
      SRI hashes are the kit README's table for this exact tag; bumping @version
      without recomputing them hard-fails in the browser, which is the point. -->
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.2/core/mco-core.js"
-        integrity="sha384-xNdr9/kMYOXBLa6aHuU637Nln0S73l6QjvB9Ld7vqCvwcqZ6wzs69YziKejo8M3w"
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.0.0/core/mco-core.js"
+        integrity="sha384-D7xlWfDfWcrBYM29SxNSZ9sjoFbu9VmboXzztcMMqsSm10bhGta1w4i7Q/mveU3A"
         crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.2/palette/mco-palette.js"
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.0.0/palette/mco-palette.js"
         integrity="sha384-bMyfpU5iEKAQiHDJZLqmCMt3sTGm+HBi2GIY7I9xLyV+JYrbGgHOX9+/XVXy8CYV"
         crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@0.21.2/map/mco-map.js"
-        integrity="sha384-8ZLN6Xhnts1kIMbDa9M+H05sYgu770WLohBOrch1nTafMd+HEM7PlrP0e4fCoRb8"
+<script src="https://cdn.jsdelivr.net/gh/mt-climate-office/mco-web-style@1.0.0/map/mco-map.js"
+        integrity="sha384-eWrG2T3udOw4ET+hy7Sq0BR/c4jCKD2+Cy4TEV2m4Dd6BL5VXGZXS2n8B8y+8v4z"
         crossorigin="anonymous"></script>
 
 <script type="module" src="app.js"></script>
