@@ -128,30 +128,50 @@ export async function run({ browser, origin }) {
     await ctx.close();
   }
 
-  // The bottom sheet takes half the map on a phone, and dismisses cleanly.
-  {
-    const { ctx, page } = await open(browser, origin, {
-      query: '?station=acemocca', width: 390, height: 844, touch: true,
-    });
-    await page.evaluate(() => {
-      const s = document.getElementById('station-sheet');
-      if (s && s.dataset.state === 'peek') document.getElementById('sheet-expand').click();
-    });
-    await page.waitForTimeout(1400);
+  // On a phone the station panel is ONE state (kit 1.0.0): the full area
+  // under the bar (left of the rail in landscape) down to the bottom control
+  // bar, with the bar still live; it closes from its 44px button and clears
+  // the station parameter. Above compact it docks at the right edge with the
+  // map live (the camera checks above).
+  for (const [label, width, height, query] of [
+    ['390x844', 390, 844, '?station=acemocca'],
+    ['390x844 hourly', 390, 844, '?mode=hourly&station=acemocca'],
+    ['844x390', 844, 390, '?station=acemocca'],
+  ]) {
+    const { ctx, page, errors } = await open(browser, origin, { query, width, height, touch: true });
+    await page.waitForTimeout(600);
     const r = await page.evaluate(() => {
-      const s = document.getElementById('station-sheet').getBoundingClientRect();
-      return { pct: Math.round(100 * s.height / document.getElementById('map').clientHeight) };
+      const R = el => { const b = el.getBoundingClientRect(); return [Math.round(b.x), Math.round(b.y), Math.round(b.width), Math.round(b.height)]; };
+      const sheet = document.getElementById('station-sheet');
+      const nav = document.getElementById('navbar');
+      const nb = nav.getBoundingClientRect();
+      const tab = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tabbar-h')) || 0;
+      const rail = nb.width < innerWidth - 1;   // the rail at the right edge
+      const want = rail ? [0, 0, Math.round(nb.left), innerHeight]
+                        : [0, Math.round(nb.bottom), innerWidth, Math.round(innerHeight - nb.bottom - tab)];
+      const close = sheet.querySelector('[data-close-sheet]');
+      const cr = close.getBoundingClientRect();
+      const hit = document.elementFromPoint(cr.x + cr.width / 2, cr.y + cr.height / 2);
+      return { state: sheet.dataset.state, rect: R(sheet), want, rail, tab,
+        navInert: !!nav.closest('[inert]'), barInert: !!document.getElementById('time-bar').closest('[inert]'),
+        close: R(close), closeHit: !!hit && (hit === close || close.contains(hit)),
+        grip: !!sheet.querySelector('.mco-sheet-grip, [data-peek]') };
     });
-    t.check('phone: the sheet takes half the map', Math.abs(r.pct - 50) <= 2, `${r.pct}%`);
+    t.check(`phone ${label}: the panel fills the area under the bar`, r.state === 'full' &&
+      r.rect.every((v, i) => Math.abs(v - r.want[i]) <= 1), `state=${r.state} rect=${r.rect} want=${r.want} tabbar=${r.tab}`);
+    t.check(`phone ${label}: the bar and the control bar stay live`, !r.navInert && !r.barInert, JSON.stringify({ nav: r.navInert, bar: r.barInert }));
+    t.check(`phone ${label}: a 44px close button, hittable, no grip or peek`, r.close[2] >= 44 && r.close[3] >= 44 && r.closeHit && !r.grip,
+      `close ${r.close} hit=${r.closeHit} grip=${r.grip}`);
 
-    await page.tap('.sheet-close');
+    await page.tap('[data-close-sheet]');
     await page.waitForTimeout(1000);
     const closed = await page.evaluate(() => ({
       hidden: document.getElementById('station-sheet').hidden,
       station: /station=/.test(location.search),
     }));
-    t.check('phone: closing clears the panel and the station parameter',
+    t.check(`phone ${label}: closing clears the panel and the station parameter`,
       closed.hidden && !closed.station, JSON.stringify(closed));
+    t.check(`phone ${label}: no errors`, errors.length === 0, errors.join(' | ') || 'none');
     await ctx.close();
   }
 
