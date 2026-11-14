@@ -1,8 +1,12 @@
   'use strict';
 
   // ── Constants ────────────────────────────────────────────────────────────
-  const API = 'https://mesonet2.climate.umt.edu/api';
-  const DASH_URL  = (s) => `https://mesonet.climate.umt.edu/dash/${encodeURIComponent(s)}/`;
+  // The Mesonet host for the dashboard and the API. At the cutover this becomes
+  // 'https://mesonet.climate.umt.edu'. Change it here, and in the CSP and README.
+  const MESONET_ORIGIN = 'https://mesonet2.climate.umt.edu';
+  const API = `${MESONET_ORIGIN}/api`;
+  const API_DOCS = `${MESONET_ORIGIN}/api/v2/docs`;
+  const DASH_URL  = (s) => `${MESONET_ORIGIN}/dash/?s=${encodeURIComponent(s)}`;
   const TZ = 'America/Denver';
 
   // Kit defaults (MCO.map.MT_FIT_BOUNDS / .FIT_OPTS), aliased for the direct
@@ -714,6 +718,8 @@
   // page would include the dialog itself.
   btnInfo.addEventListener('click', () => { closeNavDrawer(); infoDialog.open(); });
   document.getElementById('info-credit').textContent = MCO.credit({ source: 'Montana Mesonet' });
+  // The help's API link follows MESONET_ORIGIN (its static href is a no-script fallback).
+  document.getElementById('info-api-link').href = API_DOCS;
 
   // ── Share ────────────────────────────────────────────────────────────────
   document.getElementById('btn-share').addEventListener('click', async () => {
