@@ -48,10 +48,12 @@ All are optional. The address only carries values that differ from the default. 
 
 ## Data
 
-- [Montana Mesonet API v2](https://mesonet2.climate.umt.edu/api/docs), `https://mesonet2.climate.umt.edu/api`: `/stations/`, `/observations/grouped/`, `/observations/hourly/`, `/observations/daily/`, `/latest/`, `/derived/`, `/derived/hourly/`, `/derived/daily/`, `/derived/ppt/`, `/derived/change/`, `/photos/` (fallback camera list).
+- [Montana Mesonet API v2](https://mesonet2.climate.umt.edu/api/v2/docs), `https://mesonet2.climate.umt.edu/api`: `/stations/`, `/observations/grouped/`, `/observations/hourly/`, `/observations/daily/`, `/latest/`, `/derived/`, `/derived/hourly/`, `/derived/daily/`, `/derived/ppt/`, `/derived/change/`, `/photos/` (fallback camera list).
 - Station photos: `https://data2.climate.umt.edu/mesonet/photos/` (`schedule/schedule.json`, monthly `manifest/` CSVs, `webp/large/` images).
 - Soil parameters: `https://data2.climate.umt.edu/mesonet/soils/soil_params.json`.
 - Radar: Iowa Environmental Mesonet NEXRAD WMS, `https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0r.cgi`.
+- Station dashboard links: `https://mesonet2.climate.umt.edu/dash/?s=<id>`.
+- Cutover: change `MESONET_ORIGIN` in `app.js` and the CSP `connect-src` in `index.html`.
 - Boundaries: `data/*.geojson`, made by `data.R` from Census TIGER 2023. `data/mt_hucs.fgb` is a vendored copy of the MCO watershed file.
 
 ## Tests
