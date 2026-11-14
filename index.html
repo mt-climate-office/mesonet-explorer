@@ -1131,88 +1131,58 @@
     <div class="info-modal-header">
       <div>
         <h2 class="info-modal-title" id="info-modal-title">Mesonet Explorer</h2>
-        <div class="info-modal-subtitle">Weather &amp; soil data from the Montana Mesonet</div>
       </div>
       <button class="modal-close" aria-label="Close" data-close-modal>×</button>
     </div>
 
-    <!-- The kit's info-modal outline (HOUSE-STYLE §1, 0.21.0): What this shows ·
-         How to use it · Share or bookmark · Data, the Data credit from MCO.credit. -->
+    <!-- The kit's help outline (HOUSE-STYLE): What this shows · How to use it ·
+         Share or bookmark · Data, the credit line from MCO.credit. -->
     <div class="info-section">
       <h3>What this shows</h3>
-      <p class="info-lede">An interactive map of live and historical weather &amp; soil
-        observations from every Montana Mesonet station. Each dot is a station, colored by
-        the variable you pick; the legend gives the scale.</p>
-      <details class="info-more">
-        <summary>What the terms mean</summary>
-      <!-- DRAFT copy — MCO review welcome -->
+      <p class="info-lede">Weather and soil readings from Montana Mesonet stations,
+        colored by the variable you pick.</p>
       <ul>
-        <li><strong>HydroMet / AgriMet</strong> — the Mesonet's two sub-networks: core weather &amp; water-supply stations, and agriculture-focused stations with expanded soil sensing.</li>
-        <li><strong>Vapor Pressure Deficit (VPD)</strong> — the drying power of the air; higher means faster water loss from plants and soil.</li>
-        <li><strong>Comprehensive Climate Index (CCI)</strong> — a livestock weather-stress index combining temperature, humidity, wind, and solar radiation.</li>
-        <li><strong>Soil VWC</strong> — volumetric water content: the share of the soil's volume that is water.</li>
-        <li><strong>Percent Saturation</strong> — how full the soil's pore space is with water, relative to its maximum.</li>
-        <li><strong>Soil Water Potential</strong> — how tightly the soil holds its remaining water; higher values mean drier soil that roots must work harder to draw from.</li>
-        <li><strong>Bulk EC</strong> — the soil's electrical conductivity, which tracks salinity and moisture.</li>
-        <li><strong>Δ VWC</strong> — the change in soil water content over a trailing window; positive is wetting, negative is drying.</li>
-        <li><strong>Reference ET</strong> — the water a well-watered grass surface would lose to evaporation and transpiration; a baseline for irrigation planning.</li>
-        <li><strong>Growing Degree Days (GDD)</strong> — accumulated warmth above a crop base temperature, used to track crop development.</li>
-        <li><strong>Stale</strong> — a station whose latest report is 2 hours old or more (usually a connectivity gap); hidden by default in Latest mode.</li>
+        <li><strong>Stale:</strong> no report in 2 hours. Tap its legend row to show it.</li>
       </ul>
+      <details class="info-more">
+        <summary>What the variable names mean</summary>
+        <ul>
+          <li><strong>VPD:</strong> how fast the air dries plants and soil.</li>
+          <li><strong>CCI:</strong> weather stress on livestock.</li>
+          <li><strong>Soil VWC:</strong> the share of the soil that is water.</li>
+          <li><strong>Percent Saturation:</strong> how full the soil pores are.</li>
+          <li><strong>Soil Water Potential:</strong> how hard roots must pull for water.</li>
+          <li><strong>Bulk EC:</strong> soil conductivity, which tracks salt and water.</li>
+          <li><strong>Δ VWC:</strong> change in soil water. Positive is wetting.</li>
+          <li><strong>Reference ET:</strong> water a watered grass field would lose.</li>
+          <li><strong>GDD:</strong> heat above a crop's base temperature, summed.</li>
+        </ul>
       </details>
     </div>
 
     <div class="info-section">
       <h3>How to use it</h3>
       <ul>
-        <li><strong>Variable</strong> — the dropdown picks what the dots show: air, wind,
-          precipitation, soil, ET, and groundwater measurements.</li>
-        <li><strong>Time</strong> — <strong>Latest</strong> is live and auto-refreshes;
-          <strong>Hourly</strong> and <strong>Daily</strong> let you pick any date. Step one
-          day (in Hourly, one hour) at a time with ‹ and › or the <kbd>←</kbd> and
-          <kbd>→</kbd> keys. If you reach the map with Tab, the arrow keys pan it; after a
-          click, <kbd>←</kbd> and <kbd>→</kbd> change the time and <kbd>↑</kbd> and
-          <kbd>↓</kbd> pan.</li>
-        <li><strong>A station</strong> — tap or click a dot for its value, details, a photo,
-          and a link to its dashboard.</li>
+        <li>Pick a variable, then <strong>Latest</strong>, <strong>Hourly</strong> or <strong>Daily</strong>.</li>
+        <li>Tap a station for its value, details and dashboard link.</li>
+        <li>Use <strong>Networks</strong> and <strong>Overlays</strong> to filter stations and add layers.</li>
+        <li>Tap the <strong>Legend</strong> color strip to change the scale.</li>
+        <li>Keys: <kbd>/</kbd> search, <kbd>←</kbd> <kbd>→</kbd> change the hour or day, <kbd>Esc</kbd> close. Add <code>?kbd=off</code> to the address to turn them off.</li>
       </ul>
-      <details class="info-more">
-        <summary>Time modes in detail</summary>
-        <ul>
-          <li><strong>Latest</strong> — most recent observation at each station, auto-refreshed. Stations whose last report is 2 hours old or more are hidden as stale (toggle them back in the legend).</li>
-          <li><strong>Hourly</strong> — pick any date and hour to see hourly values across the network.</li>
-          <li><strong>Daily</strong> — pick any date to see daily aggregates (totals for precipitation, means for most other variables).</li>
-        </ul>
-      </details>
-      <details class="info-more">
-        <summary>All controls &amp; shortcuts</summary>
-        <ul>
-          <li><strong>Variable</strong> — the list adapts to the time mode: precipitation accumulations and soil-moisture change appear in Latest, reference ET in Hourly/Daily, and growing degree days in Daily.</li>
-          <li><strong>Search</strong> — press <kbd>/</kbd> to jump there; <kbd>↑</kbd>/<kbd>↓</kbd> + <kbd>Enter</kbd> to pick a station. (Add <code>?kbd=off</code> to the URL to turn off the <kbd>/</kbd> shortcut and the <kbd>←</kbd> / <kbd>→</kbd> time stepping.)</li>
-          <li><strong>Networks</strong> — chips toggle HydroMet / AgriMet stations.</li>
-          <li><strong>Hover</strong> a dot for the station's value; <strong>click</strong> for details, a photo, and a dashboard link. On a phone the details fill the screen under the bar; close them with <strong>×</strong> (or Back) to pick another station on the map.</li>
-          <li><strong>Stacked stations</strong> — a small count badge marks sites with more than one station; hovering or clicking fans them out, and the details panel lists the others under "Also at this site".</li>
-          <li><strong>Units</strong> — °F/°C toggles between U.S. and metric units.</li>
-          <li><strong>Legend</strong> — click the No-data / Stale rows to show or hide those stations; the Overlays chips add counties, watersheds, or live radar.</li>
-          <li><strong>Color scale</strong> — click the color strip to pick a different ramp or set a custom range; the pin locks the scale in place while you step through dates and hours. "≤"/"≥" on the ends means a few extreme values share the end colors.</li>
-          <li><strong>Export</strong> — download a branded PNG of the current view (fixed Montana framing, color scale included).</li>
-          <li><strong>On a phone</strong> — the bar keeps the variable picker and search; in Hourly and Daily the date and hour steppers sit in a bar along the bottom (at the foot of the side bar when the phone is turned sideways); the <strong>☰</strong> menu at the bar's right edge holds the time controls, networks, legend, units, labels, export, share, theme, and this guide.</li>
-          <li><kbd>Esc</kbd> closes the station details, the stacked-station fan-out, and the menu, one at a time.</li>
-        </ul>
-      </details>
     </div>
 
     <div class="info-section">
       <h3>Share or bookmark</h3>
-      <p>The address bar reflects every choice, so a bookmark reopens exactly this view. The
-        share button copies a link that pins everything, theme and camera included, so the
-        person you send it to sees what you see. <code>?station=&lt;id&gt;</code> opens a
-        single station.</p>
+      <p>The address holds this view. Copy it to share. The export button saves a PNG.
+        Times are Mountain Time.</p>
     </div>
 
     <div class="info-section">
       <h3>Data</h3>
-      <p>Data come live from the <a href="https://mesonet2.climate.umt.edu/api/docs" target="_blank" rel="noopener">Montana Mesonet API v2</a>. Radar imagery courtesy of the <a href="https://mesonet.agron.iastate.edu/" target="_blank" rel="noopener">Iowa Environmental Mesonet</a>. Colour maps include Fabio Crameri's <a href="https://www.fabiocrameri.ch/colourmaps/" target="_blank" rel="noopener">Scientific colour maps</a>. The Montana Mesonet is operated by the <a href="https://climate.umt.edu" target="_blank" rel="noopener">Montana Climate Office</a> at the University of Montana.</p>
+      <p><a href="https://mesonet2.climate.umt.edu/api/docs" target="_blank" rel="noopener">Montana Mesonet API</a>,
+        checked every 5 minutes in Latest. Radar:
+        <a href="https://mesonet.agron.iastate.edu/" target="_blank" rel="noopener">Iowa Environmental Mesonet</a>.
+        Color maps: <a href="https://www.fabiocrameri.ch/colourmaps/" target="_blank" rel="noopener">Crameri</a>.</p>
       <p class="info-credit" id="info-credit"></p>
     </div>
   </div>
@@ -1248,8 +1218,7 @@
         <input type="number" id="scale-max" step="any">
       </label>
     </div>
-    <p class="scale-note">Leave min/max blank for the automatic range (2nd–98th percentile of
-      the current data). Setting them locks the scale while you move through time.</p>
+    <p class="scale-note">Leave Min and Max blank for the automatic range. A set range stays fixed as you change the time.</p>
     <div class="scale-hint" id="scale-hint" role="status"></div>
 
     <div class="scale-actions">
