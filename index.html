@@ -642,21 +642,9 @@
        (sticky header, contained overscroll, bottom scroll shade) are the
        kit's since 0.8.0, back-ported from here. */
     .info-lede { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 1.25rem; }
-    /* Long-form reference sits behind disclosures so the modal opens short. */
-    .info-more > summary {
-      display: flex; align-items: center; gap: 6px;
-      min-height: 40px; cursor: pointer; list-style: none;
-      font-size: 0.8rem; font-weight: 600; letter-spacing: 0.06em;
-      text-transform: uppercase; color: var(--accent-light);
-      border-bottom: 1px solid var(--border);
-    }
-    .info-more > summary::-webkit-details-marker { display: none; }
-    .info-more > summary::before {
-      content: '▸'; font-size: 0.85em;
-      transition: transform var(--transition);
-    }
-    .info-more[open] > summary::before { transform: rotate(90deg); }
-    .info-more > summary:hover { color: var(--accent-line); }
+    /* kit-override: the kit does not style <details> in the info outline yet (kit 1.0.1 will; delete this then). */
+    .info-section summary { cursor: pointer; font-weight: 600; color: var(--text-secondary); padding: 0.6rem 0; }
+    .info-section code, .info-section kbd { white-space: nowrap; }
     .info-more > *:not(summary) { margin-top: 0.5rem; }
 
     /* ── Scale editor modal ──────────────────────────────────────────────── */
@@ -1149,12 +1137,12 @@
         <ul>
           <li><strong>VPD:</strong> how fast the air dries plants and soil.</li>
           <li><strong>CCI:</strong> weather stress on livestock.</li>
-          <li><strong>Soil VWC:</strong> the share of the soil that is water.</li>
-          <li><strong>Percent Saturation:</strong> how full the soil pores are.</li>
+          <li><strong>Soil VWC:</strong> the share of soil that is water.</li>
+          <li><strong>Percent Saturation:</strong> how full soil pores are.</li>
           <li><strong>Soil Water Potential:</strong> how hard roots must pull for water.</li>
           <li><strong>Bulk EC:</strong> soil conductivity, which tracks salt and water.</li>
           <li><strong>Δ VWC:</strong> change in soil water. Positive is wetting.</li>
-          <li><strong>Reference ET:</strong> water a watered grass field would lose.</li>
+          <li><strong>Reference ET:</strong> water a watered grass field loses.</li>
           <li><strong>GDD:</strong> heat above a crop's base temperature, summed.</li>
         </ul>
       </details>
@@ -1167,7 +1155,7 @@
         <li>Tap a station for its value, details and dashboard link.</li>
         <li>Use <strong>Networks</strong> and <strong>Overlays</strong> to filter stations and add layers.</li>
         <li>Tap the <strong>Legend</strong> color strip to change the scale.</li>
-        <li>Keys: <kbd>/</kbd> search, <kbd>←</kbd> <kbd>→</kbd> change the hour or day, <kbd>Esc</kbd> close. Add <code>?kbd=off</code> to the address to turn them off.</li>
+        <li>Keys: <kbd>/</kbd> search, <kbd>←</kbd> <kbd>→</kbd> change the hour or day, <kbd>Esc</kbd> close. Add <code>?kbd=off</code> to the address to turn off <kbd>/</kbd> and the arrows.</li>
       </ul>
     </div>
 
