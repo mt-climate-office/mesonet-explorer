@@ -1,192 +1,66 @@
 # Mesonet Explorer
 
-Interactive map explorer for [Montana Mesonet](https://climate.umt.edu/mesonet/) station data — the successor to the Leaflet "latest data" map at `mesonet.climate.umt.edu/api/v2/map/latest/`. A service of the [Montana Climate Office](https://climate.umt.edu).
+A map of live, hourly and daily weather and soil data from every Montana Mesonet station.
 
-**Live:** [mesonet.climate.umt.edu/explorer](https://mesonet.climate.umt.edu/explorer/) — also published at https://mt-climate-office.github.io/mesonet-explorer/
+https://mesonet.climate.umt.edu/explorer/
 
-## Features
+## Run it
 
-- **Three time modes**
-  - **Latest** — most recent observation at every station, auto-refreshed every 5 minutes (paused while the tab is hidden). Stations whose last report is 2 hours old or more are hidden as *stale* (toggle them back in the legend).
-  - **Hourly** — any date + hour since the network began; hold-to-repeat steppers, midnight wrap.
-  - **Daily** — any date; daily aggregates (totals for precipitation, averages otherwise).
-- **Aggregation selector** (Hourly/Daily) — min / max / average / sum / std dev for observed variables, next to the variable picker. It auto-selects each variable's own default (average for most, sum for precipitation), so the selection is always explicit.
-- **~55 variables**, grouped in the picker: air temperature, RH, solar, VPD, feels-like / heat index / wind chill / wet bulb / CCI / barometric pressure (reduced to sea level), wind speed / gust / direction, precipitation (period + since-midnight/24 h/2/7/14/30/60/90/180 d/YTD windows), snow depth, soil VWC / percent saturation / soil water potential / temperature / bulk EC at three depths, soil-moisture change (Δ VWC over 1/7/14/30 days), frost depth, reference ET, growing degree days, and well level / temperature / EC. The picker adapts to the time mode (precipitation accumulations and Δ VWC in Latest, reference ET in Hourly/Daily, GDD in Daily).
-- **Color-scaled markers** with ColorBrewer and [Scientific colour map](https://www.fabiocrameri.ch/colourmaps/) (Crameri) ramps and semantic midpoints (temperatures pivot at freezing, RH at 50 %, Δ VWC at 0), robust 2nd–98th percentile domains (trimmed extremes are marked ≤/≥ in the legend), and a live gradient legend. When a pivot falls outside the day's data (e.g. every station above freezing), only the matching half of the diverging ramp is used, so blue always means below freezing. Wind direction uses the cyclic, CVD-safe romaO ramp (0° and 360° share a color). Soil water potential uses a log₁₀ color scale (it spans several orders of magnitude). **Click the legend gradient** to pick a different ramp or set a custom min/mid/max; the **pin** locks the scale while stepping through time.
-- **Co-located stations** (HydroMet + AgriMet pairs) show a count badge and fan out into a hover/click "spider" so both dots are reachable — ported from the [status map](https://github.com/mt-climate-office/mesonet-status). The details panel also lists them as full-width tappable rows, which is the primary route on touch (the spider needs a hover to discover).
-- **Station search** — tiered name/ID matching, keyboard navigation, `/` shortcut, flies to the station and opens its detail panel.
-- **Station details** — metadata, the current variable's value and timestamp, co-located stations as tappable rows, dashboard + API links, and a **photo carousel** cycling every camera direction, time-matched to the selected hour (or morning + afternoon frames in Daily mode). One panel (the kit's `MCO.initSheet`, one state since kit 1.0.0): docked at the **right** edge of the map on tablets and desktops, where it covers no stations, so you can click straight from one station to the next and the content swaps in place; on phones and short viewports it fills the screen under the bar (left of the rail in landscape), with the bar and the time controls still live. The selected dot gets a ring. Press <kbd>Esc</kbd>, go Back, or hit the 44 px close button (the same header at every width) to dismiss.
-- **Overlays** — Montana outline and tribal lands (always on), counties, watersheds (HUC6 basins, FlatGeobuf), and live NEXRAD radar (Latest mode only, courtesy of the [Iowa Environmental Mesonet](https://mesonet.agron.iastate.edu/)).
-- **Value labels** on by default, with collision dodging; sub-network chips (HydroMet / AgriMet) with live counts.
-- **US / metric units** (°F/°C toggle) applied to values, legend, and the detail panel.
-- **PNG export** — one click downloads a branded 2800×1400 map of the current view (fixed Montana framing independent of your window, MCO logo, timestamp, and color scale), emulating the Mesonet Photo Explorer's export.
-- **Shareable URLs** — every choice lives in the query string; light/dark theme.
-- **Left control sidebar** — collapsible groups in one column: Search, Networks, Time, Variable (with aggregation), Legend, Overlays and More (units, labels, export, share, theme, help), all open by default, the same groups in the same order as the phone's ☰ drawer (kit 1.0.0); the column itself collapses via the tab on its outer edge. It takes a real column, so toggling it resizes the map and re-fits Montana. The detail panel is deliberately the opposite: it floats, so selecting a station never moves the camera. Zoom and fit-to-extent sit at the map's **top-left**, beside the sidebar, as in every other map in the family (`MCO.map.addNavigation`'s default from kit 1.0.0, + `addFitControl`), so the station panel docked at the right never covers them.
-- **Built for phones as well as desks** — below 640 px the bar is one row (the kit's compact bar): the logo, the variable picker, search, and a **☰** at the right edge that opens a right-hand drawer with everything else, in the sidebar's groups and order, More last. Search, Networks, Time and Variable start open there; Legend, Overlays and More start closed, so the drawer fits a phone screen without scrolling. Each group remembers its state, separately for phone and desktop widths (`mco-explorer-groups-compact` / `-wide`). In Hourly and Daily the date and hour steppers also sit in the kit's bottom control bar (`.mco-controlbar`), the same buttons and names as the Time group's. On a landscape phone the bar is the kit's rail at the right edge with the same drawer beside it, and the control bar at its foot (short of room the kit hides its readouts, then scrolls it). Nothing hides behind a horizontal scroll. Touch gets a 10 px tap tolerance, 40–44 px targets, and the station panel in place of hover.
-- **← / → step the time** (kit `MCO.initStepper` `arrowKeys`): the hour in Hourly, the day in Daily. Fields, dialogs and a map reached with Tab keep their arrows; `?kbd=off` turns the keys off along with `/`.
+```sh
+python -m http.server 8000   # then open http://localhost:8000
+```
+
+No build step. The app reads the production API.
+
+## Deploy
+
+Pushing `main` deploys. GitHub Pages serves the repo root, and the `handle /explorer*` block in the [`mesonet_app`](https://github.com/mt-climate-office/mesonet_app) Caddyfile proxies it to `mesonet.climate.umt.edu/explorer/`.
+The Caddyfile is deployed by hand: `git pull` in the `mesonet_app` checkout on the server, then `docker compose restart caddy`.
 
 ## URL parameters
 
-Every parameter is optional and every one has a default, so **the default view has
-a clean URL with no query string at all**. A parameter appears only once its value
-differs from the default, and disappears again when you return to it — so the URL
-is always the shortest description of what you're looking at. All of them remain
-valid as input whether or not the app would emit them.
+All are optional. The address only carries values that differ from the default. The share button writes every parameter.
 
-Two consequences worth knowing:
+| Parameter | Values (default first) | What it does |
+|---|---|---|
+| `mode` | `latest`, `hourly`, `daily` | Time mode |
+| `var` | `air_temp`, or any variable key (`ppt_7`, `soil_vwc_mid`, `eto`) | Variable shown |
+| `date` | `YYYY-MM-DD`, default today in Mountain Time | Day for Hourly and Daily |
+| `hour` | `0`–`23`, default the last complete hour | Hour for Hourly |
+| `units` | `us`, `si` | Units |
+| `net` | `hydromet,agrimet` | Networks shown |
+| `labels` | `on`, `off` | Value labels on the dots |
+| `agg` | the variable's default, `min`, `max`, `avg`, `sum`, `stddev` | Aggregation in Hourly and Daily |
+| `scale` | `min,mid,max`, each may be `-` | Color-scale range. A min or max locks it across time steps |
+| `ramp` | the variable's default, or a ramp name, `-r` reverses | Color ramp |
+| `radar` | off, `on` | NEXRAD radar, Latest only |
+| `nodata` | shown, `hide` | Stations with no data |
+| `stale` | hidden, `show` | Stations with no report in 2 hours, Latest only |
+| `counties` | off, `on` | County lines |
+| `watersheds` | off, `on` | HUC6 watersheds |
+| `legend` | open on desktop, collapsed on a phone; `open`, `collapsed` | The Legend group |
+| `sidebar` | `open`, `closed` | Desktop sidebar |
+| `theme` | the OS setting, `light`, `dark`, `high-contrast` | Color theme |
+| `kbd` | on, `off` | `off` turns off the `/`, `←` and `→` keys |
+| `lng`, `lat`, `zoom` | the Montana extent | Map camera. All three or none |
+| `station` | a station id, e.g. `aceabsar` | Opens that station |
+| `export` | `light`, `dark` | Downloads a PNG of the map after load |
 
-- `date`/`hour` default to the newest data available, so a link with no date shows
-  the **recipient's** latest day rather than the sender's. That's right for "here
-  are current conditions" and wrong for "look at this specific time" — but the
-  latter always carries an explicit date, since a past date isn't the default.
-- `theme` is emitted only when it differs from the viewer's OS preference. Your own
-  choice is remembered in `localStorage` regardless; the parameter exists so a link
-  can carry a deliberate one.
+## Data
 
-The **share button is the exception**: it copies a *fully specified* URL with every
-parameter written out, so the recipient sees precisely what the sharer saw —
-regardless of their OS theme, their saved preferences, or what "today" happens to
-be when they open it. (`kbd` is left out: it's the sharer's input preference, not
-part of the view.) The address bar stays minimal either way.
+- [Montana Mesonet API v2](https://mesonet2.climate.umt.edu/api/docs), `https://mesonet2.climate.umt.edu/api`: `/stations/`, `/observations/grouped/`, `/observations/hourly/`, `/observations/daily/`, `/latest/`, `/derived/`, `/derived/hourly/`, `/derived/daily/`, `/derived/ppt/`, `/derived/change/`, `/photos/` (fallback camera list).
+- Station photos: `https://data2.climate.umt.edu/mesonet/photos/` (`schedule/schedule.json`, monthly `manifest/` CSVs, `webp/large/` images).
+- Soil parameters: `https://data2.climate.umt.edu/mesonet/soils/soil_params.json`.
+- Radar: Iowa Environmental Mesonet NEXRAD WMS, `https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0r.cgi`.
+- Boundaries: `data/*.geojson`, made by `data.R` from Census TIGER 2023. `data/mt_hucs.fgb` is a vendored copy of the MCO watershed file.
 
-| Param | Values | Default | Meaning |
-|---|---|---|---|
-| `mode` | `latest` \| `hourly` \| `daily` | `latest` | Time mode |
-| `var` | registry key (e.g. `air_temp`, `ppt_7`, `soil_vwc_mid`, `eto`) | `air_temp` | Displayed variable |
-| `date` | `YYYY-MM-DD` | today (MT) | Hourly/Daily date, clamped to network history |
-| `hour` | `0`–`23` | last complete hour | Hourly mode hour (Mountain Time) |
-| `units` | `us` \| `si` | `us` | Unit system |
-| `net` | `hydromet`, `agrimet` (space/comma list) | both | Visible sub-networks; omitted from the URL when both are on |
-| `labels` | `on` \| `off` | **on** | Value labels on markers |
-| `agg` | `min` \| `max` \| `avg` \| `sum` \| `stddev` | variable's default | Aggregation function (Hourly/Daily, observed variables); only non-default choices appear in the URL |
-| `scale` | `min,mid,max` (each may be `-`) | automatic | Custom color-scale range/pivot for the current variable; setting min/max locks the scale across time steps |
-| `ramp` | ramp name, `-r` suffix = reversed (e.g. `vik`, `batlow-r`) | variable's default | Color ramp override (ColorBrewer + Crameri names) |
-| `radar` | `on` | off | NEXRAD overlay (Latest only) |
-| `nodata` | `hide` | show | Hide no-data stations |
-| `stale` | `show` | hide | Show stale (≥ 2 h) stations (Latest only) |
-| `counties` | `on` | off | County-boundary overlay |
-| `watersheds` | `on` | off | HUC6 watershed overlay |
-| `legend` | `collapsed` \| `open` | open on desktop, collapsed in the phone drawer | The Legend group (its heading is the legend's one collapse control). Wins over the group state saved for that width; written to the address bar only when it differs from that width's default. Overlays are their own group since the control groups, so `legend=collapsed` no longer hides the overlay chips, and the note ("Data current as of …") is the sidebar's footer, visible either way |
-| `sidebar` | `open` \| `closed` | open | Left control sidebar. Desktop only — on compact viewports its sections live in the ☰ drawer, which always starts closed |
-| `theme` | `light` \| `dark` | OS preference | Color theme; emitted only when it differs from the OS preference |
-| `kbd` | `off` | on | Disable the `/` search shortcut (WCAG 2.1.4). Round-trips, so it survives a reload |
-| `lng`, `lat`, `zoom` | floats | Montana extent | Map camera. All three or none; omitted while the map is at the fitted extent |
-| `station` | station ID (e.g. `acemocca`) | — | Deep link: fly to + open the detail panel |
-| `export` | `light` \| `dark` | — | Headless hook: forces the theme and auto-downloads a PNG after load |
-
-Example: `?mode=hourly&var=wind_spd&date=2026-07-01&hour=18&units=si&station=acemocca`
-
-A default load, by contrast, leaves the URL bare — no `?` at all.
-
-## Data sources
-
-All station data come live from the **[Montana Mesonet API v2](https://mesonet2.climate.umt.edu/api/docs)** (`mesonet2.climate.umt.edu/api`, CORS-open). The base URL is a single constant (`const API = …`) at the top of the app script in `index.html`:
-
-| Endpoint | Used for |
-|---|---|
-| `/stations/` | Station metadata (fetched once at boot) |
-| `/observations/grouped/` | Core observations, all three modes (`latest=true`, `hour=true`, or `day=true` + `start_time`/`end_time`); one fetch per mode/timestamp serves ~21 variables |
-| `/derived/`, `/derived/hourly/`, `/derived/daily/` | Derived variables (feels-like, VPD, ET, GDD, frost depth, …), per element. VPD is the API's `vpd`, calculated from air temperature and RH at every station, not the ATMOS 41's own `vpd_atmo` (84 stations) |
-| `/latest/`, `/observations/hourly/`, `/observations/daily/` + data2 `mesonet/soils/soil_params.json` | Percent saturation and soil water potential, computed client-side from per-depth VWC and the mesonet-soils lab fits (the API retired both in Oct 2026; same math as mesonet-dashboard's `web/src/core/ag/compute/soil.ts`), then averaged into shallow/mid/deep bands |
-| `/derived/ppt/` | Precipitation accumulation windows (Latest only) |
-| `/derived/change/` | Soil-moisture change (Latest only; fetched in station batches — the unfiltered call times out) |
-| `/latest/`, `/observations/hourly/`, `/observations/daily/` | Well variables (`elements=` list); also all aggregation (`agg_func=`) queries |
-| `/photos/` | Camera registry — fallback only, when the archive's `schedule.json` (below) can't be fetched |
-
-Responses are cached per `(source, units, timestamp)` as promises (deduping in-flight requests); Latest-keyed entries are invalidated by the auto-refresh timer. All timestamps and date logic use `America/Denver`.
-
-### Station photos
-
-Photos come entirely from the Mesonet archive bucket behind **`data2.climate.umt.edu/mesonet`** (CORS-open). The camera registry is `photos/schedule/schedule.json` (~5 KB on the wire, fetched once at boot): which stations have a camera, the directions it shoots now and has ever shot, and its first month. The API's `/photos/` metadata is only a fallback — it lags the archive (nine cameras live in September 2026 were missing from it, so their popups never asked for a photo). The images are immutable WebP under `photos/webp/large/{station}/{station}_{DIR}_{YYYYMMDD}T{HHMMSS}Z.webp` (a 320px `thumb/` tree sits alongside). The timestamp is the capture *slot* in UTC — a Mountain wall-clock time such as 09:00 or 15:00, so it shifts an hour at each DST change; newer cameras shoot hourly. Nothing serves a time-matched photo, so the app works out which frames exist and picks the one nearest the time on screen: the newest from the past 24 h in Latest, the frame nearest the end of the selected hour in Hourly, and the frames nearest 9 AM and 3 PM in Daily. The caption shows the capture time.
-
-Two sources, by mode:
-
-- **Latest** lists the bucket (S3 `ListObjectsV2` on `data2.climate.umt.edu/mesonet/?list-type=2&prefix=…`), one UTC day per direction — about 2 KB each and always the live state. The edge forwards only `prefix` (`max-keys` and `start-after` are dropped), which is why a listing is narrowed to a day. Today's listing is re-read on the 5-minute refresh cadence; past days are held for the session.
-- **Hourly and Daily** read the station's monthly manifest, `photos/manifest/{station}/{station}_{YYYY-MM}.csv` — one fetch of 70–250 KB that covers every day of that local month for every direction, so scrubbing through days costs nothing more. Rows are keyed to the local date, so a Mountain day never straddles two files. The manifest's `webp_large` column is blank for many frames whose WebP does exist (the hourly-trial frames and the newer midday slot), so when it is empty the path is derived from the capture time snapped to the nearest hour; a capture more than 30 min from any hour has no WebP at all. The tree is rewritten on every publish, so only the month containing today is re-read (on the refresh cadence, and only while today is on screen).
-
-Also in the archive but not used here: `photos/manifest/latest.csv` — every frame from the last few days across all stations (~60 KB compressed, refreshed each minute), the right feed for a fleet dashboard but heavier per refresh than a popup's ten 2 KB listings.
-
-### Known API quirks handled client-side
-
-Both fixes key off the unit string parsed from the returned column names, so they become no-ops if the API is fixed:
-
-- **`/observations/grouped/` with `units=si` converts values but not column labels** (e.g. returns `24.06` under `"Air Temperature [°F]"`). The app relabels without converting.
-- **`/derived/ppt/` has no `units` parameter** (always U.S. units). The app converts values and relabels.
-- **`/observations/grouped/` ignores `agg_func`** (always returns the default aggregation). Aggregation queries therefore go to `/observations/hourly|daily/` with each variable's raw element ids; those endpoints prefix the returned column names ("Maximum Air Temperature @ 2 m"), which the app strips. Depth-band variables combine client-side (min of mins, max of maxes, average of averages) — sum/std-dev are disabled for them.
-- `/derived/change/` returns a 504 when queried for the whole network at once; the app batches 40 stations per request.
-- `elements=etr` on `/derived/daily/` returns the same column as `eto` (`Reference ET (a=0.23)`), so only `eto` is exposed.
-
-Boundary overlays (`data/*.geojson`) are generated by `data.R` (tigris + rmapshaper, Census TIGER 2023) and shared with the [mesonet-status](https://github.com/mt-climate-office/mesonet-status) map. Watershed boundaries (`data/mt_hucs.fgb`, loaded at first use) are a vendored copy of the MCO CDN's `data.climate.umt.edu/mesonet/fgb/mt_hucs.fgb` — that host resolves to a private IP on the UMT campus network, where Chrome's Local Network Access policy blocks fetches from public pages.
-
-## Tooling
-
-Deliberately zero-build, matching the MCO pattern ([mesonet-status](https://github.com/mt-climate-office/mesonet-status), [snowpack explorer](https://github.com/mt-climate-office/mco-snowpack-explorer)):
-
-- Two files — `index.html` (markup + inline CSS design tokens) and `app.js` (a single ES module, kept external so the Content-Security-Policy can pin scripts to `'self'`). No framework, no bundler, no `package.json`.
-- [MapLibre GL JS 5.18.0](https://maplibre.org/) (pinned, unpkg CDN); CARTO Positron / Dark Matter basemaps; [flatgeobuf](https://flatgeobuf.org/) 3.38.0 (pinned, jsDelivr) for the watershed overlay. All three carry SRI hashes (see Security).
-- Fonts: Outfit (UI) + Space Mono (numerals/metadata), kit-hosted by mco-web-style (≥ 0.7.0) and preloaded from `index.html`, with `font-display: block` so first paint uses the real faces instead of swapping.
-- Dark-first theme tokens with a light theme; `localStorage['mco-theme']` is shared across MCO apps.
-- **Every z-index is a token**, declared with its tier in one commented block in `index.html` (`--z-map-overlay` … `--z-toast`). Add to a tier rather than inventing a number — MapLibre's own corner controls sit at z-index 2, so anything floating over the map has to clear that.
-- **One breakpoint lives in two places.** `COMPACT_MQ` in `app.js` (`max-width: 640px`, `max-height: 560px`) decides *behaviour* — which edge the detail panel docks to, whether the sidebar is a column or its sections live in the ☰ drawer, and where each control group lives. The kit's `MCO.viewport` owns the query, and its `mco-theme.css` owns the compact bar and the landscape rail. The app's own CSS keeps one copy of the compact-bar query (`PORTRAIT PHONE` in `index.html`) and one of the rail query (the More group in the rail's drawer); keep them in sync with the kit.
-
-## Security
-
-- **CSP** — a `<meta http-equiv="Content-Security-Policy">` tag in `index.html` restricts scripts to `'self'`, the two pinned CDN hosts, and sha256 hashes of the two inline scripts (the theme-flash script in `<head>`, and the one after `#sidebar` that applies the saved group states before first paint), and enumerates every origin the app talks to (`connect-src`/`img-src`/`font-src`/`style-src`). GitHub Pages can't set headers, so the meta form is used; `frame-ancestors` is not enforceable there.
-- **SRI** — the MapLibre JS/CSS and flatgeobuf `<script>`/`<link>` tags are version-pinned and carry `integrity` hashes; a tampered CDN response fails to load instead of executing.
-- **If you edit the inline theme-flash script** (the small `<script>` block in `<head>`), recompute its CSP hash and update the `sha256-…` token in the CSP meta tag:
-
-  ```sh
-  perl -0777 -ne 'print $1 if /<script>(.*?)<\/script>/s' index.html \
-    | openssl dgst -sha256 -binary | openssl base64 -A
-  ```
-
-  For the group-state script after `#sidebar`, hash the second `<script>` block the same way (its bytes between the tags, whitespace included); a stale hash only costs the first-paint state, and app.js applies the same state a moment later.
-
-  A stale hash blocks the script and the page loads without a theme set (everything else still works). Editing `app.js` needs no hash changes — it's covered by `script-src 'self'`.
-
-## Development
+## Tests
 
 ```sh
-python -m http.server 8000
-# → http://localhost:8000
+cd test && npm ci && npm test   # or: npm test -- layout | url | map | export | photos
 ```
 
-No build step. The app talks to the production API directly.
+## Kit
 
-### Checks
-
-```sh
-cd test && npm install && npm test
-```
-
-Headless browser checks live in [`test/`](test/) — layout and reachability across
-six viewport sizes, URL round-tripping and share links, map camera behaviour, and
-the PNG export. They are a separate package so the app itself stays
-dependency-free, and the runner starts its own static server, so nothing needs to
-be running first. See [`test/README.md`](test/README.md), in particular the two
-notes on live-data drift and stale coordinates — the ways these checks mislead
-you if you skim the output.
-
-The URL parameters double as a manual harness. Useful deterministic states:
-
-| URL | Checks |
-|---|---|
-| `?station=acemocca&legend=open` | Station detail — docked bottom below 640 px wide or 560 px tall, docked right above. Assert its rect is inside the viewport, that `elementFromPoint()` over every link returns the panel, and that **no station dot** is covered by it |
-| `?sidebar=closed` | Sidebar collapsed; Montana re-fits to the wider strip |
-| `?mode=daily` at 390×844 | `#control-bar.scrollWidth === clientWidth` (nothing hidden) and `#variable-select` fully on-screen |
-| `?legend=open` at 844×390 | `#legend` fits inside `#main` |
-| `?export=light` / `?export=dark` | Auto-downloads the PNG 1.5 s after first render — the output should stay pixel-identical across UI changes |
-| `?theme=light` | `documentElement.dataset.theme` is set, which also proves the pinned CSP hash still matches the inline theme script |
-| `?kbd=off` | `/` does not focus the search box; <kbd>Esc</kbd> still closes panels |
-
-## Deployment
-
-**Pushing `main` is a production deploy, on two URLs.** GitHub Pages publishes the repo root from `main` (Settings → Pages → Deploy from branch → `main` / `/`), and the same page is reverse-proxied at `mesonet.climate.umt.edu/explorer/` by the `handle /explorer*` block in the [`mesonet_app`](https://github.com/mt-climate-office/mesonet_app) Caddyfile, which rewrites the path to `/mesonet-explorer` and proxies to `mt-climate-office.github.io`.
-
-Nothing on the server needs to change when this app changes — the proxy always serves whatever Pages has. Only the Caddyfile itself is deployed by hand: on the server, `git pull` in the `mesonet_app` checkout, then `docker compose restart caddy`.
-
-The app is path-agnostic (all asset URLs are relative and share links are built from `location.origin` + `location.pathname`), so it works at either URL without a `<base>` tag. Canonical and Open Graph URLs point at the `mesonet.climate.umt.edu/explorer/` address.
-
-## License
-
-MIT © Montana Climate Office
+`mco-web-style` 1.0.0.
+Design rules: mco-web-style/HOUSE-STYLE.md
