@@ -1290,8 +1290,8 @@
   MCO.map.watchBasemap(map);
   // Every style load wipes our sources and layers: the first one, a theme
   // switch, and watchBasemap's retry or blank fallback alike. So re-add them on
-  // EVERY style.load, not once per caller. addCustomLayers is idempotent (it
-  // checks each id), so the first load's second call from 'load' is a no-op.
+  // EVERY style.load, not once per caller. The first style.load comes before
+  // 'load', so 'load' does not add them again.
   map.on('style.load', () => {
     addCustomLayers();
     coloc.refresh();   // re-fans an open spider into the new style's sources
@@ -3811,7 +3811,6 @@
 
   // ── Map events ───────────────────────────────────────────────────────────
   map.on('load', () => {
-    addCustomLayers();
     zoomFloor.refresh();
     _mapReady = true;
     // The constructor fit used flat padding (the sidebar's width isn't known
