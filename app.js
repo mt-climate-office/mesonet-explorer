@@ -695,6 +695,8 @@
   });
   document.addEventListener('mco:themechange', () => {
     themeToggle.sync();
+    // Before the map exists it is created with the new theme's style.
+    if (!_appReady) return;
     // The layers come back from the style.load handler beside the map.
     map.setStyle(MCO.map.cartoStyleUrl());
     writeUrl();
@@ -724,7 +726,8 @@
   // ── Share ────────────────────────────────────────────────────────────────
   document.getElementById('btn-share').addEventListener('click', async () => {
     try {
-      await navigator.clipboard.writeText(shareURL());
+      // Until the app is live the address bar still holds the view as loaded.
+      await navigator.clipboard.writeText(_appReady ? shareURL() : location.href);
       MCO.showToast('Link copied to clipboard');
     } catch {
       MCO.showToast('Could not copy — copy the URL from the address bar');
@@ -3435,7 +3438,7 @@
   });
   // A drawer button that opens a dialog closes the drawer first: its inert
   // page would otherwise include the dialog.
-  function closeNavDrawer() { if (navRail.isOpen()) navRail.close(); }
+  function closeNavDrawer() { if (_appReady && navRail.isOpen()) navRail.close(); }
 
   _sidebarReady = true;
   _appReady = true;
