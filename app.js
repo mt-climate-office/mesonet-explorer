@@ -1338,7 +1338,7 @@
     if (_hucFC) return Promise.resolve(_hucFC);
     if (!_hucLoading) {
       _hucLoading = (async () => {
-        const res = await fetch(HUC_FGB_URL);
+        const res = await fetch(HUC_FGB_URL, { signal: AbortSignal.timeout(20_000) });
         if (!res.ok) throw new Error(`watersheds fetch failed (${res.status})`);
         const features = [];
         // deserialize takes the response stream (same pattern as the
@@ -1353,9 +1353,7 @@
   }
   async function preloadOverlay(sourceId, url, save) {
     try {
-      const res = await fetch(url);
-      if (!res.ok) return;
-      const fc = await res.json();
+      const fc = await MCO.fetchJSON(url, { timeoutMs: 20_000 });
       save(fc);
       const src = map.getSource(sourceId);
       if (src) src.setData(fc);
