@@ -103,8 +103,9 @@ export async function run({ browser, origin }) {
   // same order wherever the controls are (the desktop sidebar, the ☰ drawer
   // on a phone, the drawer beside the landscape rail). On a phone Search,
   // Networks, Time and Variable start open and Legend, Overlays and More
-  // closed; on desktop all start open, and More is the bar's own controls
-  // rather than a group. A group with nothing to show (Variable on a portrait
+  // closed; on desktop all start open. More holds units and labels; share,
+  // export, theme and help are the bar's tools (kit .mco-bar-tools), not a
+  // group. A group with nothing to show (Variable on a portrait
   // phone in Latest, its picker being the bar's hot control) is hidden.
   const ORDER = ['Search', 'Networks', 'Time', 'Variable', 'Legend', 'Overlays', 'More'];
   const GROUP_VIEWS = [
@@ -130,7 +131,7 @@ export async function run({ browser, origin }) {
         .filter(el => el.getBoundingClientRect().height > 0);
       const name = el => el.textContent.trim();
       const isOpen = el => el.tagName === 'SUMMARY' ? el.parentElement.open : el.getAttribute('aria-expanded') === 'true';
-      const moreInBar = (() => { const m = document.getElementById('btn-info'); return !!m.closest('#navbar') && m.getBoundingClientRect().height > 0; })();
+      const moreInBar = (() => { const m = document.getElementById('btn-labels'); return !!m.closest('#navbar') && m.getBoundingClientRect().height > 0; })();
       return {
         inDrawer,
         heads: heads.map(name),
@@ -212,18 +213,73 @@ export async function run({ browser, origin }) {
     await ctx.close();
   }
 
-  // More is the sidebar's last group at 1440; with the sidebar hidden its
-  // controls return to the bar, on screen and clickable.
+  // More (units, labels) is the sidebar's last group at 1440; with the
+  // sidebar hidden its controls return to the bar. Share, export, theme and
+  // help are the bar's tools either way, in that order.
   for (const [query, wantBar] of [['', false], ['?sidebar=closed', true]]) {
     const { ctx, page, errors } = await open(browser, origin, { query, width: 1440, height: 900 });
-    const r = await page.evaluate(() => [...document.querySelectorAll('#more-body button')].map(b => {
-      const x = b.getBoundingClientRect(); const hit = document.elementFromPoint(x.x + x.width / 2, x.y + x.height / 2);
-      return { id: b.id || b.dataset.units, inBar: !!b.closest('#navbar'), onScreen: x.left >= 0 && x.right <= innerWidth && x.width > 0, hit: !!hit && (hit === b || b.contains(hit)) };
-    }));
+    const r = await page.evaluate(() => {
+      const probe = b => {
+        const x = b.getBoundingClientRect(); const hit = document.elementFromPoint(x.x + x.width / 2, x.y + x.height / 2);
+        return { id: b.id || b.dataset.units, inBar: !!b.closest('#navbar'), onScreen: x.left >= 0 && x.right <= innerWidth && x.width > 0, hit: !!hit && (hit === b || b.contains(hit)) };
+      };
+      return { more: [...document.querySelectorAll('#more-body button')].map(probe),
+               tools: [...document.querySelectorAll('#navbar > .mco-bar-tools > button')].map(probe),
+               helpName: document.getElementById('btn-info').getAttribute('aria-label') };
+    });
     const where = wantBar ? 'in the bar' : 'in the sidebar';
     t.check(`1440 ${query || '(sidebar open)'}: More's controls ${where}, on screen and hittable`,
-      r.length === 7 && r.every(b => b.inBar === wantBar && b.onScreen && b.hit), JSON.stringify(r.filter(b => !(b.inBar === wantBar && b.onScreen && b.hit))));
+      r.more.length === 3 && r.more.every(b => b.inBar === wantBar && b.onScreen && b.hit), JSON.stringify(r.more.filter(b => !(b.inBar === wantBar && b.onScreen && b.hit))));
+    t.check(`1440 ${query || '(sidebar open)'}: share, export, theme and help in the bar, in that order, hittable`,
+      r.tools.map(b => b.id).join() === 'btn-share,btn-export,btn-theme,btn-info' && r.tools.every(b => b.onScreen && b.hit) && r.helpName === 'Help',
+      JSON.stringify(r.tools) + ` help named "${r.helpName}"`);
     t.check(`1440 ${query || '(sidebar open)'}: More placement no errors`, errors.length === 0, errors.join(' | ') || 'none');
+    await ctx.close();
+  }
+
+  // More's open or closed state is remembered: closed by a click at 1440, it
+  // is still closed after a reload.
+  {
+    const { ctx, page } = await open(browser, origin, { width: 1440, height: 900 });
+    const st = () => page.evaluate(() => ({ open: document.getElementById('more-head').getAttribute('aria-expanded'),
+      units: document.querySelector('#more-body [data-units="us"]').getBoundingClientRect().width > 0,
+      saved: (JSON.parse(localStorage.getItem('mco-explorer-groups-wide') || '{}')).more }));
+    const a = await st();
+    await page.click('#more-head');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => document.querySelectorAll('#sr-station-table tbody tr').length > 0, null, { timeout: 60000 }).catch(() => {});
+    await page.waitForTimeout(1500);
+    const b = await st();
+    t.check('1440: More remembers that it was closed', a.open === 'true' && a.units && b.open === 'false' && !b.units && b.saved === false,
+      `${JSON.stringify(a)} then ${JSON.stringify(b)}`);
+    await ctx.close();
+  }
+
+  // Bar tools on a phone: help stays in the bar (in the rail on a landscape
+  // phone); share, export and theme are the ☰ drawer's first row, named
+  // "Page tools", with their words, and its first Tab stop.
+  for (const [w, h] of [[390, 844], [844, 390]]) {
+    const { ctx, page, errors } = await open(browser, origin, { width: w, height: h, touch: true });
+    await page.tap('#btn-rail');
+    await page.waitForTimeout(500);
+    // Safari tabs to buttons with Option held.
+    await page.keyboard.press(process.env.BROWSER === 'webkit' ? 'Alt+Tab' : 'Tab');
+    const r = await page.evaluate(() => {
+      const row = document.querySelector('#nav-drawer > .mco-drawer-tools');
+      const help = document.getElementById('btn-info'); const b = help.getBoundingClientRect();
+      return { first: !!row && row === document.getElementById('nav-drawer').firstElementChild, name: row && row.getAttribute('aria-label'),
+        ids: row ? [...row.children].map(el => el.id).join() : '',
+        words: row ? [...row.querySelectorAll('.btn-label')].filter(el => el.getBoundingClientRect().width > 0).map(el => el.textContent).join() : '',
+        focus: document.activeElement && document.activeElement.id,
+        help: { name: help.getAttribute('aria-label'), inBar: help.parentElement.matches('#navbar > .mco-bar-tools'), size: Math.round(Math.min(b.width, b.height)) },
+        tools: document.getElementById('navbar').dataset.tools };
+    });
+    t.check(`${w}x${h}: share, export and theme are the drawer's first row, "Page tools", with their words`,
+      r.first && r.name === 'Page tools' && r.ids === 'btn-share,btn-export,btn-theme' && r.words === 'Share,Export,Theme', JSON.stringify(r));
+    t.check(`${w}x${h}: the first Tab stop in the drawer is share`, r.focus === 'btn-share', `${r.focus}`);
+    t.check(`${w}x${h}: help stays in the ${w > h ? 'rail' : 'bar'}, named "Help", at least ${w > h ? 44 : 40}px`,
+      r.tools === 'help' && r.help.inBar && r.help.name === 'Help' && r.help.size >= (w > h ? 44 : 40), JSON.stringify(r.help) + ` data-tools=${r.tools}`);
+    t.check(`${w}x${h}: bar tools no errors`, errors.length === 0, errors.join(' | ') || 'none');
     await ctx.close();
   }
 
