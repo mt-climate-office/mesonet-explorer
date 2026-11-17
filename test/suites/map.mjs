@@ -175,5 +175,22 @@ export async function run({ browser, origin }) {
     await ctx.close();
   }
 
+  // Theme, Info and Share pressed while MapLibre is still loading.
+  {
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    await ctx.addInitScript(() => { try { localStorage.setItem('mco-explorer-seen-intro', '1'); } catch {} });
+    let release; const gate = new Promise(r => { release = r; });
+    await ctx.route(/maplibre-gl@[^/]+\/dist\/maplibre-gl.*\.mjs$/, async route => { await gate; await route.continue(); });
+    const page = await ctx.newPage();
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await page.goto(`${origin}/index.html`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1500);
+    for (const id of ['btn-theme', 'btn-info', 'btn-share']) { await page.click('#' + id); await page.keyboard.press('Escape'); }
+    release();
+    t.check('controls pressed before the map loads throw nothing', errors.length === 0, errors.join(' | ') || 'none');
+    await ctx.close();
+  }
+
   return t.results;
 }

@@ -695,6 +695,8 @@
   });
   document.addEventListener('mco:themechange', () => {
     themeToggle.sync();
+    // Before the map exists it is created with the new theme's style.
+    if (!_appReady) return;
     // The layers come back from the style.load handler beside the map.
     map.setStyle(MCO.map.cartoStyleUrl());
     writeUrl();
@@ -724,7 +726,8 @@
   // ── Share ────────────────────────────────────────────────────────────────
   document.getElementById('btn-share').addEventListener('click', async () => {
     try {
-      await navigator.clipboard.writeText(shareURL());
+      // Until the app is live the address bar still holds the view as loaded.
+      await navigator.clipboard.writeText(_appReady ? shareURL() : location.href);
       MCO.showToast('Link copied to clipboard');
     } catch {
       MCO.showToast('Could not copy — copy the URL from the address bar');
@@ -1287,8 +1290,8 @@
   MCO.map.watchBasemap(map);
   // Every style load wipes our sources and layers: the first one, a theme
   // switch, and watchBasemap's retry or blank fallback alike. So re-add them on
-  // EVERY style.load, not once per caller. addCustomLayers is idempotent (it
-  // checks each id), so the first load's second call from 'load' is a no-op.
+  // EVERY style.load, not once per caller. The first style.load comes before
+  // 'load', so 'load' does not add them again.
   map.on('style.load', () => {
     addCustomLayers();
     coloc.refresh();   // re-fans an open spider into the new style's sources
@@ -1335,7 +1338,7 @@
     if (_hucFC) return Promise.resolve(_hucFC);
     if (!_hucLoading) {
       _hucLoading = (async () => {
-        const res = await fetch(HUC_FGB_URL);
+        const res = await fetch(HUC_FGB_URL, { signal: AbortSignal.timeout(20_000) });
         if (!res.ok) throw new Error(`watersheds fetch failed (${res.status})`);
         const features = [];
         // deserialize takes the response stream (same pattern as the
@@ -1350,9 +1353,7 @@
   }
   async function preloadOverlay(sourceId, url, save) {
     try {
-      const res = await fetch(url);
-      if (!res.ok) return;
-      const fc = await res.json();
+      const fc = await MCO.fetchJSON(url, { timeoutMs: 20_000 });
       save(fc);
       const src = map.getSource(sourceId);
       if (src) src.setData(fc);
@@ -3435,7 +3436,7 @@
   });
   // A drawer button that opens a dialog closes the drawer first: its inert
   // page would otherwise include the dialog.
-  function closeNavDrawer() { if (navRail.isOpen()) navRail.close(); }
+  function closeNavDrawer() { if (_appReady && navRail.isOpen()) navRail.close(); }
 
   _sidebarReady = true;
   _appReady = true;
@@ -3808,7 +3809,6 @@
 
   // ── Map events ───────────────────────────────────────────────────────────
   map.on('load', () => {
-    addCustomLayers();
     zoomFloor.refresh();
     _mapReady = true;
     // The constructor fit used flat padding (the sidebar's width isn't known
