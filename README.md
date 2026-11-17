@@ -64,5 +64,5 @@ cd test && npm ci && npm test   # or: npm test -- layout | url | map | export | 
 
 ## Kit
 
-`mco-web-style` 1.1.0.
+`mco-web-style` 1.1.1.
 Design rules: mco-web-style/HOUSE-STYLE.md
