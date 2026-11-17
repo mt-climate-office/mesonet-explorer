@@ -33,7 +33,9 @@ phone without scrolling (at 320×568 every heading and control fits; only the
 note, the drawer's last line, may not). The Legend group has exactly one
 collapse control, `?legend=collapsed|open` wins over a saved state at 390 and
 1440, and the note is the sidebar's last block at 1440, visible with Legend
-closed. Plus header height against `mesonet-status` (54px with the
+closed. More holds units and labels and remembers being closed; share, export,
+theme and help are the bar's tools at 1440, and on a phone help stays in the
+bar or rail while the other three are the drawer's first row. Plus header height against `mesonet-status` (54px with the
 map flush beneath) and mobile header compactness in all three time modes.
 Kit 1.0.0: the rail at the right edge at 750×342 and 844×390 in every time mode
 (order badge › ☰ › search › time controls, every button ≥ 44px and hittable,
