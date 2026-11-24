@@ -51,6 +51,14 @@ short note on what was done.
 
 ## Done
 
+- [x] **The legend's pivot color sits under its label.** With a pivot (32 °F by
+      default for temperatures, or a custom one), the map colored stations
+      correctly but the legend strip was sampled evenly by value, so the neutral
+      color landed where the pivot falls in the range (30% of the strip for
+      20–60 °F) while the pivot label is printed at the center. Both legends, on
+      screen and in the PNG export, now sample along the ramp (`scale.at(t)`), so
+      the neutral is under the label. Station colors are unchanged.
+      *(November 2026)*
 - [x] **Map controls back to the top-RIGHT, like the rest of the family.**
       Explorer was the only map app with zoom/fit at the top-left. Now built with
       the kit's `MCO.map.addNavigation` + `addFitControl` (zoom in, zoom out, fit),
