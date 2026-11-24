@@ -790,6 +790,11 @@
         : 0.5 + 0.5 * (v - mid) / (domainMax - mid);
     };
     const fn = (v) => sampleRamp(stops, toT(v));
+    // Color at ramp position t. Legends sample this, not fn(value): with a
+    // pivot the value→t mapping is two segments, and the legends print the
+    // pivot label at the strip's center, so the strip must put the ramp's
+    // center (the pivot color) there too.
+    fn.at = (t) => sampleRamp(stops, t);
     fn.domain = [domainMin, domainMax];
     fn.mid = mid;
     fn.stops = stops;
@@ -1895,12 +1900,12 @@
     legendDescEl.textContent = VARIABLE_DESC[entry.key] || '';
     legendDescEl.hidden = !VARIABLE_DESC[entry.key];
 
-    // Gradient strip from the actual scale (21 samples).
+    // Gradient strip from the actual scale (21 samples along the ramp, so a
+    // pivot's color sits under its centered label — see makeScale's fn.at).
     const stops = [];
     for (let i = 0; i <= 20; i++) {
       const t = i / 20;
-      const v = scale.domain[0] + t * (scale.domain[1] - scale.domain[0]);
-      stops.push(`${scale(v)} ${(t * 100).toFixed(0)}%`);
+      stops.push(`${scale.at(t)} ${(t * 100).toFixed(0)}%`);
     }
     // backgroundImage, NOT the background shorthand — the shorthand resets the
     // no-repeat/100% sizing that prevents edge wrap-around (see the CSS).
@@ -3682,12 +3687,12 @@
     ctx.font = "600 11.5px 'Outfit', system-ui, sans-serif";
     ctx.fillText((unit ? `${entry.label} [${unit}]` : entry.label) + aggSuffix, LX, BY + 72, BRAND_W - 2 * PAD);
 
-    // Color-scale strip, sampled from the live scale (log-aware).
+    // Color-scale strip, sampled along the live scale's ramp (as on screen).
     const GX = LX, GY = BY + 80, GW = BRAND_W - 2 * PAD, GH = 10;
     const grad = ctx.createLinearGradient(GX, 0, GX + GW, 0);
     for (let i = 0; i <= 24; i++) {
       const t = i / 24;
-      grad.addColorStop(t, scale(scale.domain[0] + t * (scale.domain[1] - scale.domain[0])));
+      grad.addColorStop(t, scale.at(t));
     }
     ctx.save();
     ctx.beginPath(); roundRectPath(ctx, GX, GY, GW, GH, 3);
