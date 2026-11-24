@@ -19,13 +19,6 @@ short note on what was done.
 
 ## Changes
 
-- [x] **Map controls back to the top-RIGHT, like the rest of the family.**
-      Explorer was the only map app with zoom/fit at the top-left. Now built with
-      the kit's `MCO.map.addNavigation` + `addFitControl` (zoom in, zoom out, fit),
-      as status, maintenance, photos, UMRB and snowpack do. The July 2026 reason
-      for top-left (the docked panel buried them) no longer holds: since kit
-      0.21.1 the open sheet publishes `--sheet-end` and MapLibre's right corners
-      step left of it. *(November 2026)*
 - [ ] _(add items here)_
 
 ## Ideas / someday
@@ -58,6 +51,13 @@ short note on what was done.
 
 ## Done
 
+- [x] **Map controls back to the top-RIGHT, like the rest of the family.**
+      Explorer was the only map app with zoom/fit at the top-left. Now built with
+      the kit's `MCO.map.addNavigation` + `addFitControl` (zoom in, zoom out, fit),
+      as status, maintenance, photos, UMRB and snowpack do. The July 2026 reason
+      for top-left (the docked panel buried them) no longer holds: since kit
+      0.21.1 the open sheet publishes `--sheet-end` and MapLibre's right corners
+      step left of it. *(November 2026)*
 - [x] **Photos moved to `data2.climate.umt.edu/mesonet/photos/webp/`.** The API's
       `/photos/{station}/{dir}/?dt=` endpoint returns 404; the images now live in
       the archive bucket as immutable WebP named by capture slot in UTC. The
