@@ -14,7 +14,7 @@ No build step. The app reads the production API.
 
 ## Deploy
 
-Pushing `main` deploys. GitHub Pages serves the repo root, and the `handle /explorer*` block in the [`mesonet_app`](https://github.com/mt-climate-office/mesonet_app) Caddyfile proxies it to `mesonet.climate.umt.edu/explorer/`.
+Pushing `main` deploys through `.github/workflows/pages.yml`, which also refreshes the social card (`assets/og-card.jpg`) every 6 hours. GitHub Pages serves the repo root, and the `handle /explorer*` block in the [`mesonet_app`](https://github.com/mt-climate-office/mesonet_app) Caddyfile proxies it to `mesonet.climate.umt.edu/explorer/`.
 The Caddyfile is deployed by hand: `git pull` in the `mesonet_app` checkout on the server, then `docker compose restart caddy`.
 
 ## URL parameters
